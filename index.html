@@ -249,6 +249,15 @@ button{cursor:pointer;border:none;font-family:inherit;}
 </head>
 <body>
 
+<!-- Bắt lỗi JS toàn cục — hiện toast nếu app crash -->
+<script>
+window.onerror = function(msg, src, line) {
+  var t = document.getElementById('toast');
+  if (t) { t.textContent = 'Lỗi JS: ' + msg + ' (L' + line + ')'; t.className = 'show'; }
+  return false;
+};
+</script>
+
 <!-- ── TOAST ── -->
 <div id="toast"></div>
 <!-- ── LOADER ── -->
@@ -1758,7 +1767,12 @@ function hexToRGB(hex) {
 window.addEventListener('online',  () => { syncIfOnline(); renderTabSync(); });
 window.addEventListener('offline', () => { renderTabSync(); toast('Mất mạng — dữ liệu vẫn lưu máy'); });
 
-document.addEventListener('DOMContentLoaded', init);
+// Gọi trực tiếp — không dùng DOMContentLoaded để tránh timing issue trên mobile
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 
 // Public API
 return {
