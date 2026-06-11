@@ -646,6 +646,46 @@ function goScreen(id) {
   });
 }
 
+// ── DỮ LIỆU MẪU NHÚNG SẴN (dùng khi chưa có server) ─────────
+const SEED_VAT_TU = [
+  {ma_vt:'DAY_MULLER_2x16',ten_vt:'Dây Muller 2x16',don_vi:'m',nhom:'Dây dẫn',mac_dinh:'',sl_mac_dinh:'0'},
+  {ma_vt:'DAY_MULLER_4x16',ten_vt:'Dây Muller 4x16',don_vi:'m',nhom:'Dây dẫn',mac_dinh:'',sl_mac_dinh:'0'},
+  {ma_vt:'KEP_NGUNG',ten_vt:'Kẹp ngừng',don_vi:'cái',nhom:'Phụ kiện',mac_dinh:'',sl_mac_dinh:'1'},
+  {ma_vt:'GHI_NHOM',ten_vt:'Ghíp nhôm',don_vi:'cái',nhom:'Phụ kiện',mac_dinh:'x',sl_mac_dinh:'2'},
+  {ma_vt:'SU_ONG_CHI',ten_vt:'Sứ ống chỉ',don_vi:'cái',nhom:'Phụ kiện',mac_dinh:'',sl_mac_dinh:'0'},
+  {ma_vt:'XA_SAT',ten_vt:'Xà sắt',don_vi:'cái',nhom:'Phụ kiện',mac_dinh:'',sl_mac_dinh:'0'},
+  {ma_vt:'NEO_TANG_DO',ten_vt:'Dây néo + tăng đơ',don_vi:'bộ',nhom:'Néo chằng',mac_dinh:'',sl_mac_dinh:'0'},
+  {ma_vt:'MONG_NEO',ten_vt:'Móng néo',don_vi:'cái',nhom:'Néo chằng',mac_dinh:'',sl_mac_dinh:'0'},
+  {ma_vt:'COC_TIEP_DIA',ten_vt:'Cọc tiếp địa V63',don_vi:'cái',nhom:'Tiếp địa',mac_dinh:'',sl_mac_dinh:'0'},
+  {ma_vt:'DAY_TIEP_DIA',ten_vt:'Dây tiếp địa',don_vi:'m',nhom:'Tiếp địa',mac_dinh:'',sl_mac_dinh:'0'},
+  {ma_vt:'BANG_KEO',ten_vt:'Băng keo điện',don_vi:'cuộn',nhom:'Phụ kiện',mac_dinh:'x',sl_mac_dinh:'1'},
+  {ma_vt:'ONG_NHUA',ten_vt:'Ống nhựa luồn cáp',don_vi:'m',nhom:'Phụ kiện',mac_dinh:'',sl_mac_dinh:'0'},
+  {ma_vt:'APTMT_HOP',ten_vt:'Aptomat + hộp công tơ',don_vi:'bộ',nhom:'Công tơ',mac_dinh:'',sl_mac_dinh:'1'},
+];
+
+const SEED_CONG_TRINH = [
+  {ma_tram:'LDG_TEST01',ma_hop_dong:'HD-2026-001',ten_cong_trinh:'Kéo AC trạm Tà Nung',trang_thai:'Đang thi công',ghi_chu:'Tuyến 1 pha dọc QL27C'},
+  {ma_tram:'LDG_TEST02',ma_hop_dong:'HD-2026-002',ten_cong_trinh:'Kéo AC trạm Đà Loan',trang_thai:'Chờ thi công',ghi_chu:'Tuyến 3 pha khu công nghiệp'},
+  {ma_tram:'LDG_TEST03',ma_hop_dong:'HD-2026-003',ten_cong_trinh:'Kéo AC trạm Phi Liêng',trang_thai:'Hoàn thành',ghi_chu:'Tuyến 1 pha vùng núi'},
+];
+
+async function seedDataIfEmpty() {
+  const vt = await idbAll('danh_muc_vat_tu');
+  if (!vt.length) {
+    for (const v of SEED_VAT_TU) await idbPut('danh_muc_vat_tu', v);
+    danhMucVT = SEED_VAT_TU;
+  } else {
+    danhMucVT = vt;
+  }
+  const ct = await idbAll('ke_hoach_kpi');
+  if (!ct.length) {
+    for (const c of SEED_CONG_TRINH) await idbPut('ke_hoach_kpi', c);
+    danhSachCT = SEED_CONG_TRINH;
+  } else {
+    danhSachCT = ct;
+  }
+}
+
 // ── INIT ─────────────────────────────────────────────────────
 async function init() {
   loader(true, 'Khởi động...');
@@ -653,27 +693,26 @@ async function init() {
     db = await openDB();
     await navigator.storage?.persist?.();
 
-    // Register SW
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
 
-    // Load danh mục từ IDB
-    const dmVT = await idbAll('danh_muc_vat_tu');
-    if (dmVT.length) danhMucVT = dmVT;
+    // Seed dữ liệu mẫu nếu chưa có
+    await seedDataIfEmpty();
 
-    const tenDoi  = localStorage.getItem('ten_doi')  || '';
-    const endpoint = localStorage.getItem('endpoint') || '';
-
+    const tenDoi = localStorage.getItem('ten_doi') || '';
     if (!tenDoi) {
       goScreen('sCaiDat');
     } else {
       document.getElementById('ctDoi').textContent = tenDoi;
       goScreen('sChonCT');
-      loadCT(false);
+      renderCT();
+      // Thử tải từ server nền (không block UI)
+      loadCT(false).catch(() => {});
     }
   } catch(e) {
     toast('Lỗi khởi động: ' + e.message, 4000);
+    goScreen('sCaiDat');
   }
   loader(false);
 }
@@ -701,36 +740,25 @@ function skipCaiDat() {
 
 // ── CHỌN CÔNG TRÌNH ──────────────────────────────────────────
 async function loadCT(forceNetwork = false) {
-  const listEl = document.getElementById('ctList');
-  listEl.innerHTML = '<div class="ct-empty">Đang tải...</div>';
-
-  // Cache
-  const cached = await idbAll('ke_hoach_kpi');
-  if (cached.length && !forceNetwork) {
-    danhSachCT = cached;
-    renderCT();
-    return;
-  }
+  if (!forceNetwork) { renderCT(); return; }
 
   try {
-    loader(true, 'Tải danh sách công trình...');
+    loader(true, 'Đang cập nhật danh sách...');
     const r = await apiGet('congtrinh');
     if (r.ok && r.data?.length) {
       danhSachCT = r.data;
       await idbClearStore('ke_hoach_kpi');
       for (const ct of r.data) await idbPut('ke_hoach_kpi', ct);
     }
-
-    // Load danh mục vật tư
     const rv = await apiGet('vattu');
     if (rv.ok && rv.data?.length) {
       danhMucVT = rv.data;
       await idbClearStore('danh_muc_vat_tu');
       for (const v of rv.data) await idbPut('danh_muc_vat_tu', v);
     }
+    toast('✅ Đã cập nhật dữ liệu từ server');
   } catch(e) {
-    if (!danhSachCT.length && cached.length) danhSachCT = cached;
-    toast(danhSachCT.length ? 'Offline — dùng dữ liệu đã lưu' : 'Cần mạng lần đầu để tải danh mục');
+    toast('Không kết nối được server — dùng dữ liệu offline');
   }
   loader(false);
   renderCT();
