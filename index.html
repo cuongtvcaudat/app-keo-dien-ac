@@ -78,6 +78,11 @@ button{cursor:pointer;border:none;font-family:inherit;}
 .ct-sub{font-size:12px;color:var(--text2);margin-top:2px;}
 .ct-badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:700;background:var(--green-light);color:var(--green);}
 .ct-empty{text-align:center;padding:40px 20px;color:var(--text2);}
+.ct-dot.local{background:#FF9800;}
+.ct-edit-btn{background:none;border:1.5px solid #ddd;border-radius:8px;padding:5px 8px;font-size:13px;color:var(--text2);cursor:pointer;flex-shrink:0;}
+.ct-edit-btn:active{background:var(--blue-light);}
+.btn-add-ct{background:rgba(255,255,255,.25);color:#fff;border:2px solid rgba(255,255,255,.6);border-radius:50%;width:40px;height:40px;font-size:24px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.btn-del-ct{width:100%;margin-top:14px;background:#fff;color:#e53935;border:1.5px solid #e53935;border-radius:var(--r);padding:12px;font-size:14px;font-weight:700;}
 
 /* ══════════════════════════════════════
    SCREEN: CHỌN LOẠI TUYẾN
@@ -285,8 +290,13 @@ window.onerror = function(msg, src, line) {
 ══════════════════════════════════════ -->
 <div class="screen hide" id="sChonCT">
   <div class="ct-header">
-    <h1>Chọn công trình</h1>
-    <p id="ctDoi">—</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <h1>Chọn công trình</h1>
+        <p id="ctDoi">—</p>
+      </div>
+      <button class="btn-add-ct" onclick="App.openModalCT()" title="Thêm công trình mới">+</button>
+    </div>
   </div>
   <div class="ct-body">
     <div class="search-row">
@@ -430,6 +440,38 @@ window.onerror = function(msg, src, line) {
     <div class="modal-footer">
       <button class="btn-modal-cancel" id="btnModalBack" onclick="App.modalBack()">‹ Quay lại</button>
       <button class="btn-modal-save" id="btnModalNext" onclick="App.modalNext()">Tiếp theo →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL THÊM / SỬA CÔNG TRÌNH
+══════════════════════════════════════ -->
+<div id="modalCT" class="hide">
+  <div class="modal-backdrop" onclick="App.closeModalCT()"></div>
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalCTTitle">Thêm công trình</div>
+    <div style="padding:4px 20px 16px;">
+      <div class="step-label">Mã trạm <span style="color:#e53935;">*</span></div>
+      <input class="form-inp" id="inpCTMaTram" type="text" placeholder="VD: LDG_TA_NUNG" autocomplete="off" style="text-transform:uppercase;">
+      <div class="step-label">Mã hợp đồng <span style="color:#e53935;">*</span></div>
+      <input class="form-inp" id="inpCTMaHD" type="text" placeholder="VD: HD-2026-001" autocomplete="off">
+      <div class="step-label">Tên công trình <span style="color:#e53935;">*</span></div>
+      <input class="form-inp" id="inpCTTen" type="text" placeholder="VD: Kéo AC trạm Tà Nung" autocomplete="off">
+      <div class="step-label">Trạng thái</div>
+      <select class="form-inp" id="inpCTTrangThai">
+        <option value="Chờ thi công">Chờ thi công</option>
+        <option value="Đang thi công">Đang thi công</option>
+        <option value="Hoàn thành">Hoàn thành</option>
+      </select>
+      <div class="step-label">Ghi chú</div>
+      <input class="form-inp" id="inpCTGhiChu" type="text" placeholder="Tuỳ chọn" autocomplete="off">
+      <div class="btn-row">
+        <button class="btn-cancel" onclick="App.closeModalCT()">Huỷ</button>
+        <button class="btn-ok" onclick="App.saveModalCT()">💾 Lưu</button>
+      </div>
+      <button class="btn-del-ct hide" id="btnDelCT" onclick="App.xoaCT()">🗑 Xoá công trình này</button>
     </div>
   </div>
 </div>
@@ -598,6 +640,15 @@ function idbClearStore(store) {
   });
 }
 
+function idbDelete(store, key) {
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = () => res();
+    req.onerror   = () => rej(req.error);
+  });
+}
+
 // ── UTILS ────────────────────────────────────────────────────
 function uuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -673,9 +724,9 @@ const SEED_VAT_TU = [
 ];
 
 const SEED_CONG_TRINH = [
-  {ma_tram:'LDG_TEST01',ma_hop_dong:'HD-2026-001',ten_cong_trinh:'Kéo AC trạm Tà Nung',trang_thai:'Đang thi công',ghi_chu:'Tuyến 1 pha dọc QL27C'},
-  {ma_tram:'LDG_TEST02',ma_hop_dong:'HD-2026-002',ten_cong_trinh:'Kéo AC trạm Đà Loan',trang_thai:'Chờ thi công',ghi_chu:'Tuyến 3 pha khu công nghiệp'},
-  {ma_tram:'LDG_TEST03',ma_hop_dong:'HD-2026-003',ten_cong_trinh:'Kéo AC trạm Phi Liêng',trang_thai:'Hoàn thành',ghi_chu:'Tuyến 1 pha vùng núi'},
+  {ma_tram:'LDG_TEST01',ma_hop_dong:'HD-2026-001',ten_cong_trinh:'Kéo AC trạm Tà Nung',trang_thai:'Đang thi công',ghi_chu:'Tuyến 1 pha dọc QL27C',nguon:'local'},
+  {ma_tram:'LDG_TEST02',ma_hop_dong:'HD-2026-002',ten_cong_trinh:'Kéo AC trạm Đà Loan',trang_thai:'Chờ thi công',ghi_chu:'Tuyến 3 pha khu công nghiệp',nguon:'local'},
+  {ma_tram:'LDG_TEST03',ma_hop_dong:'HD-2026-003',ten_cong_trinh:'Kéo AC trạm Phi Liêng',trang_thai:'Hoàn thành',ghi_chu:'Tuyến 1 pha vùng núi',nguon:'local'},
 ];
 
 async function seedDataIfEmpty() {
@@ -755,9 +806,14 @@ async function loadCT(forceNetwork = false) {
     loader(true, 'Đang cập nhật danh sách...');
     const r = await apiGet('congtrinh');
     if (r.ok && r.data?.length) {
-      danhSachCT = r.data;
-      await idbClearStore('ke_hoach_kpi');
-      for (const ct of r.data) await idbPut('ke_hoach_kpi', ct);
+      // Merge: GAS records ghi đè theo ma_tram, local-only records giữ nguyên
+      for (const ct of r.data) {
+        ct.nguon = 'gas';
+        await idbPut('ke_hoach_kpi', ct);
+        const idx = danhSachCT.findIndex(c => c.ma_tram === ct.ma_tram);
+        if (idx >= 0) danhSachCT[idx] = ct;
+        else danhSachCT.push(ct);
+      }
     }
     const rv = await apiGet('vattu');
     if (rv.ok && rv.data?.length) {
@@ -784,16 +840,103 @@ function renderCT() {
   if (!els.length) { listEl.innerHTML = '<div class="ct-empty">Không tìm thấy</div>'; return; }
   listEl.innerHTML = els.map(ct => `
     <div class="ct-item" onclick="App.chonCT('${ct.ma_tram}')">
-      <div class="ct-dot"></div>
+      <div class="ct-dot${ct.nguon === 'local' ? ' local' : ''}"></div>
       <div class="ct-info">
         <div class="ct-name">${ct.ten_cong_trinh || ct.ma_tram}</div>
         <div class="ct-sub">${ct.ma_tram} · ${ct.ma_hop_dong || '—'}</div>
       </div>
-      <div class="ct-badge">${ct.trang_thai || 'Chờ'}</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <div class="ct-badge">${ct.trang_thai || 'Chờ'}</div>
+        ${ct.nguon === 'local' ? `<button class="ct-edit-btn" onclick="event.stopPropagation();App.openModalCTSua('${ct.ma_tram}')">✏</button>` : ''}
+      </div>
     </div>`).join('');
 }
 
 function filterCT() { renderCT(); }
+
+// ── CRUD CÔNG TRÌNH ───────────────────────────────────────────
+let editingMaTram = null;
+
+function openModalCT() {
+  editingMaTram = null;
+  document.getElementById('modalCTTitle').textContent = 'Thêm công trình';
+  document.getElementById('inpCTMaTram').value = '';
+  document.getElementById('inpCTMaTram').readOnly = false;
+  document.getElementById('inpCTMaTram').style.background = '';
+  document.getElementById('inpCTMaHD').value = '';
+  document.getElementById('inpCTTen').value = '';
+  document.getElementById('inpCTTrangThai').value = 'Chờ thi công';
+  document.getElementById('inpCTGhiChu').value = '';
+  document.getElementById('btnDelCT').classList.add('hide');
+  document.getElementById('modalCT').classList.remove('hide');
+}
+
+function openModalCTSua(maTram) {
+  const ct = danhSachCT.find(c => c.ma_tram === maTram);
+  if (!ct) return;
+  editingMaTram = maTram;
+  document.getElementById('modalCTTitle').textContent = 'Sửa công trình';
+  document.getElementById('inpCTMaTram').value = ct.ma_tram;
+  document.getElementById('inpCTMaTram').readOnly = true;
+  document.getElementById('inpCTMaTram').style.background = '#f5f5f5';
+  document.getElementById('inpCTMaHD').value = ct.ma_hop_dong || '';
+  document.getElementById('inpCTTen').value = ct.ten_cong_trinh || '';
+  document.getElementById('inpCTTrangThai').value = ct.trang_thai || 'Chờ thi công';
+  document.getElementById('inpCTGhiChu').value = ct.ghi_chu || '';
+  document.getElementById('btnDelCT').classList.remove('hide');
+  document.getElementById('modalCT').classList.remove('hide');
+}
+
+function closeModalCT() {
+  document.getElementById('modalCT').classList.add('hide');
+}
+
+async function saveModalCT() {
+  const rawMa  = document.getElementById('inpCTMaTram').value.trim();
+  const maTram = rawMa.toUpperCase();
+  const maHD   = document.getElementById('inpCTMaHD').value.trim();
+  const tenCT  = document.getElementById('inpCTTen').value.trim();
+  const trangThai = document.getElementById('inpCTTrangThai').value;
+  const ghiChu = document.getElementById('inpCTGhiChu').value.trim();
+
+  if (!maTram) { toast('Nhập mã trạm'); return; }
+  if (!maHD)   { toast('Nhập mã hợp đồng'); return; }
+  if (!tenCT)  { toast('Nhập tên công trình'); return; }
+
+  if (!editingMaTram && danhSachCT.some(c => c.ma_tram === maTram)) {
+    toast('Mã trạm đã tồn tại'); return;
+  }
+
+  const ct = {
+    ma_tram        : editingMaTram || maTram,
+    ma_hop_dong    : maHD,
+    ten_cong_trinh : tenCT,
+    trang_thai     : trangThai,
+    ghi_chu        : ghiChu,
+    nguon          : 'local',
+  };
+
+  await idbPut('ke_hoach_kpi', ct);
+  const idx = danhSachCT.findIndex(c => c.ma_tram === ct.ma_tram);
+  if (idx >= 0) danhSachCT[idx] = ct;
+  else danhSachCT.push(ct);
+
+  closeModalCT();
+  renderCT();
+  toast(editingMaTram ? 'Đã cập nhật công trình' : '✅ Đã thêm công trình');
+}
+
+async function xoaCT() {
+  if (!editingMaTram) return;
+  const ct = danhSachCT.find(c => c.ma_tram === editingMaTram);
+  if (!ct) return;
+  if (!confirm(`Xoá công trình "${ct.ten_cong_trinh}"?\nDữ liệu tuyến đã làm sẽ không bị xoá.`)) return;
+  await idbDelete('ke_hoach_kpi', editingMaTram);
+  danhSachCT = danhSachCT.filter(c => c.ma_tram !== editingMaTram);
+  closeModalCT();
+  renderCT();
+  toast('Đã xoá công trình');
+}
 
 async function chonCT(maTram) {
   selectedCT = danhSachCT.find(c => c.ma_tram === maTram);
@@ -1905,6 +2048,7 @@ if (document.readyState === 'loading') {
 return {
   saveCaiDat, skipCaiDat,
   filterCT, loadCT, chonCT,
+  openModalCT, openModalCTSua, closeModalCT, saveModalCT, xoaCT,
   selectLoai, confirmLoaiTuyen,
   goScreen, switchTab,
   toggleTracking, addTaiGPS,
