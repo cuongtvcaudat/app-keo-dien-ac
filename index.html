@@ -851,12 +851,44 @@ function initMain() {
 
   // Init map nếu chưa có
   if (!map) {
-    map = L.map('map', { zoomControl: false }).setView([11.94, 108.40], 15);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
-      maxZoom: 19,
-      crossOrigin: true
-    }).addTo(map);
+    map = L.map('map', { zoomControl: false }).setView([11.94, 108.40], 16);
+
+    // Vệ tinh ESRI (free, không cần API key)
+    const satellite = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: '© ESRI World Imagery', maxZoom: 19 }
+    );
+    // Nhãn đường phố đè lên vệ tinh
+    const labels = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      { attribution: '', maxZoom: 19, opacity: 0.7 }
+    );
+    // OSM để toggle
+    const osm = L.tileLayer(
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { attribution: '© OpenStreetMap', maxZoom: 19 }
+    );
+
+    satellite.addTo(map);
+    labels.addTo(map);
+
+    // Nút toggle vệ tinh / đường phố
+    let isSatellite = true;
+    const btnLayer = L.control({ position: 'topright' });
+    btnLayer.onAdd = () => {
+      const btn = L.DomUtil.create('button', '');
+      btn.innerHTML = '🗺';
+      btn.title = 'Chuyển bản đồ';
+      btn.style.cssText = 'background:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;margin:8px 8px 0 0;';
+      L.DomEvent.on(btn, 'click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        isSatellite = !isSatellite;
+        if (isSatellite) { satellite.addTo(map); labels.addTo(map); osm.remove(); btn.innerHTML = '🗺'; }
+        else             { osm.addTo(map); satellite.remove(); labels.remove(); btn.innerHTML = '🛰'; }
+      });
+      return btn;
+    };
+    btnLayer.addTo(map);
 
     // Long-press trên map
     setupLongPress();
@@ -926,10 +958,15 @@ function setupLongPress() {
     const touch = e.touches?.[0] || e;
     longpressTarget = { x: touch.clientX, y: touch.clientY };
     longpressTimer = setTimeout(() => {
+      if (!longpressTarget) return;
       vibrate(50);
-      const ll = map.containerPointToLatLng([longpressTarget.x, longpressTarget.y]);
-      openModalDiem(ll.lat, ll.lng, false);
+      // Trừ offset container để tính đúng tọa độ bản đồ
+      const rect = mapEl.getBoundingClientRect();
+      const px = longpressTarget.x - rect.left;
+      const py = longpressTarget.y - rect.top;
+      const ll = map.containerPointToLatLng(L.point(px, py));
       longpressTarget = null;
+      openModalDiem(ll.lat, ll.lng, false);
     }, 1500);
   };
 
@@ -938,12 +975,16 @@ function setupLongPress() {
     if (!longpressTarget) return;
     const touch = e.touches?.[0] || e;
     const dx = touch.clientX - longpressTarget.x, dy = touch.clientY - longpressTarget.y;
-    if (Math.sqrt(dx*dx + dy*dy) > 10) cancel();
+    if (Math.sqrt(dx*dx + dy*dy) > 8) cancel();
   };
 
   mapEl.addEventListener('touchstart', start, { passive: true });
   mapEl.addEventListener('touchend',   cancel);
   mapEl.addEventListener('touchmove',  move,  { passive: true });
+  // Desktop test
+  mapEl.addEventListener('mousedown',  start);
+  mapEl.addEventListener('mouseup',    cancel);
+  mapEl.addEventListener('mousemove',  move);
 }
 
 // ── PANEL SWIPE ───────────────────────────────────────────────
