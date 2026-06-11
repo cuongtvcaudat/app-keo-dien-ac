@@ -505,7 +505,7 @@ let selectedCT = null;
 let loaiTuyen = '1pha', loaiDay = 'Muller 2x16';
 let modalMode = 'add';  // 'add' | 'edit'
 let editDiemId = null;
-let insertAfterIdx = null; // chèn sau index này (-1 = cuối)
+let insertAfterId = null; // ID điểm sẽ chèn SAU (null = cuối tuyến)
 let modalStep = 1;
 let currentLoaiDiem = null;
 let tempVatTu = [];     // vật tư tạm trong modal
@@ -1037,6 +1037,21 @@ function switchTab(name) {
   if (name !== 'tuyen') document.getElementById('panel').className = 'half';
 }
 
+// ── THỨ TỰ TUYẾN: CT → C1→C2→...→Cn → TRAM ──────────────────
+// Luôn dùng hàm này để vẽ line & tính khoảng cách
+function getOrderedLine() {
+  const ct   = tuyen.diem.find(d => d.chu_so_huu === 'congto');
+  const tram = tuyen.diem.find(d => d.chu_so_huu === 'tram');
+  const cols = tuyen.diem
+    .filter(d => d.loai_diem === 'cot')
+    .sort((a, b) => parseInt(a.stt) - parseInt(b.stt));
+  const result = [];
+  if (ct)   result.push(ct);
+  result.push(...cols);
+  if (tram) result.push(tram);
+  return result;
+}
+
 // ── RENDER MAP ────────────────────────────────────────────────
 function renderMap() {
   if (!map || !tuyen) return;
@@ -1049,15 +1064,16 @@ function renderMap() {
   segLabels = [];
 
   const diem = tuyen.diem || [];
+  const ordered = getOrderedLine(); // CT → C1→C2→...→Cn → TRAM
 
-  // Vẽ line
-  if (diem.length >= 2) {
-    const lls = diem.map(d => [d.lat, d.lng]);
+  // Vẽ line theo thứ tự đúng
+  if (ordered.length >= 2) {
+    const lls = ordered.map(d => [d.lat, d.lng]);
     polyline = L.polyline(lls, { color:'#1565C0', weight:5, opacity:.85 }).addTo(map);
 
     // Nhãn khoảng cách mỗi đoạn
-    for (let i = 0; i < diem.length - 1; i++) {
-      const d1 = diem[i], d2 = diem[i+1];
+    for (let i = 0; i < ordered.length - 1; i++) {
+      const d1 = ordered[i], d2 = ordered[i+1];
       const dist = d1.chieu_dai_thu_cong || haversine(d1.lat, d1.lng, d2.lat, d2.lng);
       const midLat = (d1.lat + d2.lat) / 2, midLng = (d1.lng + d2.lng) / 2;
       const lbl = L.marker([midLat, midLng], {
@@ -1116,11 +1132,11 @@ function openModalDiem(lat, lng, fromGPS) {
   modalMode = 'add'; editDiemId = null;
   modalStep = 1; currentLoaiDiem = null;
   tempVatTu = [];
-  insertAfterIdx = null;
+  insertAfterId = null;
 
   // Tính chèn vào đoạn nào (nếu bấm giữ gần đoạn ≤50m)
   if (!fromGPS && tuyen?.diem?.length >= 2) {
-    insertAfterIdx = findInsertSegment(lat, lng);
+    insertAfterId = findInsertSegment(lat, lng);
   }
 
   document.getElementById('modalDiemTitle').textContent = 'Thêm điểm';
@@ -1133,13 +1149,15 @@ function openModalDiem(lat, lng, fromGPS) {
 }
 
 function findInsertSegment(lat, lng) {
-  const diem = tuyen.diem;
+  const ordered = getOrderedLine();
+  if (ordered.length < 2) return null;
   let minDist = Infinity, minIdx = -1;
-  for (let i = 0; i < diem.length - 1; i++) {
-    const d = distToSegment(lat, lng, diem[i].lat, diem[i].lng, diem[i+1].lat, diem[i+1].lng);
+  for (let i = 0; i < ordered.length - 1; i++) {
+    const d = distToSegment(lat, lng, ordered[i].lat, ordered[i].lng, ordered[i+1].lat, ordered[i+1].lng);
     if (d < minDist) { minDist = d; minIdx = i; }
   }
-  return minDist <= 50 ? minIdx : -1;
+  // Trả về ID điểm sẽ chèn SAU (nếu gần đoạn ≤50m)
+  return minDist <= 50 ? ordered[minIdx].id : null;
 }
 
 function distToSegment(px, py, ax, ay, bx, by) {
@@ -1289,17 +1307,22 @@ async function saveDiem() {
       thoi_gian   : new Date().toISOString()
     };
 
-    // Chèn vào đúng vị trí
-    if (insertAfterIdx !== null && insertAfterIdx >= 0) {
-      tuyen.diem.splice(insertAfterIdx + 1, 0, newDiem);
+    // Chèn vào đúng vị trí trong mảng diem
+    if (currentLoaiDiem === 'congto') {
+      // CT luôn đứng đầu
+      tuyen.diem.unshift(newDiem);
+    } else if (currentLoaiDiem === 'tram') {
+      // TRAM luôn đứng cuối
+      tuyen.diem.push(newDiem);
+    } else if (insertAfterId) {
+      // Chèn ngay sau điểm được chỉ định (bấm giữ gần đoạn)
+      const afterIdx = tuyen.diem.findIndex(d => d.id === insertAfterId);
+      tuyen.diem.splice(afterIdx + 1, 0, newDiem);
     } else {
-      // Mặc định: thêm trước TRAM nếu có, hoặc cuối
+      // Mặc định: chèn trước TRAM (nếu đã có), hoặc cuối mảng
       const tramIdx = tuyen.diem.findIndex(d => d.chu_so_huu === 'tram');
-      if (tramIdx >= 0 && currentLoaiDiem !== 'tram' && currentLoaiDiem !== 'congto') {
-        tuyen.diem.splice(tramIdx, 0, newDiem);
-      } else {
-        tuyen.diem.push(newDiem);
-      }
+      if (tramIdx >= 0) tuyen.diem.splice(tramIdx, 0, newDiem);
+      else tuyen.diem.push(newDiem);
     }
   }
 
@@ -1325,15 +1348,14 @@ async function saveDiem() {
 }
 
 function recalcSTT() {
+  // CT luôn = "CT", TRAM luôn = "TRAM"
+  // Các cột đánh số 1, 2, 3... theo thứ tự trong mảng (= thứ tự tuyến)
+  // Khi chèn giữa C2 và C3 → C2 cũ thành C3, C3 cũ thành C4...
   let cotIdx = 0;
-  const usedBases = {};
-  tuyen.diem.forEach((d, i) => {
-    if (d.chu_so_huu === 'congto') { d.stt = 'CT'; return; }
+  tuyen.diem.forEach(d => {
+    if (d.chu_so_huu === 'congto') { d.stt = 'CT';   return; }
     if (d.chu_so_huu === 'tram')   { d.stt = 'TRAM'; return; }
-    cotIdx++;
-    // Kiểm tra chèn giữa: nếu 2 điểm liền trước-sau đều là số nguyên
-    // STT đơn giản: số nguyên liên tục (chèn giữa sẽ dùng 'a','b' trong tương lai)
-    d.stt = String(cotIdx);
+    d.stt = String(++cotIdx);
   });
 }
 
@@ -1431,10 +1453,10 @@ function renderTabTuyen() {
 
 // ── TAB KHỐI LƯỢNG ───────────────────────────────────────────
 function calcTotalDist() {
-  const diem = tuyen?.diem || [];
+  const ordered = getOrderedLine();
   let total = 0;
-  for (let i = 0; i < diem.length - 1; i++) {
-    total += diem[i].chieu_dai_thu_cong || haversine(diem[i].lat, diem[i].lng, diem[i+1].lat, diem[i+1].lng);
+  for (let i = 0; i < ordered.length - 1; i++) {
+    total += ordered[i].chieu_dai_thu_cong || haversine(ordered[i].lat, ordered[i].lng, ordered[i+1].lat, ordered[i+1].lng);
   }
   return total;
 }
