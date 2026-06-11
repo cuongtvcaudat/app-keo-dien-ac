@@ -290,13 +290,8 @@ window.onerror = function(msg, src, line) {
 ══════════════════════════════════════ -->
 <div class="screen hide" id="sChonCT">
   <div class="ct-header">
-    <div style="display:flex;align-items:center;justify-content:space-between;">
-      <div>
-        <h1>Chọn công trình</h1>
-        <p id="ctDoi">—</p>
-      </div>
-      <button class="btn-add-ct" onclick="App.openModalCT()" title="Thêm công trình mới">+</button>
-    </div>
+    <h1>Chọn công trình</h1>
+    <p id="ctDoi">—</p>
   </div>
   <div class="ct-body">
     <div class="search-row">
@@ -440,38 +435,6 @@ window.onerror = function(msg, src, line) {
     <div class="modal-footer">
       <button class="btn-modal-cancel" id="btnModalBack" onclick="App.modalBack()">‹ Quay lại</button>
       <button class="btn-modal-save" id="btnModalNext" onclick="App.modalNext()">Tiếp theo →</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════
-     MODAL THÊM / SỬA CÔNG TRÌNH
-══════════════════════════════════════ -->
-<div id="modalCT" class="hide">
-  <div class="modal-backdrop" onclick="App.closeModalCT()"></div>
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title" id="modalCTTitle">Thêm công trình</div>
-    <div style="padding:4px 20px 16px;">
-      <div class="step-label">Mã trạm <span style="color:#e53935;">*</span></div>
-      <input class="form-inp" id="inpCTMaTram" type="text" placeholder="VD: LDG_TA_NUNG" autocomplete="off" style="text-transform:uppercase;">
-      <div class="step-label">Mã hợp đồng <span style="color:#e53935;">*</span></div>
-      <input class="form-inp" id="inpCTMaHD" type="text" placeholder="VD: HD-2026-001" autocomplete="off">
-      <div class="step-label">Tên công trình <span style="color:#e53935;">*</span></div>
-      <input class="form-inp" id="inpCTTen" type="text" placeholder="VD: Kéo AC trạm Tà Nung" autocomplete="off">
-      <div class="step-label">Trạng thái</div>
-      <select class="form-inp" id="inpCTTrangThai">
-        <option value="Chờ thi công">Chờ thi công</option>
-        <option value="Đang thi công">Đang thi công</option>
-        <option value="Hoàn thành">Hoàn thành</option>
-      </select>
-      <div class="step-label">Ghi chú</div>
-      <input class="form-inp" id="inpCTGhiChu" type="text" placeholder="Tuỳ chọn" autocomplete="off">
-      <div class="btn-row">
-        <button class="btn-cancel" onclick="App.closeModalCT()">Huỷ</button>
-        <button class="btn-ok" onclick="App.saveModalCT()">💾 Lưu</button>
-      </div>
-      <button class="btn-del-ct hide" id="btnDelCT" onclick="App.xoaCT()">🗑 Xoá công trình này</button>
     </div>
   </div>
 </div>
@@ -840,103 +803,16 @@ function renderCT() {
   if (!els.length) { listEl.innerHTML = '<div class="ct-empty">Không tìm thấy</div>'; return; }
   listEl.innerHTML = els.map(ct => `
     <div class="ct-item" onclick="App.chonCT('${ct.ma_tram}')">
-      <div class="ct-dot${ct.nguon === 'local' ? ' local' : ''}"></div>
+      <div class="ct-dot"></div>
       <div class="ct-info">
         <div class="ct-name">${ct.ten_cong_trinh || ct.ma_tram}</div>
         <div class="ct-sub">${ct.ma_tram} · ${ct.ma_hop_dong || '—'}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-        <div class="ct-badge">${ct.trang_thai || 'Chờ'}</div>
-        ${ct.nguon === 'local' ? `<button class="ct-edit-btn" onclick="event.stopPropagation();App.openModalCTSua('${ct.ma_tram}')">✏</button>` : ''}
-      </div>
+      <div class="ct-badge">${ct.trang_thai || 'Chờ'}</div>
     </div>`).join('');
 }
 
 function filterCT() { renderCT(); }
-
-// ── CRUD CÔNG TRÌNH ───────────────────────────────────────────
-let editingMaTram = null;
-
-function openModalCT() {
-  editingMaTram = null;
-  document.getElementById('modalCTTitle').textContent = 'Thêm công trình';
-  document.getElementById('inpCTMaTram').value = '';
-  document.getElementById('inpCTMaTram').readOnly = false;
-  document.getElementById('inpCTMaTram').style.background = '';
-  document.getElementById('inpCTMaHD').value = '';
-  document.getElementById('inpCTTen').value = '';
-  document.getElementById('inpCTTrangThai').value = 'Chờ thi công';
-  document.getElementById('inpCTGhiChu').value = '';
-  document.getElementById('btnDelCT').classList.add('hide');
-  document.getElementById('modalCT').classList.remove('hide');
-}
-
-function openModalCTSua(maTram) {
-  const ct = danhSachCT.find(c => c.ma_tram === maTram);
-  if (!ct) return;
-  editingMaTram = maTram;
-  document.getElementById('modalCTTitle').textContent = 'Sửa công trình';
-  document.getElementById('inpCTMaTram').value = ct.ma_tram;
-  document.getElementById('inpCTMaTram').readOnly = true;
-  document.getElementById('inpCTMaTram').style.background = '#f5f5f5';
-  document.getElementById('inpCTMaHD').value = ct.ma_hop_dong || '';
-  document.getElementById('inpCTTen').value = ct.ten_cong_trinh || '';
-  document.getElementById('inpCTTrangThai').value = ct.trang_thai || 'Chờ thi công';
-  document.getElementById('inpCTGhiChu').value = ct.ghi_chu || '';
-  document.getElementById('btnDelCT').classList.remove('hide');
-  document.getElementById('modalCT').classList.remove('hide');
-}
-
-function closeModalCT() {
-  document.getElementById('modalCT').classList.add('hide');
-}
-
-async function saveModalCT() {
-  const rawMa  = document.getElementById('inpCTMaTram').value.trim();
-  const maTram = rawMa.toUpperCase();
-  const maHD   = document.getElementById('inpCTMaHD').value.trim();
-  const tenCT  = document.getElementById('inpCTTen').value.trim();
-  const trangThai = document.getElementById('inpCTTrangThai').value;
-  const ghiChu = document.getElementById('inpCTGhiChu').value.trim();
-
-  if (!maTram) { toast('Nhập mã trạm'); return; }
-  if (!maHD)   { toast('Nhập mã hợp đồng'); return; }
-  if (!tenCT)  { toast('Nhập tên công trình'); return; }
-
-  if (!editingMaTram && danhSachCT.some(c => c.ma_tram === maTram)) {
-    toast('Mã trạm đã tồn tại'); return;
-  }
-
-  const ct = {
-    ma_tram        : editingMaTram || maTram,
-    ma_hop_dong    : maHD,
-    ten_cong_trinh : tenCT,
-    trang_thai     : trangThai,
-    ghi_chu        : ghiChu,
-    nguon          : 'local',
-  };
-
-  await idbPut('ke_hoach_kpi', ct);
-  const idx = danhSachCT.findIndex(c => c.ma_tram === ct.ma_tram);
-  if (idx >= 0) danhSachCT[idx] = ct;
-  else danhSachCT.push(ct);
-
-  closeModalCT();
-  renderCT();
-  toast(editingMaTram ? 'Đã cập nhật công trình' : '✅ Đã thêm công trình');
-}
-
-async function xoaCT() {
-  if (!editingMaTram) return;
-  const ct = danhSachCT.find(c => c.ma_tram === editingMaTram);
-  if (!ct) return;
-  if (!confirm(`Xoá công trình "${ct.ten_cong_trinh}"?\nDữ liệu tuyến đã làm sẽ không bị xoá.`)) return;
-  await idbDelete('ke_hoach_kpi', editingMaTram);
-  danhSachCT = danhSachCT.filter(c => c.ma_tram !== editingMaTram);
-  closeModalCT();
-  renderCT();
-  toast('Đã xoá công trình');
-}
 
 async function chonCT(maTram) {
   selectedCT = danhSachCT.find(c => c.ma_tram === maTram);
@@ -965,31 +841,60 @@ function updateLtInfo() {
 
 async function confirmLoaiTuyen() {
   if (!selectedCT) return;
+  const maDoi = localStorage.getItem('ten_doi') || '';
   loader(true, 'Chuẩn bị tuyến...');
 
-  // Load hoặc tạo tuyến
-  let t = await idbGet('tuyen_dien', selectedCT.ma_tram);
-  if (!t) {
-    t = {
-      ma_tram        : selectedCT.ma_tram,
-      ma_hop_dong    : selectedCT.ma_hop_dong || '',
-      ten_cong_trinh : selectedCT.ten_cong_trinh || '',
-      ten_doi        : localStorage.getItem('ten_doi') || '',
-      loai_tuyen     : loaiTuyen,
-      loai_day       : loaiDay,
-      he_so_chung    : HC_SO_CHUNG_DEFAULT,
-      trang_thai     : 'khao_sat',
-      diem           : [],
-      thoi_gian_tao  : new Date().toISOString(),
-      thoi_gian_cap_nhat: new Date().toISOString()
-    };
-    await idbPut('tuyen_dien', t);
-  } else {
-    t.loai_tuyen = loaiTuyen;
-    t.loai_day   = loaiDay;
-    await idbPut('tuyen_dien', t);
+  // 1. Load dữ liệu local
+  let tLocal = await idbGet('tuyen_dien', selectedCT.ma_tram);
+
+  // 2. Thử load từ GAS (nếu online) để lấy dữ liệu mới nhất / dữ liệu từ máy khác
+  let tGAS = null;
+  if (navigator.onLine) {
+    try {
+      loader(true, 'Đang tải tuyến từ GAS...');
+      const r = await apiGet('tuyen', `&ma_tram=${encodeURIComponent(selectedCT.ma_tram)}&ma_doi=${encodeURIComponent(maDoi)}`);
+      if (r.ok && r.data) tGAS = r.data;
+    } catch {}
   }
 
+  let t;
+  if (!tLocal && !tGAS) {
+    // Tuyến mới hoàn toàn
+    t = {
+      ma_tram            : selectedCT.ma_tram,
+      ma_hop_dong        : selectedCT.ma_hop_dong || '',
+      ten_cong_trinh     : selectedCT.ten_cong_trinh || '',
+      ten_doi            : maDoi,
+      ma_doi             : maDoi,
+      loai_tuyen         : loaiTuyen,
+      loai_day           : loaiDay,
+      he_so_chung        : HC_SO_CHUNG_DEFAULT,
+      trang_thai         : 'khao_sat',
+      diem               : [],
+      thoi_gian_tao      : new Date().toISOString(),
+      thoi_gian_cap_nhat : new Date().toISOString()
+    };
+  } else if (tGAS && !tLocal) {
+    // Chỉ có GAS — dùng GAS (lần đầu dùng máy này)
+    t = { ...tGAS, ma_hop_dong: selectedCT.ma_hop_dong || tGAS.ma_hop_dong,
+          ten_cong_trinh: selectedCT.ten_cong_trinh || '', loai_tuyen: loaiTuyen, loai_day: loaiDay };
+  } else if (!tGAS && tLocal) {
+    // Chỉ có local — dùng local
+    t = tLocal;
+    t.loai_tuyen = loaiTuyen; t.loai_day = loaiDay;
+  } else {
+    // Cả hai có: dùng cái mới hơn
+    const tL = new Date(tLocal.thoi_gian_cap_nhat || 0).getTime();
+    const tG = new Date(tGAS.thoi_gian_cap_nhat   || 0).getTime();
+    t = tG > tL
+      ? { ...tGAS, ma_hop_dong: selectedCT.ma_hop_dong || tGAS.ma_hop_dong,
+          ten_cong_trinh: selectedCT.ten_cong_trinh || '', loai_tuyen: loaiTuyen, loai_day: loaiDay }
+      : tLocal;
+    t.loai_tuyen = loaiTuyen; t.loai_day = loaiDay;
+    if (tG > tL) toast('📥 Đã tải dữ liệu mới hơn từ GAS');
+  }
+
+  await idbPut('tuyen_dien', t);
   tuyen = t;
   loader(false);
   goScreen('sMain');
@@ -1502,10 +1407,6 @@ async function saveDiem() {
   tuyen.thoi_gian_cap_nhat = new Date().toISOString();
   await idbPut('tuyen_dien', tuyen);
 
-  // Thêm vào hàng đợi sync
-  const d = tuyen.diem.find(x => x.id === (editDiemId || tuyen.diem[tuyen.diem.length-1]?.id));
-  if (d) await queueSync(d);
-
   const wasAdd = modalMode === 'add';
   closeModalDiem();
   renderMap(wasAdd);
@@ -1514,8 +1415,8 @@ async function saveDiem() {
   renderTabSync();
   toast(wasAdd ? '✅ Đã lưu điểm' : 'Đã cập nhật điểm');
 
-  // Auto sync
-  syncIfOnline();
+  // Sync toàn tuyến lên GAS
+  syncTuyen();
 }
 
 function recalcSTT() {
@@ -1704,13 +1605,15 @@ function renderTabKL() {
 
 // ── TAB SYNC ─────────────────────────────────────────────────
 async function renderTabSync() {
-  const queue = await idbAll('hang_doi_sync');
-  const isOnline = navigator.onLine;
+  const isOnline  = navigator.onLine;
+  const isPending = localStorage.getItem('syncPending') === '1';
+  const lastUpd   = tuyen?.thoi_gian_cap_nhat ? fmtTime(tuyen.thoi_gian_cap_nhat) : '—';
   document.getElementById('tabSync').innerHTML = `
     <div class="sync-status">
       <div class="sync-dot ${isOnline ? 'online' : 'offline'}"></div>
-      <span>${isOnline ? 'Có mạng' : 'Không có mạng'} · ${queue.length} điểm chờ đồng bộ</span>
+      <span>${isOnline ? 'Có mạng' : 'Không có mạng'} · ${isPending ? '⚠ Chưa đồng bộ GAS' : '✓ Đã đồng bộ GAS'}</span>
     </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Cập nhật lần cuối: ${lastUpd}</div>
     ${tuyen?.trang_thai !== 'da_thi_cong' ? `
       <button class="btn-hc" onclick="App.xacNhanHoanCong()">✅ Xác nhận đã thi công xong</button>
     ` : `
@@ -1723,51 +1626,53 @@ async function renderTabSync() {
     <input type="file" id="inpJSON" accept=".json" style="display:none" onchange="App.doNhapJSON(this)">`;
 }
 
-// ── SYNC ─────────────────────────────────────────────────────
-async function queueSync(diem) {
-  await idbAdd('hang_doi_sync', {
-    ma_tram   : tuyen.ma_tram,
-    ma_hop_don: tuyen.ma_hop_dong,
-    ten_doi   : tuyen.ten_doi,
-    loai_diem : diem.loai_diem,
-    chu_so_huu: diem.chu_so_huu,
-    stt       : diem.stt,
-    lat       : diem.lat,
-    lng       : diem.lng,
-    sai_so_gps: diem.sai_so_gps,
-    cham_bu   : diem.cham_bu,
-    vat_tu    : JSON.stringify(diem.vat_tu || []),
-    ghi_chu   : diem.ghi_chu,
-    thoi_gian : diem.thoi_gian
-  });
+// ── SYNC — đẩy toàn bộ tuyến lên GAS (upsert) ───────────────
+async function syncTuyen() {
+  if (!tuyen) return;
+  const maDoi = localStorage.getItem('ten_doi') || '';
+  const payload = {
+    action             : 'save_tuyen',
+    ma_tram            : tuyen.ma_tram,
+    ma_hop_dong        : tuyen.ma_hop_dong,
+    ma_doi             : maDoi,
+    ten_doi            : maDoi,
+    loai_tuyen         : tuyen.loai_tuyen,
+    loai_day           : tuyen.loai_day,
+    diem               : tuyen.diem,
+    thoi_gian_cap_nhat : tuyen.thoi_gian_cap_nhat
+  };
+  if (!navigator.onLine) {
+    localStorage.setItem('syncPending', '1');
+    return;
+  }
+  try {
+    const r = await apiPost(payload);
+    if (r.ok) {
+      localStorage.removeItem('syncPending');
+      renderTabSync();
+    } else {
+      localStorage.setItem('syncPending', '1');
+    }
+  } catch {
+    localStorage.setItem('syncPending', '1');
+  }
 }
 
 async function syncNow() {
-  const queue = await idbAll('hang_doi_sync');
-  if (!queue.length) { toast('Không có gì để đồng bộ'); return; }
+  if (!tuyen) return;
   if (!navigator.onLine) { toast('Không có mạng'); return; }
-  loader(true, `Đang đồng bộ ${queue.length} điểm...`);
+  loader(true, 'Đang đồng bộ lên GAS...');
   try {
-    const r = await apiPost(queue);
-    if (r.ok) {
-      await idbClearStore('hang_doi_sync');
-      toast(`✅ Đã đồng bộ ${queue.length} điểm`);
-    } else throw new Error(r.error);
+    await syncTuyen();
+    if (!localStorage.getItem('syncPending')) {
+      toast('✅ Đã đồng bộ lên Google Sheets');
+    } else {
+      throw new Error('Server không phản hồi');
+    }
   } catch(e) {
     toast('Lỗi đồng bộ: ' + e.message, 4000);
   }
   loader(false);
-  renderTabSync();
-}
-
-async function syncIfOnline() {
-  if (!navigator.onLine) return;
-  const queue = await idbAll('hang_doi_sync');
-  if (!queue.length) return;
-  try {
-    const r = await apiPost(queue);
-    if (r.ok) await idbClearStore('hang_doi_sync');
-  } catch {}
   renderTabSync();
 }
 
@@ -2034,7 +1939,11 @@ function hexToRGB(hex) {
 }
 
 // ── REGISTER SW & EVENTS ──────────────────────────────────────
-window.addEventListener('online',  () => { syncIfOnline(); renderTabSync(); });
+window.addEventListener('online',  () => {
+  if (localStorage.getItem('syncPending') === '1' && tuyen) syncTuyen();
+  renderTabSync();
+  toast('☁ Có mạng — đang đồng bộ...');
+});
 window.addEventListener('offline', () => { renderTabSync(); toast('Mất mạng — dữ liệu vẫn lưu máy'); });
 
 // Gọi trực tiếp — không dùng DOMContentLoaded để tránh timing issue trên mobile
@@ -2048,7 +1957,6 @@ if (document.readyState === 'loading') {
 return {
   saveCaiDat, skipCaiDat,
   filterCT, loadCT, chonCT,
-  openModalCT, openModalCTSua, closeModalCT, saveModalCT, xoaCT,
   selectLoai, confirmLoaiTuyen,
   goScreen, switchTab,
   toggleTracking, addTaiGPS,
