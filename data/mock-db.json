@@ -1,0 +1,132 @@
+{
+  "danh_muc_vat_tu": [
+    {
+      "ma_vt": "DAY_MULLER_2x16",
+      "ten_vt": "Dây Muller 2x16",
+      "don_vi": "m",
+      "nhom": "Dây dẫn",
+      "mac_dinh": "",
+      "sl_mac_dinh": "0"
+    },
+    {
+      "ma_vt": "DAY_MULLER_4x16",
+      "ten_vt": "Dây Muller 4x16",
+      "don_vi": "m",
+      "nhom": "Dây dẫn",
+      "mac_dinh": "",
+      "sl_mac_dinh": "0"
+    },
+    {
+      "ma_vt": "KEP_NGUNG",
+      "ten_vt": "Kẹp ngừng",
+      "don_vi": "cái",
+      "nhom": "Phụ kiện",
+      "mac_dinh": "",
+      "sl_mac_dinh": "1"
+    },
+    {
+      "ma_vt": "GHI_NHOM",
+      "ten_vt": "Ghíp nhôm",
+      "don_vi": "cái",
+      "nhom": "Phụ kiện",
+      "mac_dinh": "x",
+      "sl_mac_dinh": "2"
+    },
+    {
+      "ma_vt": "SU_ONG_CHI",
+      "ten_vt": "Sứ ống chỉ",
+      "don_vi": "cái",
+      "nhom": "Phụ kiện",
+      "mac_dinh": "",
+      "sl_mac_dinh": "0"
+    },
+    {
+      "ma_vt": "XA_SAT",
+      "ten_vt": "Xà sắt",
+      "don_vi": "cái",
+      "nhom": "Phụ kiện",
+      "mac_dinh": "",
+      "sl_mac_dinh": "0"
+    },
+    {
+      "ma_vt": "NEO_TANG_DO",
+      "ten_vt": "Dây néo + tăng đơ",
+      "don_vi": "bộ",
+      "nhom": "Néo chằng",
+      "mac_dinh": "",
+      "sl_mac_dinh": "0"
+    },
+    {
+      "ma_vt": "MONG_NEO",
+      "ten_vt": "Móng néo",
+      "don_vi": "cái",
+      "nhom": "Néo chằng",
+      "mac_dinh": "",
+      "sl_mac_dinh": "0"
+    },
+    {
+      "ma_vt": "COC_TIEP_DIA",
+      "ten_vt": "Cọc tiếp địa V63",
+      "don_vi": "cái",
+      "nhom": "Tiếp địa",
+      "mac_dinh": "",
+      "sl_mac_dinh": "0"
+    },
+    {
+      "ma_vt": "DAY_TIEP_DIA",
+      "ten_vt": "Dây tiếp địa",
+      "don_vi": "m",
+      "nhom": "Tiếp địa",
+      "mac_dinh": "",
+      "sl_mac_dinh": "0"
+    },
+    {
+      "ma_vt": "BANG_KEO",
+      "ten_vt": "Băng keo điện",
+      "don_vi": "cuộn",
+      "nhom": "Phụ kiện",
+      "mac_dinh": "x",
+      "sl_mac_dinh": "1"
+    },
+    {
+      "ma_vt": "ONG_NHUA",
+      "ten_vt": "Ống nhựa luồn cáp",
+      "don_vi": "m",
+      "nhom": "Phụ kiện",
+      "mac_dinh": "",
+      "sl_mac_dinh": "0"
+    },
+    {
+      "ma_vt": "APTMT_HOP",
+      "ten_vt": "Aptomat + hộp công tơ",
+      "don_vi": "bộ",
+      "nhom": "Công tơ",
+      "mac_dinh": "",
+      "sl_mac_dinh": "1"
+    }
+  ],
+  "ke_hoach_kpi": [
+    {
+      "ma_tram": "LDG_TEST01",
+      "ma_hop_dong": "HD-2026-001",
+      "ten_cong_trinh": "Kéo AC trạm Tà Nung",
+      "trang_thai": "Đang thi công",
+      "ghi_chu": "Tuyến 1 pha dọc QL27C"
+    },
+    {
+      "ma_tram": "LDG_TEST02",
+      "ma_hop_dong": "HD-2026-002",
+      "ten_cong_trinh": "Kéo AC trạm Đà Loan",
+      "trang_thai": "Chờ thi công",
+      "ghi_chu": "Tuyến 3 pha khu công nghiệp"
+    },
+    {
+      "ma_tram": "LDG_TEST03",
+      "ma_hop_dong": "HD-2026-003",
+      "ten_cong_trinh": "Kéo AC trạm Phi Liêng",
+      "trang_thai": "Hoàn thành",
+      "ghi_chu": "Tuyến 1 pha vùng núi"
+    }
+  ],
+  "du_lieu_hien_truong": []
+}

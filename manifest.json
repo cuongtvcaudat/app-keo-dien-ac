@@ -1,0 +1,17 @@
+{
+  "name": "Kéo Điện AC",
+  "short_name": "Điện AC",
+  "description": "App chấm tuyến kéo điện AC cấp nguồn trạm BTS",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1565C0",
+  "theme_color": "#1565C0",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%231565C0'/><text x='96' y='130' font-size='100' text-anchor='middle'>⚡</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}

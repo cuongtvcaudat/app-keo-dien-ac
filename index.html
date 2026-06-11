@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1565C0">
+<title>Kéo Điện AC</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --blue:#1565C0;--blue-dark:#0D47A1;--blue-light:#E3F2FD;
+  --green:#2E7D32;--green-light:#E8F5E9;
+  --orange:#E65100;--orange-light:#FFF3E0;
+  --yellow:#F9A825;--yellow-light:#FFFDE7;
+  --red:#C62828;--red-light:#FFEBEE;
+  --purple:#6A1B9A;--purple-light:#F3E5F5;
+  --gray:#546E7A;--gray-light:#ECEFF1;--gray-bg:#F5F7FA;
+  --text:#212121;--text2:#757575;
+  --shadow:0 2px 12px rgba(0,0,0,.15);--shadow-lg:0 4px 24px rgba(0,0,0,.22);
+  --r:14px;--r-sm:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;color:var(--text);background:var(--gray-bg);}
+button{cursor:pointer;border:none;font-family:inherit;}
+
+/* ── SCREENS ── */
+.screen{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;background:#fff;transition:opacity .25s,transform .25s;}
+.screen.hide{opacity:0;pointer-events:none;transform:translateY(12px);}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(8px);background:#323232;color:#fff;padding:11px 22px;border-radius:24px;font-size:14px;font-weight:600;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:92vw;text-align:center;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── LOADER ── */
+#loader{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:#fff;}
+#loader.show{display:flex;}
+.spin{width:38px;height:38px;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ══════════════════════════════════════
+   SCREEN: CÀI ĐẶT
+══════════════════════════════════════ */
+#sCaiDat{background:linear-gradient(150deg,var(--blue-dark),var(--blue));}
+.cd-card{background:#fff;margin:auto;width:calc(100% - 32px);max-width:400px;border-radius:20px;padding:28px 22px;box-shadow:var(--shadow-lg);}
+.cd-logo{text-align:center;color:var(--blue);font-size:48px;margin-bottom:4px;}
+.cd-title{text-align:center;font-size:20px;font-weight:900;color:var(--blue);margin-bottom:4px;}
+.cd-sub{text-align:center;font-size:13px;color:var(--text2);margin-bottom:22px;}
+.form-lbl{font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
+.form-inp{width:100%;border:1.5px solid #ddd;border-radius:var(--r-sm);padding:12px 14px;font-size:15px;outline:none;transition:border .2s;margin-bottom:16px;}
+.form-inp:focus{border-color:var(--blue);}
+.btn-primary{width:100%;background:var(--blue);color:#fff;border-radius:var(--r);padding:15px;font-size:16px;font-weight:800;letter-spacing:.3px;transition:background .2s;}
+.btn-primary:active{background:var(--blue-dark);}
+.btn-ghost{background:none;color:var(--blue);font-size:13px;font-weight:600;margin-top:12px;display:block;width:100%;text-align:center;padding:8px;}
+
+/* ══════════════════════════════════════
+   SCREEN: CHỌN CÔNG TRÌNH
+══════════════════════════════════════ */
+#sChonCT{background:linear-gradient(150deg,var(--blue-dark) 0%,var(--blue) 50%,#42A5F5 100%);}
+.ct-header{padding:52px 20px 20px;color:#fff;}
+.ct-header h1{font-size:22px;font-weight:900;}
+.ct-header p{font-size:13px;opacity:.8;margin-top:4px;}
+.ct-body{background:#fff;border-radius:24px 24px 0 0;flex:1;padding:20px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 -4px 20px rgba(0,0,0,.12);}
+.search-row{display:flex;gap:10px;margin-bottom:14px;}
+.search-box{flex:1;display:flex;align-items:center;gap:8px;background:var(--gray-light);border-radius:var(--r);padding:11px 14px;}
+.search-box input{border:none;background:transparent;font-size:15px;flex:1;outline:none;}
+.btn-refresh{background:var(--blue-light);color:var(--blue);border-radius:var(--r-sm);padding:11px 14px;font-size:20px;font-weight:700;}
+#ctList{overflow-y:auto;flex:1;}
+.ct-item{display:flex;align-items:center;gap:12px;padding:14px 6px;border-bottom:1px solid #f0f0f0;cursor:pointer;border-radius:var(--r-sm);transition:background .15s;}
+.ct-item:active{background:var(--blue-light);}
+.ct-dot{width:10px;height:10px;border-radius:50%;background:var(--blue);flex-shrink:0;}
+.ct-info{flex:1;}
+.ct-name{font-size:15px;font-weight:700;}
+.ct-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.ct-badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:700;background:var(--green-light);color:var(--green);}
+.ct-empty{text-align:center;padding:40px 20px;color:var(--text2);}
+
+/* ══════════════════════════════════════
+   SCREEN: CHỌN LOẠI TUYẾN
+══════════════════════════════════════ */
+#sLoaiTuyen{justify-content:center;align-items:center;padding:20px;background:rgba(0,0,0,.5);}
+.lt-card{background:#fff;border-radius:20px;padding:26px 22px;width:100%;max-width:380px;box-shadow:var(--shadow-lg);}
+.lt-title{font-size:17px;font-weight:900;color:var(--blue);margin-bottom:6px;}
+.lt-sub{font-size:13px;color:var(--text2);margin-bottom:18px;}
+.lt-section{margin-bottom:16px;}
+.lt-section label{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:8px;}
+.radio-group{display:flex;gap:8px;flex-wrap:wrap;}
+.radio-btn{flex:1;min-width:80px;padding:10px;border:2px solid #ddd;border-radius:var(--r-sm);text-align:center;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;}
+.radio-btn.active{border-color:var(--blue);background:var(--blue-light);color:var(--blue);}
+.lt-info{background:var(--blue-light);border-radius:var(--r-sm);padding:12px;margin-bottom:18px;font-size:13px;color:var(--blue);font-weight:600;}
+.btn-row{display:flex;gap:10px;}
+.btn-cancel{flex:1;background:var(--gray-light);color:var(--text);border-radius:var(--r);padding:13px;font-size:15px;font-weight:700;}
+.btn-ok{flex:2;background:var(--blue);color:#fff;border-radius:var(--r);padding:13px;font-size:15px;font-weight:800;}
+
+/* ══════════════════════════════════════
+   SCREEN MAIN
+══════════════════════════════════════ */
+#sMain{background:#e8eaed;}
+.main-header{background:var(--blue);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;z-index:500;flex-shrink:0;box-shadow:0 2px 8px rgba(21,101,192,.4);}
+.hdr-back{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.hdr-info{flex:1;min-width:0;}
+.hdr-tram{font-size:15px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hdr-sub{font-size:11px;opacity:.8;}
+.hdr-acts{display:flex;gap:6px;}
+.hdr-btn{background:rgba(255,255,255,.2);border-radius:var(--r-sm);padding:6px 10px;color:#fff;font-size:13px;font-weight:600;}
+
+/* MAP */
+#map{flex:1;z-index:1;}
+
+/* FAB định vị */
+#fabGPS{position:absolute;right:16px;bottom:200px;z-index:400;width:56px;height:56px;border-radius:50%;background:#fff;box-shadow:var(--shadow-lg);display:flex;align-items:center;justify-content:center;font-size:24px;border:none;cursor:pointer;transition:background .2s;}
+#fabGPS.tracking{background:var(--blue);color:#fff;}
+
+/* Nút thêm GPS */
+#fabAdd{position:absolute;right:16px;bottom:130px;z-index:400;height:48px;border-radius:24px;background:var(--blue);color:#fff;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:8px;padding:0 18px;font-size:15px;font-weight:700;border:none;cursor:pointer;}
+.acc-dot{width:12px;height:12px;border-radius:50%;background:var(--gray);flex-shrink:0;}
+.acc-dot.green{background:#4CAF50;}
+.acc-dot.yellow{background:#FFC107;}
+.acc-dot.red{background:#F44336;}
+
+/* ── PANEL DƯỚI ── */
+#panel{position:absolute;left:0;right:0;bottom:0;z-index:300;background:#fff;border-radius:20px 20px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.15);transition:height .3s cubic-bezier(.4,0,.2,1);}
+#panel.collapsed{height:80px;}
+#panel.half{height:55vh;}
+#panel.full{height:85vh;}
+.panel-handle{width:40px;height:4px;border-radius:2px;background:#ddd;margin:10px auto 0;}
+.panel-tabs{display:flex;border-bottom:1px solid #eee;padding:0 16px;}
+.ptab{flex:1;padding:10px 0;text-align:center;font-size:13px;font-weight:600;color:var(--text2);border-bottom:2px solid transparent;transition:all .2s;}
+.ptab.active{color:var(--blue);border-bottom-color:var(--blue);}
+.panel-body{overflow-y:auto;padding:12px 16px 80px;}
+.panel-body.hide{display:none;}
+
+/* Tuyến tab */
+.tuyen-info{background:var(--blue-light);border-radius:var(--r-sm);padding:12px;margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ti-item label{font-size:11px;color:var(--blue);font-weight:600;}
+.ti-item span{font-size:16px;font-weight:900;color:var(--blue-dark);}
+.diem-list{display:flex;flex-direction:column;gap:8px;}
+.diem-row{display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border:1px solid #eee;border-radius:var(--r-sm);cursor:pointer;transition:background .15s;}
+.diem-row:active{background:var(--gray-light);}
+.diem-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0;color:#fff;}
+.diem-meta{flex:1;min-width:0;}
+.diem-stt{font-size:14px;font-weight:800;}
+.diem-chu{font-size:12px;color:var(--text2);}
+.diem-vt{font-size:11px;color:var(--text2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.diem-bu{font-size:10px;font-weight:700;color:var(--orange);background:var(--orange-light);padding:2px 6px;border-radius:10px;}
+
+/* KL tab */
+.kl-section{margin-bottom:16px;}
+.kl-section h4{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.kl-table{width:100%;border-collapse:collapse;font-size:13px;}
+.kl-table th{background:var(--gray-light);padding:8px 10px;text-align:left;font-weight:700;font-size:12px;}
+.kl-table td{padding:8px 10px;border-bottom:1px solid #f0f0f0;}
+.kl-table tr:last-child td{border-bottom:none;}
+.kl-num{text-align:right;font-weight:700;color:var(--blue-dark);}
+
+/* Sync tab */
+.sync-status{display:flex;align-items:center;gap:10px;background:var(--gray-light);border-radius:var(--r-sm);padding:12px;margin-bottom:12px;}
+.sync-dot{width:10px;height:10px;border-radius:50%;background:#ddd;flex-shrink:0;}
+.sync-dot.online{background:#4CAF50;}
+.sync-dot.offline{background:#F44336;}
+.btn-sync{width:100%;background:var(--blue);color:#fff;border-radius:var(--r);padding:13px;font-size:15px;font-weight:700;margin-bottom:10px;}
+.btn-export{width:100%;background:var(--gray-light);color:var(--text);border-radius:var(--r);padding:13px;font-size:14px;font-weight:600;margin-bottom:8px;}
+.btn-export.green{background:var(--green-light);color:var(--green);}
+.btn-hc{width:100%;background:var(--orange);color:#fff;border-radius:var(--r);padding:13px;font-size:15px;font-weight:700;margin-bottom:8px;}
+
+/* ── MODAL THÊM ĐIỂM ── */
+#modalDiem{position:fixed;inset:0;z-index:800;display:flex;align-items:flex-end;}
+#modalDiem.hide{display:none;}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);}
+.modal-sheet{position:relative;background:#fff;border-radius:20px 20px 0 0;width:100%;padding:0 0 30px;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
+.modal-handle{width:40px;height:4px;background:#ddd;border-radius:2px;margin:12px auto 0;}
+.modal-title{font-size:16px;font-weight:900;padding:14px 20px 0;color:var(--blue);}
+.modal-step{padding:0 20px;}
+.step-label{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;margin:14px 0 8px;}
+
+/* Loại điểm buttons */
+.loai-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.loai-btn{padding:12px 6px;border-radius:var(--r-sm);border:2px solid transparent;text-align:center;font-size:13px;font-weight:700;transition:all .15s;}
+.loai-btn .icon{font-size:22px;display:block;margin-bottom:3px;}
+.loai-btn.selected{border-color:currentColor;box-shadow:0 0 0 3px rgba(0,0,0,.08);}
+
+/* Vật tư */
+.vt-search{display:flex;align-items:center;gap:8px;background:var(--gray-light);border-radius:var(--r-sm);padding:9px 12px;margin-bottom:10px;}
+.vt-search input{border:none;background:transparent;font-size:14px;flex:1;outline:none;}
+.vt-group{margin-bottom:12px;}
+.vt-group-name{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:6px;}
+.vt-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f5;}
+.vt-row:last-child{border-bottom:none;}
+.vt-name{flex:1;font-size:14px;}
+.vt-dv{font-size:12px;color:var(--text2);margin-left:4px;}
+.vt-qty{display:flex;align-items:center;gap:6px;}
+.vt-qty button{width:30px;height:30px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.vt-qty input{width:42px;text-align:center;font-size:15px;font-weight:700;border:1.5px solid #ddd;border-radius:var(--r-sm);padding:4px;outline:none;}
+.vt-qty input:focus{border-color:var(--blue);}
+
+/* Ghi chú + Ảnh */
+.ghichu-inp{width:100%;border:1.5px solid #ddd;border-radius:var(--r-sm);padding:10px 12px;font-size:14px;outline:none;resize:none;margin-bottom:10px;}
+.ghichu-inp:focus{border-color:var(--blue);}
+
+/* Modal footer */
+.modal-footer{display:flex;gap:10px;padding:14px 20px 0;}
+.btn-modal-cancel{flex:1;background:var(--gray-light);color:var(--text);border-radius:var(--r);padding:13px;font-size:15px;font-weight:700;}
+.btn-modal-save{flex:2;background:var(--blue);color:#fff;border-radius:var(--r);padding:13px;font-size:15px;font-weight:800;}
+
+/* ── MODAL XEM ĐIỂM ── */
+#modalXemDiem{position:fixed;inset:0;z-index:800;display:flex;align-items:flex-end;}
+#modalXemDiem.hide{display:none;}
+.xem-sheet{position:relative;background:#fff;border-radius:20px 20px 0 0;width:100%;padding:0 20px 30px;max-height:75vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
+.xem-header{display:flex;align-items:center;gap:12px;padding:16px 0 12px;border-bottom:1px solid #eee;}
+.xem-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0;}
+.xem-stt{font-size:22px;font-weight:900;}
+.xem-chu{font-size:13px;color:var(--text2);}
+.xem-bu{font-size:11px;font-weight:700;color:var(--orange);}
+.xem-body{padding:12px 0;}
+.xem-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:14px;}
+.xem-row label{color:var(--text2);}
+.xem-row span{font-weight:600;}
+.xem-vt-title{font-size:13px;font-weight:700;margin:12px 0 8px;}
+.xem-vt-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;}
+.xem-actions{display:flex;gap:10px;margin-top:14px;}
+.btn-xem-sua{flex:1;background:var(--blue-light);color:var(--blue);border-radius:var(--r);padding:12px;font-size:14px;font-weight:700;}
+.btn-xem-xoa{flex:1;background:var(--red-light);color:var(--red);border-radius:var(--r);padding:12px;font-size:14px;font-weight:700;}
+
+/* ── MODAL TIỀN CACHE ── */
+#modalCache{position:fixed;inset:0;z-index:800;display:flex;align-items:center;justify-content:center;padding:20px;}
+#modalCache.hide{display:none;}
+.cache-card{background:#fff;border-radius:20px;padding:26px 22px;width:100%;max-width:380px;box-shadow:var(--shadow-lg);}
+.cache-title{font-size:17px;font-weight:900;color:var(--blue);margin-bottom:6px;}
+.cache-sub{font-size:13px;color:var(--text2);margin-bottom:16px;}
+.cache-progress{background:var(--gray-light);border-radius:8px;height:8px;margin-bottom:8px;overflow:hidden;}
+.cache-bar{height:100%;background:var(--blue);border-radius:8px;transition:width .3s;}
+.cache-pct{font-size:13px;color:var(--text2);text-align:center;margin-bottom:16px;}
+
+/* ── LEAFLET CUSTOM ── */
+.marker-pin{width:32px;height:32px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);position:relative;}
+.marker-pin.bu{border-style:dashed;border-width:2px;}
+.marker-label{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;white-space:nowrap;}
+.acc-circle{pointer-events:none;}
+.seg-label{background:rgba(255,255,255,.85);border:none;font-size:11px;font-weight:700;color:#333;padding:2px 5px;border-radius:4px;white-space:nowrap;}
+
+@media(max-width:360px){
+  .loai-grid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+<!-- ── LOADER ── -->
+<div id="loader"><div class="spin"></div><span id="loaderTxt">Đang tải...</span></div>
+
+<!-- ══════════════════════════════════════
+     SCREEN: CÀI ĐẶT
+══════════════════════════════════════ -->
+<div class="screen" id="sCaiDat">
+  <div class="cd-card" style="margin-top:auto;margin-bottom:auto;">
+    <div class="cd-logo">⚡</div>
+    <div class="cd-title">Kéo Điện AC</div>
+    <div class="cd-sub">App chấm tuyến kéo điện cấp nguồn trạm BTS</div>
+    <div class="form-lbl">Tên / Mã đội thi công</div>
+    <input class="form-inp" id="inpTenDoi" type="text" placeholder="VD: Đội 1 - Đức Trọng" autocomplete="off">
+    <div class="form-lbl">URL Endpoint (Google Apps Script)</div>
+    <input class="form-inp" id="inpEndpoint" type="url" placeholder="https://script.google.com/macros/s/...">
+    <button class="btn-primary" onclick="App.saveCaiDat()">Bắt đầu →</button>
+    <button class="btn-ghost" onclick="App.skipCaiDat()">Bỏ qua (dùng mock server)</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN: CHỌN CÔNG TRÌNH
+══════════════════════════════════════ -->
+<div class="screen hide" id="sChonCT">
+  <div class="ct-header">
+    <h1>Chọn công trình</h1>
+    <p id="ctDoi">—</p>
+  </div>
+  <div class="ct-body">
+    <div class="search-row">
+      <div class="search-box">
+        <span>🔍</span>
+        <input id="ctSearch" type="text" placeholder="Tìm mã trạm, mã HĐ, tên..." oninput="App.filterCT()">
+      </div>
+      <button class="btn-refresh" onclick="App.loadCT(true)" title="Cập nhật">↻</button>
+    </div>
+    <div id="ctList"><div class="ct-empty">Đang tải...</div></div>
+    <button class="btn-ghost" onclick="App.goScreen('sCaiDat')" style="margin-top:10px;">⚙ Cài đặt</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN: CHỌN LOẠI TUYẾN
+══════════════════════════════════════ -->
+<div class="screen hide" id="sLoaiTuyen">
+  <div class="modal-backdrop" onclick="App.goScreen('sChonCT')"></div>
+  <div class="lt-card" style="position:relative;margin:auto;">
+    <div class="lt-title" id="ltTenCT">—</div>
+    <div class="lt-sub" id="ltMaCT">—</div>
+    <div class="lt-section">
+      <label>Loại tuyến</label>
+      <div class="radio-group">
+        <div class="radio-btn active" data-val="1pha" onclick="App.selectLoai('tuyen',this)">1 pha<br><small>2 sợi</small></div>
+        <div class="radio-btn" data-val="3pha" onclick="App.selectLoai('tuyen',this)">3 pha<br><small>4 sợi</small></div>
+      </div>
+    </div>
+    <div class="lt-section">
+      <label>Loại dây</label>
+      <div class="radio-group">
+        <div class="radio-btn active" data-val="Muller 2x16" onclick="App.selectLoai('day',this)">Muller 2x16</div>
+        <div class="radio-btn" data-val="Muller 4x16" onclick="App.selectLoai('day',this)">Muller 4x16</div>
+        <div class="radio-btn" data-val="Khác" onclick="App.selectLoai('day',this)">Khác</div>
+      </div>
+    </div>
+    <div class="lt-info" id="ltInfo">1 pha · Muller 2x16 · hệ số chùng 1.03</div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="App.goScreen('sChonCT')">Huỷ</button>
+      <button class="btn-ok" onclick="App.confirmLoaiTuyen()">Vào tuyến →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN MAIN
+══════════════════════════════════════ -->
+<div class="screen hide" id="sMain">
+  <div class="main-header">
+    <div class="hdr-back" onclick="App.goScreen('sChonCT')">‹</div>
+    <div class="hdr-info">
+      <div class="hdr-tram" id="hdrTram">—</div>
+      <div class="hdr-sub" id="hdrSub">—</div>
+    </div>
+    <div class="hdr-acts">
+      <button class="hdr-btn" onclick="App.showCache()">🗺 Offline</button>
+      <button class="hdr-btn" onclick="App.xuatPDF('tc')">📄 TC</button>
+    </div>
+  </div>
+
+  <div id="map" style="flex:1;position:relative;"></div>
+
+  <!-- FAB GPS -->
+  <button id="fabGPS" onclick="App.toggleTracking()">📍</button>
+  <!-- FAB Thêm -->
+  <button id="fabAdd" onclick="App.addTaiGPS()">
+    <span class="acc-dot" id="accDot"></span>
+    <span>➕ Thêm tại GPS</span>
+  </button>
+
+  <!-- PANEL -->
+  <div id="panel" class="collapsed">
+    <div class="panel-handle" id="panelHandle"></div>
+    <div class="panel-tabs">
+      <div class="ptab active" onclick="App.switchTab('tuyen')">📍 Tuyến</div>
+      <div class="ptab" onclick="App.switchTab('kl')">📊 Khối lượng</div>
+      <div class="ptab" onclick="App.switchTab('sync')">☁ Đồng bộ</div>
+    </div>
+    <div class="panel-body" id="tabTuyen"></div>
+    <div class="panel-body hide" id="tabKL"></div>
+    <div class="panel-body hide" id="tabSync"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL THÊM / SỬA ĐIỂM
+══════════════════════════════════════ -->
+<div id="modalDiem" class="hide">
+  <div class="modal-backdrop" onclick="App.closeModalDiem()"></div>
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalDiemTitle">Thêm điểm</div>
+    <!-- Bước 1: Loại điểm -->
+    <div class="modal-step" id="stepLoai">
+      <div class="step-label">Chọn loại điểm</div>
+      <div class="loai-grid">
+        <button class="loai-btn" style="background:#FFF3E0;color:#E65100;" data-loai="congto" onclick="App.selectLoaiDiem(this)">
+          <span class="icon">🟧</span>Công tơ
+        </button>
+        <button class="loai-btn" style="background:#FFFDE7;color:#F9A825;" data-loai="vnpt" onclick="App.selectLoaiDiem(this)">
+          <span class="icon">🟨</span>VNPT
+        </button>
+        <button class="loai-btn" style="background:#E8F5E9;color:#2E7D32;" data-loai="viettel" onclick="App.selectLoaiDiem(this)">
+          <span class="icon">🟩</span>Viettel
+        </button>
+        <button class="loai-btn" style="background:#FFEBEE;color:#C62828;" data-loai="dien_luc" onclick="App.selectLoaiDiem(this)">
+          <span class="icon">🟥</span>Điện lực
+        </button>
+        <button class="loai-btn" style="background:#E3F2FD;color:#1565C0;" data-loai="trong_moi" onclick="App.selectLoaiDiem(this)">
+          <span class="icon">🟦</span>Trồng mới
+        </button>
+        <button class="loai-btn" style="background:#F3E5F5;color:#6A1B9A;" data-loai="tram" onclick="App.selectLoaiDiem(this)">
+          <span class="icon">🟪</span>Trạm BTS
+        </button>
+      </div>
+    </div>
+    <!-- Bước 2: Vật tư -->
+    <div class="modal-step" id="stepVatTu" style="display:none;">
+      <div class="step-label">Vật tư tại điểm này</div>
+      <div class="vt-search">
+        <span>🔍</span>
+        <input id="vtSearch" type="text" placeholder="Tìm vật tư..." oninput="App.filterVT()">
+      </div>
+      <div id="vtList"></div>
+    </div>
+    <!-- Bước 3: Ghi chú -->
+    <div class="modal-step" id="stepGhiChu" style="display:none;">
+      <div class="step-label">Ghi chú (tuỳ chọn)</div>
+      <textarea class="ghichu-inp" id="inpGhiChu" rows="3" placeholder="VD: hạ công tơ tại cột ĐL gần QL20..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" id="btnModalBack" onclick="App.modalBack()">‹ Quay lại</button>
+      <button class="btn-modal-save" id="btnModalNext" onclick="App.modalNext()">Tiếp theo →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL XEM ĐIỂM
+══════════════════════════════════════ -->
+<div id="modalXemDiem" class="hide">
+  <div class="modal-backdrop" onclick="App.closeModalXem()"></div>
+  <div class="xem-sheet">
+    <div class="modal-handle"></div>
+    <div class="xem-header">
+      <div class="xem-icon" id="xemIcon"></div>
+      <div>
+        <div class="xem-stt" id="xemStt"></div>
+        <div class="xem-chu" id="xemChu"></div>
+        <div class="xem-bu" id="xemBu" style="display:none;">⚠ Điểm chấm bù</div>
+      </div>
+    </div>
+    <div class="xem-body">
+      <div class="xem-row"><label>Tọa độ</label><span id="xemLatLng"></span></div>
+      <div class="xem-row"><label>Sai số GPS</label><span id="xemAcc"></span></div>
+      <div class="xem-row"><label>Thời gian</label><span id="xemTime"></span></div>
+      <div class="xem-vt-title">Vật tư</div>
+      <div id="xemVatTu"></div>
+      <div class="xem-row" style="margin-top:8px;"><label>Ghi chú</label><span id="xemGhiChu">—</span></div>
+    </div>
+    <div class="xem-actions">
+      <button class="btn-xem-sua" onclick="App.suaDiem()">✏ Sửa</button>
+      <button class="btn-xem-xoa" onclick="App.xoaDiem()">🗑 Xoá</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL CACHE BẢN ĐỒ
+══════════════════════════════════════ -->
+<div id="modalCache" class="hide">
+  <div class="modal-backdrop" onclick="App.closeCache()"></div>
+  <div class="cache-card">
+    <div class="cache-title">🗺 Tải bản đồ offline</div>
+    <div class="cache-sub" id="cacheSub">Cache tile bán kính 3km quanh vị trí trạm BTS để dùng không cần mạng.</div>
+    <div class="cache-progress"><div class="cache-bar" id="cacheBar" style="width:0%"></div></div>
+    <div class="cache-pct" id="cachePct">Chưa tải</div>
+    <div class="btn-row" style="gap:10px;">
+      <button class="btn-cancel" onclick="App.closeCache()">Đóng</button>
+      <button class="btn-ok" id="btnCache" onclick="App.startCache()">Tải ngay</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  APP KÉO ĐIỆN AC — v1.0
+// ══════════════════════════════════════════════════════════════
+const App = (() => {
+'use strict';
+
+// ── CONSTANTS ─────────────────────────────────────────────────
+const DB_NAME    = 'dien_ac_db';
+const DB_VER     = 1;
+const MOCK_URL   = 'http://localhost:3000';
+const HC_SO_CHUNG_DEFAULT = 1.03;
+
+const CHU_CONFIG = {
+  congto    : { label:'Công tơ',  color:'#E65100', bg:'#FFF3E0', short:'CT'  },
+  vnpt      : { label:'VNPT',     color:'#F9A825', bg:'#FFFDE7', short:'VN'  },
+  viettel   : { label:'Viettel',  color:'#2E7D32', bg:'#E8F5E9', short:'VT'  },
+  dien_luc  : { label:'Điện lực', color:'#C62828', bg:'#FFEBEE', short:'ĐL'  },
+  trong_moi : { label:'Trồng mới',color:'#1565C0', bg:'#E3F2FD', short:'TM'  },
+  tram      : { label:'Trạm BTS', color:'#6A1B9A', bg:'#F3E5F5', short:'BTS' },
+};
+
+// ── STATE ─────────────────────────────────────────────────────
+let db, map, gpsWatch, gpsPos = null, gpsAcc = 999;
+let isTracking = false;
+let longpressTimer = null, longpressTarget = null;
+let tuyen = null;       // tuyến đang làm việc
+let danhMucVT = [];     // danh mục vật tư
+let danhSachCT = [];    // danh sách công trình
+let selectedCT = null;
+let loaiTuyen = '1pha', loaiDay = 'Muller 2x16';
+let modalMode = 'add';  // 'add' | 'edit'
+let editDiemId = null;
+let insertAfterIdx = null; // chèn sau index này (-1 = cuối)
+let modalStep = 1;
+let currentLoaiDiem = null;
+let tempVatTu = [];     // vật tư tạm trong modal
+let xemDiemId = null;
+let markers = {};       // id → L.marker
+let polyline = null;
+let segLabels = [];
+let currentTab = 'tuyen';
+
+// ── IDB SETUP ────────────────────────────────────────────────
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('danh_muc_vat_tu'))
+        d.createObjectStore('danh_muc_vat_tu', { keyPath: 'ma_vt' });
+      if (!d.objectStoreNames.contains('ke_hoach_kpi'))
+        d.createObjectStore('ke_hoach_kpi', { keyPath: 'ma_tram' });
+      if (!d.objectStoreNames.contains('tuyen_dien'))
+        d.createObjectStore('tuyen_dien', { keyPath: 'ma_tram' });
+      if (!d.objectStoreNames.contains('hang_doi_sync'))
+        d.createObjectStore('hang_doi_sync', { keyPath: 'id', autoIncrement: true });
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+function idbAll(store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => res(req.result);
+    req.onerror   = () => rej(req.error);
+  });
+}
+
+function idbGet(store, key) {
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => res(req.result);
+    req.onerror   = () => rej(req.error);
+  });
+}
+
+function idbPut(store, val) {
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(val);
+    req.onsuccess = () => res(req.result);
+    req.onerror   = () => rej(req.error);
+  });
+}
+
+function idbDelete(store, key) {
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = () => res();
+    req.onerror   = () => rej(req.error);
+  });
+}
+
+function idbAdd(store, val) {
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).add(val);
+    req.onsuccess = () => res(req.result);
+    req.onerror   = () => rej(req.error);
+  });
+}
+
+function idbClearStore(store) {
+  return new Promise((res, rej) => {
+    const tx  = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).clear();
+    req.onsuccess = () => res();
+    req.onerror   = () => rej(req.error);
+  });
+}
+
+// ── UTILS ────────────────────────────────────────────────────
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371000, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function fmtDist(m) { return m >= 1000 ? (m/1000).toFixed(2)+'km' : Math.round(m)+'m'; }
+function fmtTime(iso) { return new Date(iso).toLocaleString('vi-VN'); }
+function vibrate(ms = 50) { try { navigator.vibrate(ms); } catch {} }
+
+function toast(msg, dur = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+
+function loader(show, txt = 'Đang tải...') {
+  document.getElementById('loaderTxt').textContent = txt;
+  document.getElementById('loader').classList.toggle('show', show);
+}
+
+function getEndpoint() {
+  return localStorage.getItem('endpoint') || MOCK_URL;
+}
+
+async function apiGet(type, params = '') {
+  const url = `${getEndpoint()}?type=${type}${params}`;
+  const res  = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function apiPost(data) {
+  const res = await fetch(getEndpoint(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+// ── SCREENS ──────────────────────────────────────────────────
+function goScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.toggle('hide', s.id !== id);
+  });
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+async function init() {
+  loader(true, 'Khởi động...');
+  try {
+    db = await openDB();
+    await navigator.storage?.persist?.();
+
+    // Register SW
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+
+    // Load danh mục từ IDB
+    const dmVT = await idbAll('danh_muc_vat_tu');
+    if (dmVT.length) danhMucVT = dmVT;
+
+    const tenDoi  = localStorage.getItem('ten_doi')  || '';
+    const endpoint = localStorage.getItem('endpoint') || '';
+
+    if (!tenDoi) {
+      goScreen('sCaiDat');
+    } else {
+      document.getElementById('ctDoi').textContent = tenDoi;
+      goScreen('sChonCT');
+      loadCT(false);
+    }
+  } catch(e) {
+    toast('Lỗi khởi động: ' + e.message, 4000);
+  }
+  loader(false);
+}
+
+// ── CÀI ĐẶT ──────────────────────────────────────────────────
+function saveCaiDat() {
+  const tenDoi   = document.getElementById('inpTenDoi').value.trim();
+  const endpoint = document.getElementById('inpEndpoint').value.trim();
+  if (!tenDoi) { toast('Nhập tên/mã đội trước'); return; }
+  localStorage.setItem('ten_doi',   tenDoi);
+  localStorage.setItem('endpoint',  endpoint || MOCK_URL);
+  document.getElementById('ctDoi').textContent = tenDoi;
+  goScreen('sChonCT');
+  loadCT(true);
+}
+
+function skipCaiDat() {
+  const tenDoi = document.getElementById('inpTenDoi').value.trim() || 'Đội Test';
+  localStorage.setItem('ten_doi',  tenDoi);
+  localStorage.setItem('endpoint', MOCK_URL);
+  document.getElementById('ctDoi').textContent = tenDoi;
+  goScreen('sChonCT');
+  loadCT(true);
+}
+
+// ── CHỌN CÔNG TRÌNH ──────────────────────────────────────────
+async function loadCT(forceNetwork = false) {
+  const listEl = document.getElementById('ctList');
+  listEl.innerHTML = '<div class="ct-empty">Đang tải...</div>';
+
+  // Cache
+  const cached = await idbAll('ke_hoach_kpi');
+  if (cached.length && !forceNetwork) {
+    danhSachCT = cached;
+    renderCT();
+    return;
+  }
+
+  try {
+    loader(true, 'Tải danh sách công trình...');
+    const r = await apiGet('congtrinh');
+    if (r.ok && r.data?.length) {
+      danhSachCT = r.data;
+      await idbClearStore('ke_hoach_kpi');
+      for (const ct of r.data) await idbPut('ke_hoach_kpi', ct);
+    }
+
+    // Load danh mục vật tư
+    const rv = await apiGet('vattu');
+    if (rv.ok && rv.data?.length) {
+      danhMucVT = rv.data;
+      await idbClearStore('danh_muc_vat_tu');
+      for (const v of rv.data) await idbPut('danh_muc_vat_tu', v);
+    }
+  } catch(e) {
+    if (!danhSachCT.length && cached.length) danhSachCT = cached;
+    toast(danhSachCT.length ? 'Offline — dùng dữ liệu đã lưu' : 'Cần mạng lần đầu để tải danh mục');
+  }
+  loader(false);
+  renderCT();
+}
+
+function renderCT() {
+  const q   = (document.getElementById('ctSearch').value || '').toLowerCase();
+  const els = danhSachCT.filter(ct =>
+    !q || ct.ma_tram?.toLowerCase().includes(q) ||
+          ct.ma_hop_dong?.toLowerCase().includes(q) ||
+          ct.ten_cong_trinh?.toLowerCase().includes(q)
+  );
+  const listEl = document.getElementById('ctList');
+  if (!els.length) { listEl.innerHTML = '<div class="ct-empty">Không tìm thấy</div>'; return; }
+  listEl.innerHTML = els.map(ct => `
+    <div class="ct-item" onclick="App.chonCT('${ct.ma_tram}')">
+      <div class="ct-dot"></div>
+      <div class="ct-info">
+        <div class="ct-name">${ct.ten_cong_trinh || ct.ma_tram}</div>
+        <div class="ct-sub">${ct.ma_tram} · ${ct.ma_hop_dong || '—'}</div>
+      </div>
+      <div class="ct-badge">${ct.trang_thai || 'Chờ'}</div>
+    </div>`).join('');
+}
+
+function filterCT() { renderCT(); }
+
+async function chonCT(maTram) {
+  selectedCT = danhSachCT.find(c => c.ma_tram === maTram);
+  if (!selectedCT) return;
+  document.getElementById('ltTenCT').textContent = selectedCT.ten_cong_trinh;
+  document.getElementById('ltMaCT').textContent  = `${selectedCT.ma_tram} · ${selectedCT.ma_hop_dong || '—'}`;
+  updateLtInfo();
+  goScreen('sLoaiTuyen');
+}
+
+// ── CHỌN LOẠI TUYẾN ──────────────────────────────────────────
+function selectLoai(type, el) {
+  const group = el.closest('.radio-group');
+  group.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  if (type === 'tuyen') loaiTuyen = el.dataset.val;
+  if (type === 'day')   loaiDay   = el.dataset.val;
+  updateLtInfo();
+}
+
+function updateLtInfo() {
+  const soSoi = loaiTuyen === '1pha' ? 2 : 4;
+  document.getElementById('ltInfo').textContent =
+    `${loaiTuyen === '1pha' ? '1 pha' : '3 pha'} · ${loaiDay} · ${soSoi} sợi · hệ số chùng ${HC_SO_CHUNG_DEFAULT}`;
+}
+
+async function confirmLoaiTuyen() {
+  if (!selectedCT) return;
+  loader(true, 'Chuẩn bị tuyến...');
+
+  // Load hoặc tạo tuyến
+  let t = await idbGet('tuyen_dien', selectedCT.ma_tram);
+  if (!t) {
+    t = {
+      ma_tram        : selectedCT.ma_tram,
+      ma_hop_dong    : selectedCT.ma_hop_dong || '',
+      ten_cong_trinh : selectedCT.ten_cong_trinh || '',
+      ten_doi        : localStorage.getItem('ten_doi') || '',
+      loai_tuyen     : loaiTuyen,
+      loai_day       : loaiDay,
+      he_so_chung    : HC_SO_CHUNG_DEFAULT,
+      trang_thai     : 'khao_sat',
+      diem           : [],
+      thoi_gian_tao  : new Date().toISOString(),
+      thoi_gian_cap_nhat: new Date().toISOString()
+    };
+    await idbPut('tuyen_dien', t);
+  } else {
+    t.loai_tuyen = loaiTuyen;
+    t.loai_day   = loaiDay;
+    await idbPut('tuyen_dien', t);
+  }
+
+  tuyen = t;
+  loader(false);
+  goScreen('sMain');
+  initMain();
+}
+
+// ── MAIN: INIT MAP ────────────────────────────────────────────
+function initMain() {
+  document.getElementById('hdrTram').textContent = tuyen.ten_cong_trinh || tuyen.ma_tram;
+  document.getElementById('hdrSub').textContent  = `${tuyen.ma_tram} · ${tuyen.loai_tuyen === '1pha' ? '1 pha' : '3 pha'} · ${tuyen.loai_day}`;
+
+  // Init map nếu chưa có
+  if (!map) {
+    map = L.map('map', { zoomControl: false }).setView([11.94, 108.40], 15);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19,
+      crossOrigin: true
+    }).addTo(map);
+
+    // Long-press trên map
+    setupLongPress();
+
+    // Panel swipe
+    setupPanelSwipe();
+
+    map.on('dragstart', () => {
+      if (isTracking) { isTracking = false; document.getElementById('fabGPS').classList.remove('tracking'); }
+    });
+  }
+
+  renderMap();
+  startGPS();
+  renderTabTuyen();
+  renderTabKL();
+  renderTabSync();
+}
+
+// ── GPS ───────────────────────────────────────────────────────
+function startGPS() {
+  if (!navigator.geolocation) return;
+  if (gpsWatch) navigator.geolocation.clearWatch(gpsWatch);
+  gpsWatch = navigator.geolocation.watchPosition(
+    pos => {
+      gpsPos = pos.coords;
+      gpsAcc = Math.round(pos.coords.accuracy);
+      updateAccDot();
+      if (isTracking && map) map.setView([gpsPos.latitude, gpsPos.longitude]);
+      updateGPSMarker();
+    },
+    err => { toast('GPS: ' + err.message); },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+}
+
+function updateAccDot() {
+  const dot = document.getElementById('accDot');
+  dot.className = 'acc-dot ' + (gpsAcc <= 10 ? 'green' : gpsAcc <= 20 ? 'yellow' : 'red');
+}
+
+let gpsCircle = null, gpsMarker = null;
+function updateGPSMarker() {
+  if (!gpsPos || !map) return;
+  const ll = [gpsPos.latitude, gpsPos.longitude];
+  if (!gpsMarker) {
+    gpsMarker = L.circleMarker(ll, { radius:8, color:'#1565C0', fillColor:'#42A5F5', fillOpacity:1, weight:2 }).addTo(map);
+    gpsCircle = L.circle(ll, { radius:gpsAcc, color:'#1565C0', fillColor:'#1565C0', fillOpacity:.1, weight:1 }).addTo(map);
+  } else {
+    gpsMarker.setLatLng(ll);
+    gpsCircle.setLatLng(ll).setRadius(gpsAcc);
+  }
+}
+
+function toggleTracking() {
+  if (!gpsPos) { toast('Đang chờ GPS...'); startGPS(); return; }
+  isTracking = !isTracking;
+  document.getElementById('fabGPS').classList.toggle('tracking', isTracking);
+  if (isTracking) map.setView([gpsPos.latitude, gpsPos.longitude], 18);
+}
+
+// ── LONG PRESS MAP ───────────────────────────────────────────
+function setupLongPress() {
+  const mapEl = document.getElementById('map');
+
+  const start = (e) => {
+    const touch = e.touches?.[0] || e;
+    longpressTarget = { x: touch.clientX, y: touch.clientY };
+    longpressTimer = setTimeout(() => {
+      vibrate(50);
+      const ll = map.containerPointToLatLng([longpressTarget.x, longpressTarget.y]);
+      openModalDiem(ll.lat, ll.lng, false);
+      longpressTarget = null;
+    }, 1500);
+  };
+
+  const cancel = () => { clearTimeout(longpressTimer); longpressTarget = null; };
+  const move   = (e) => {
+    if (!longpressTarget) return;
+    const touch = e.touches?.[0] || e;
+    const dx = touch.clientX - longpressTarget.x, dy = touch.clientY - longpressTarget.y;
+    if (Math.sqrt(dx*dx + dy*dy) > 10) cancel();
+  };
+
+  mapEl.addEventListener('touchstart', start, { passive: true });
+  mapEl.addEventListener('touchend',   cancel);
+  mapEl.addEventListener('touchmove',  move,  { passive: true });
+}
+
+// ── PANEL SWIPE ───────────────────────────────────────────────
+function setupPanelSwipe() {
+  const panel  = document.getElementById('panel');
+  const handle = document.getElementById('panelHandle');
+  let startY = 0, startH = 0;
+
+  const onStart = (e) => {
+    startY = (e.touches?.[0] || e).clientY;
+    startH = panel.offsetHeight;
+  };
+  const onMove = (e) => {
+    const dy  = startY - (e.touches?.[0] || e).clientY;
+    const newH = Math.max(80, Math.min(window.innerHeight * 0.85, startH + dy));
+    panel.style.height = newH + 'px';
+    panel.className = ''; // remove class while dragging
+  };
+  const onEnd = () => {
+    const h = panel.offsetHeight, vh = window.innerHeight;
+    panel.style.height = '';
+    if (h < vh * 0.25)      panel.className = 'collapsed';
+    else if (h < vh * 0.65) panel.className = 'half';
+    else                     panel.className = 'full';
+  };
+
+  handle.addEventListener('touchstart', onStart, { passive: true });
+  handle.addEventListener('touchmove',  onMove,  { passive: true });
+  handle.addEventListener('touchend',   onEnd);
+  handle.addEventListener('mousedown',  onStart);
+  window.addEventListener('mousemove',  onMove);
+  window.addEventListener('mouseup',    onEnd);
+
+  // Click handle → toggle
+  handle.addEventListener('click', () => {
+    if (panel.classList.contains('collapsed')) panel.className = 'half';
+    else if (panel.classList.contains('half'))  panel.className = 'full';
+    else                                         panel.className = 'collapsed';
+  });
+}
+
+function switchTab(name) {
+  currentTab = name;
+  document.querySelectorAll('.ptab').forEach((t,i) => {
+    t.classList.toggle('active', ['tuyen','kl','sync'][i] === name);
+  });
+  document.getElementById('tabTuyen').classList.toggle('hide', name !== 'tuyen');
+  document.getElementById('tabKL').classList.toggle('hide', name !== 'kl');
+  document.getElementById('tabSync').classList.toggle('hide', name !== 'sync');
+  if (name !== 'tuyen') document.getElementById('panel').className = 'half';
+}
+
+// ── RENDER MAP ────────────────────────────────────────────────
+function renderMap() {
+  if (!map || !tuyen) return;
+
+  // Xóa marker + line cũ
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+  if (polyline) map.removeLayer(polyline);
+  segLabels.forEach(l => map.removeLayer(l));
+  segLabels = [];
+
+  const diem = tuyen.diem || [];
+
+  // Vẽ line
+  if (diem.length >= 2) {
+    const lls = diem.map(d => [d.lat, d.lng]);
+    polyline = L.polyline(lls, { color:'#1565C0', weight:5, opacity:.85 }).addTo(map);
+
+    // Nhãn khoảng cách mỗi đoạn
+    for (let i = 0; i < diem.length - 1; i++) {
+      const d1 = diem[i], d2 = diem[i+1];
+      const dist = d1.chieu_dai_thu_cong || haversine(d1.lat, d1.lng, d2.lat, d2.lng);
+      const midLat = (d1.lat + d2.lat) / 2, midLng = (d1.lng + d2.lng) / 2;
+      const lbl = L.marker([midLat, midLng], {
+        icon: L.divIcon({ className:'seg-label', html: fmtDist(dist), iconAnchor:[20, 10] }),
+        interactive: false
+      }).addTo(map);
+      segLabels.push(lbl);
+    }
+  }
+
+  // Vẽ markers
+  diem.forEach((d, idx) => {
+    const cfg = CHU_CONFIG[d.chu_so_huu] || CHU_CONFIG.vnpt;
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="marker-pin${d.cham_bu ? ' bu' : ''}" style="background:${cfg.color};border-color:${d.cham_bu ? '#FFC107' : '#fff'};">
+               ${d.stt}
+               <div class="marker-label">${cfg.short}</div>
+             </div>`,
+      iconSize: [32, 50], iconAnchor: [16, 50]
+    });
+    const m = L.marker([d.lat, d.lng], { icon, draggable: true }).addTo(map);
+
+    m.on('click', () => showXemDiem(d.id));
+    m.on('dragend', async (e) => {
+      const ll = e.target.getLatLng();
+      d.lat = ll.lat; d.lng = ll.lng;
+      tuyen.thoi_gian_cap_nhat = new Date().toISOString();
+      await idbPut('tuyen_dien', tuyen);
+      renderMap();
+      renderTabTuyen();
+      renderTabKL();
+    });
+
+    markers[d.id] = m;
+  });
+
+  // Fly đến tuyến nếu có điểm
+  if (diem.length) {
+    const bounds = L.latLngBounds(diem.map(d => [d.lat, d.lng]));
+    map.fitBounds(bounds.pad(0.2));
+  }
+}
+
+// ── THÊM TẠI GPS ─────────────────────────────────────────────
+function addTaiGPS() {
+  if (!gpsPos) { toast('Đang chờ GPS...'); return; }
+  openModalDiem(gpsPos.latitude, gpsPos.longitude, true);
+}
+
+// ── MODAL ĐIỂM ───────────────────────────────────────────────
+let pendingLat, pendingLng, pendingFromGPS;
+
+function openModalDiem(lat, lng, fromGPS) {
+  pendingLat = lat; pendingLng = lng; pendingFromGPS = fromGPS;
+  modalMode = 'add'; editDiemId = null;
+  modalStep = 1; currentLoaiDiem = null;
+  tempVatTu = [];
+  insertAfterIdx = null;
+
+  // Tính chèn vào đoạn nào (nếu bấm giữ gần đoạn ≤50m)
+  if (!fromGPS && tuyen?.diem?.length >= 2) {
+    insertAfterIdx = findInsertSegment(lat, lng);
+  }
+
+  document.getElementById('modalDiemTitle').textContent = 'Thêm điểm';
+  document.querySelectorAll('.loai-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('inpGhiChu').value = '';
+  document.getElementById('vtSearch').value = '';
+
+  showModalStep(1);
+  document.getElementById('modalDiem').classList.remove('hide');
+}
+
+function findInsertSegment(lat, lng) {
+  const diem = tuyen.diem;
+  let minDist = Infinity, minIdx = -1;
+  for (let i = 0; i < diem.length - 1; i++) {
+    const d = distToSegment(lat, lng, diem[i].lat, diem[i].lng, diem[i+1].lat, diem[i+1].lng);
+    if (d < minDist) { minDist = d; minIdx = i; }
+  }
+  return minDist <= 50 ? minIdx : -1;
+}
+
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx-ax, dy = by-ay;
+  if (dx===0 && dy===0) return haversine(px,py,ax,ay);
+  const t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / (dx*dx+dy*dy)));
+  return haversine(px, py, ax+t*dx, ay+t*dy);
+}
+
+function showModalStep(step) {
+  modalStep = step;
+  document.getElementById('stepLoai').style.display   = step === 1 ? '' : 'none';
+  document.getElementById('stepVatTu').style.display  = step === 2 ? '' : 'none';
+  document.getElementById('stepGhiChu').style.display = step === 3 ? '' : 'none';
+
+  const btnBack = document.getElementById('btnModalBack');
+  const btnNext = document.getElementById('btnModalNext');
+  btnBack.textContent = step === 1 ? 'Huỷ' : '‹ Quay lại';
+  btnNext.textContent = step < 3 ? 'Tiếp theo →' : '💾 Lưu';
+
+  if (step === 2) renderVatTu();
+}
+
+function selectLoaiDiem(el) {
+  document.querySelectorAll('.loai-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  currentLoaiDiem = el.dataset.loai;
+}
+
+function modalNext() {
+  if (modalStep === 1) {
+    if (!currentLoaiDiem) { toast('Chọn loại điểm trước'); return; }
+    // Kiểm trùng công tơ / trạm
+    if (currentLoaiDiem === 'congto' && tuyen.diem.some(d => d.chu_so_huu === 'congto') && modalMode === 'add') {
+      if (!confirm('Đã có Công tơ. Thay thế?')) return;
+      const idx = tuyen.diem.findIndex(d => d.chu_so_huu === 'congto');
+      tuyen.diem.splice(idx, 1);
+    }
+    if (currentLoaiDiem === 'tram' && tuyen.diem.some(d => d.chu_so_huu === 'tram') && modalMode === 'add') {
+      if (!confirm('Đã có Trạm BTS. Thay thế?')) return;
+      const idx = tuyen.diem.findIndex(d => d.chu_so_huu === 'tram');
+      tuyen.diem.splice(idx, 1);
+    }
+    // Init vật tư từ danh mục
+    tempVatTu = danhMucVT.map(v => ({
+      ma_vt: v.ma_vt,
+      ten_vt: v.ten_vt,
+      don_vi: v.don_vi,
+      nhom: v.nhom,
+      sl: (v.mac_dinh === 'x' && isVatTuApply(v, currentLoaiDiem))
+            ? (parseFloat(v.sl_mac_dinh) || 1) : 0
+    }));
+    showModalStep(2);
+  } else if (modalStep === 2) {
+    showModalStep(3);
+  } else if (modalStep === 3) {
+    saveDiem();
+  }
+}
+
+function isVatTuApply(v, loai) {
+  // Aptomat+hộp công tơ chỉ cho công tơ
+  if (v.nhom === 'Công tơ') return loai === 'congto';
+  return true;
+}
+
+function modalBack() {
+  if (modalStep === 1) closeModalDiem();
+  else showModalStep(modalStep - 1);
+}
+
+function closeModalDiem() {
+  document.getElementById('modalDiem').classList.add('hide');
+}
+
+function filterVT() {
+  renderVatTu();
+}
+
+function renderVatTu() {
+  const q = (document.getElementById('vtSearch').value || '').toLowerCase();
+  const groups = {};
+  tempVatTu.forEach(v => {
+    if (q && !v.ten_vt.toLowerCase().includes(q)) return;
+    if (!groups[v.nhom]) groups[v.nhom] = [];
+    groups[v.nhom].push(v);
+  });
+  const html = Object.entries(groups).map(([nhom, items]) => `
+    <div class="vt-group">
+      <div class="vt-group-name">${nhom}</div>
+      ${items.map(v => `
+        <div class="vt-row">
+          <span class="vt-name">${v.ten_vt}<span class="vt-dv">(${v.don_vi})</span></span>
+          <div class="vt-qty">
+            <button onclick="App.changeVT('${v.ma_vt}',-1)">−</button>
+            <input type="number" min="0" value="${v.sl}" onchange="App.setVT('${v.ma_vt}',this.value)">
+            <button onclick="App.changeVT('${v.ma_vt}',1)">+</button>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+  document.getElementById('vtList').innerHTML = html || '<div style="color:#999;padding:12px;text-align:center;">Không có vật tư</div>';
+}
+
+function changeVT(maVt, delta) {
+  const v = tempVatTu.find(x => x.ma_vt === maVt);
+  if (!v) return;
+  v.sl = Math.max(0, (v.sl || 0) + delta);
+  renderVatTu();
+}
+
+function setVT(maVt, val) {
+  const v = tempVatTu.find(x => x.ma_vt === maVt);
+  if (v) v.sl = Math.max(0, parseFloat(val) || 0);
+}
+
+// ── LƯU ĐIỂM ────────────────────────────────────────────────
+async function saveDiem() {
+  const ghiChu  = document.getElementById('inpGhiChu').value.trim();
+  const vtFinal = tempVatTu.filter(v => v.sl > 0).map(v => ({ ma_vt:v.ma_vt, ten_vt:v.ten_vt, don_vi:v.don_vi, sl:v.sl }));
+
+  // Chấm bù: điểm tạo cách GPS thật >100m
+  let chamBu = false;
+  if (gpsPos) {
+    const dist = haversine(pendingLat, pendingLng, gpsPos.latitude, gpsPos.longitude);
+    chamBu = dist > 100 && !pendingFromGPS;
+  }
+
+  if (modalMode === 'edit' && editDiemId) {
+    const d = tuyen.diem.find(x => x.id === editDiemId);
+    if (d) {
+      d.vat_tu  = vtFinal;
+      d.ghi_chu = ghiChu;
+      d.cham_bu = chamBu;
+    }
+  } else {
+    const newDiem = {
+      id: uuid(),
+      loai_diem   : currentLoaiDiem === 'congto' ? 'congto' : currentLoaiDiem === 'tram' ? 'tram' : 'cot',
+      chu_so_huu  : currentLoaiDiem,
+      stt         : '',
+      lat         : pendingLat,
+      lng         : pendingLng,
+      sai_so_gps  : pendingFromGPS ? gpsAcc : 0,
+      cham_bu     : chamBu,
+      vat_tu      : vtFinal,
+      ghi_chu     : ghiChu,
+      thoi_gian   : new Date().toISOString()
+    };
+
+    // Chèn vào đúng vị trí
+    if (insertAfterIdx !== null && insertAfterIdx >= 0) {
+      tuyen.diem.splice(insertAfterIdx + 1, 0, newDiem);
+    } else {
+      // Mặc định: thêm trước TRAM nếu có, hoặc cuối
+      const tramIdx = tuyen.diem.findIndex(d => d.chu_so_huu === 'tram');
+      if (tramIdx >= 0 && currentLoaiDiem !== 'tram' && currentLoaiDiem !== 'congto') {
+        tuyen.diem.splice(tramIdx, 0, newDiem);
+      } else {
+        tuyen.diem.push(newDiem);
+      }
+    }
+  }
+
+  // Tính lại STT
+  recalcSTT();
+
+  tuyen.thoi_gian_cap_nhat = new Date().toISOString();
+  await idbPut('tuyen_dien', tuyen);
+
+  // Thêm vào hàng đợi sync
+  const d = tuyen.diem.find(x => x.id === (editDiemId || tuyen.diem[tuyen.diem.length-1]?.id));
+  if (d) await queueSync(d);
+
+  closeModalDiem();
+  renderMap();
+  renderTabTuyen();
+  renderTabKL();
+  renderTabSync();
+  toast(modalMode === 'edit' ? 'Đã cập nhật điểm' : '✅ Đã lưu điểm');
+
+  // Auto sync
+  syncIfOnline();
+}
+
+function recalcSTT() {
+  let cotIdx = 0;
+  const usedBases = {};
+  tuyen.diem.forEach((d, i) => {
+    if (d.chu_so_huu === 'congto') { d.stt = 'CT'; return; }
+    if (d.chu_so_huu === 'tram')   { d.stt = 'TRAM'; return; }
+    cotIdx++;
+    // Kiểm tra chèn giữa: nếu 2 điểm liền trước-sau đều là số nguyên
+    // STT đơn giản: số nguyên liên tục (chèn giữa sẽ dùng 'a','b' trong tương lai)
+    d.stt = String(cotIdx);
+  });
+}
+
+// ── XEM ĐIỂM ────────────────────────────────────────────────
+function showXemDiem(id) {
+  const d = tuyen.diem.find(x => x.id === id);
+  if (!d) return;
+  xemDiemId = id;
+  const cfg = CHU_CONFIG[d.chu_so_huu] || CHU_CONFIG.vnpt;
+
+  document.getElementById('xemIcon').style.background = cfg.color;
+  document.getElementById('xemIcon').textContent      = d.stt;
+  document.getElementById('xemStt').textContent       = `C${d.stt}`;
+  document.getElementById('xemChu').textContent       = cfg.label;
+  document.getElementById('xemBu').style.display      = d.cham_bu ? '' : 'none';
+  document.getElementById('xemLatLng').textContent    = `${d.lat.toFixed(6)}, ${d.lng.toFixed(6)}`;
+  document.getElementById('xemAcc').textContent       = d.sai_so_gps ? `±${d.sai_so_gps}m` : '—';
+  document.getElementById('xemTime').textContent      = fmtTime(d.thoi_gian);
+  document.getElementById('xemGhiChu').textContent    = d.ghi_chu || '—';
+
+  document.getElementById('xemVatTu').innerHTML = d.vat_tu?.length
+    ? d.vat_tu.map(v => `<div class="xem-vt-row"><span>${v.ten_vt}</span><span>${v.sl} ${v.don_vi}</span></div>`).join('')
+    : '<div style="color:#999;font-size:13px;">Không có vật tư</div>';
+
+  document.getElementById('modalXemDiem').classList.remove('hide');
+}
+
+function closeModalXem() { document.getElementById('modalXemDiem').classList.add('hide'); }
+
+function suaDiem() {
+  closeModalXem();
+  const d = tuyen.diem.find(x => x.id === xemDiemId);
+  if (!d) return;
+  modalMode = 'edit'; editDiemId = d.id;
+  pendingLat = d.lat; pendingLng = d.lng;
+  currentLoaiDiem = d.chu_so_huu;
+  tempVatTu = danhMucVT.map(v => ({
+    ma_vt: v.ma_vt, ten_vt: v.ten_vt, don_vi: v.don_vi, nhom: v.nhom,
+    sl: d.vat_tu?.find(x => x.ma_vt === v.ma_vt)?.sl || 0
+  }));
+  document.getElementById('inpGhiChu').value = d.ghi_chu || '';
+  document.getElementById('vtSearch').value = '';
+  document.getElementById('modalDiemTitle').textContent = 'Sửa điểm ' + d.stt;
+  document.querySelectorAll('.loai-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.loai === d.chu_so_huu);
+  });
+  showModalStep(2);
+  document.getElementById('modalDiem').classList.remove('hide');
+}
+
+async function xoaDiem() {
+  if (!confirm('Xoá điểm này?')) return;
+  closeModalXem();
+  tuyen.diem = tuyen.diem.filter(d => d.id !== xemDiemId);
+  recalcSTT();
+  tuyen.thoi_gian_cap_nhat = new Date().toISOString();
+  await idbPut('tuyen_dien', tuyen);
+  renderMap();
+  renderTabTuyen();
+  renderTabKL();
+  toast('Đã xoá điểm');
+}
+
+// ── TAB TUYẾN ────────────────────────────────────────────────
+function renderTabTuyen() {
+  if (!tuyen) return;
+  const diem = tuyen.diem || [];
+  const totalDist = calcTotalDist();
+  const soSoi = tuyen.loai_tuyen === '1pha' ? 2 : 4;
+  const metDay = Math.round(totalDist * tuyen.he_so_chung * soSoi);
+
+  document.getElementById('tabTuyen').innerHTML = `
+    <div class="tuyen-info">
+      <div class="ti-item"><label>Số điểm</label><span>${diem.length}</span></div>
+      <div class="ti-item"><label>Chiều dài</label><span>${fmtDist(totalDist)}</span></div>
+      <div class="ti-item"><label>Mét dây</label><span>${metDay}m</span></div>
+      <div class="ti-item"><label>Trạng thái</label><span style="font-size:12px;">${tuyen.trang_thai === 'da_thi_cong' ? '✅ Hoàn công' : '📋 Khảo sát'}</span></div>
+    </div>
+    <div class="diem-list">
+      ${diem.map((d,i) => {
+        const cfg = CHU_CONFIG[d.chu_so_huu] || CHU_CONFIG.vnpt;
+        const vtTxt = d.vat_tu?.filter(v=>v.sl>0).map(v=>`${v.ten_vt.split(' ').slice(0,2).join(' ')}:${v.sl}`).join(', ') || 'Không có vật tư';
+        return `<div class="diem-row" onclick="App.showXemDiem('${d.id}')">
+          <div class="diem-icon" style="background:${cfg.color};">${d.stt}</div>
+          <div class="diem-meta">
+            <div class="diem-stt">${cfg.label} — ${d.stt}</div>
+            <div class="diem-chu">${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}</div>
+            <div class="diem-vt">${vtTxt}</div>
+          </div>
+          ${d.cham_bu ? '<span class="diem-bu">BÙ</span>' : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ── TAB KHỐI LƯỢNG ───────────────────────────────────────────
+function calcTotalDist() {
+  const diem = tuyen?.diem || [];
+  let total = 0;
+  for (let i = 0; i < diem.length - 1; i++) {
+    total += diem[i].chieu_dai_thu_cong || haversine(diem[i].lat, diem[i].lng, diem[i+1].lat, diem[i+1].lng);
+  }
+  return total;
+}
+
+function renderTabKL() {
+  if (!tuyen) return;
+  const diem   = tuyen.diem || [];
+  const soSoi  = tuyen.loai_tuyen === '1pha' ? 2 : 4;
+  const total  = calcTotalDist();
+  const metDay = Math.round(total * tuyen.he_so_chung * soSoi);
+
+  // Đếm cột theo chủ sở hữu
+  const dem = {};
+  let cotTrongMoi = 0;
+  diem.forEach(d => {
+    if (d.loai_diem === 'cot') {
+      dem[d.chu_so_huu] = (dem[d.chu_so_huu] || 0) + 1;
+      if (d.chu_so_huu === 'trong_moi') cotTrongMoi++;
+    }
+  });
+
+  // Tổng vật tư
+  const vtTong = {};
+  diem.forEach(d => {
+    (d.vat_tu || []).forEach(v => {
+      if (!vtTong[v.ma_vt]) vtTong[v.ma_vt] = { ten_vt:v.ten_vt, don_vi:v.don_vi, sl:0 };
+      vtTong[v.ma_vt].sl += v.sl;
+    });
+  });
+
+  // Thêm dây dẫn
+  const maDayMap = { 'Muller 2x16': 'DAY_MULLER_2x16', 'Muller 4x16': 'DAY_MULLER_4x16' };
+  const maDayKey = maDayMap[tuyen.loai_day] || 'DAY_MULLER_2x16';
+  if (!vtTong[maDayKey]) vtTong[maDayKey] = { ten_vt: tuyen.loai_day, don_vi:'m', sl:0 };
+  vtTong[maDayKey].sl += metDay;
+
+  const kl = [
+    ['Tổng chiều dài tuyến', `${Math.round(total)} m`],
+    ['Mét dây quy đổi', `${metDay} m`],
+    ['Số sợi dây', soSoi],
+    ['Hệ số chùng', tuyen.he_so_chung],
+    ...Object.entries(dem).map(([k,v]) => [`Cột ${CHU_CONFIG[k]?.label || k}`, `${v} cột`]),
+    ['Cột trồng mới', `${cotTrongMoi} cột`],
+    ['Điểm đấu nối (CT + Trạm)', diem.filter(d => d.loai_diem !== 'cot').length],
+    ['Điểm chấm bù', diem.filter(d => d.cham_bu).length],
+  ];
+
+  document.getElementById('tabKL').innerHTML = `
+    <div class="kl-section">
+      <h4>Khối lượng thi công</h4>
+      <table class="kl-table">
+        <tr><th>Hạng mục</th><th>Số lượng</th></tr>
+        ${kl.map(([k,v]) => `<tr><td>${k}</td><td class="kl-num">${v}</td></tr>`).join('')}
+      </table>
+    </div>
+    <div class="kl-section">
+      <h4>Vật tư tổng hợp</h4>
+      <table class="kl-table">
+        <tr><th>Vật tư</th><th>ĐVT</th><th>SL</th></tr>
+        ${Object.values(vtTong).map(v => `
+          <tr><td>${v.ten_vt}</td><td>${v.don_vi}</td><td class="kl-num">${v.sl}</td></tr>
+        `).join('')}
+      </table>
+    </div>`;
+}
+
+// ── TAB SYNC ─────────────────────────────────────────────────
+async function renderTabSync() {
+  const queue = await idbAll('hang_doi_sync');
+  const isOnline = navigator.onLine;
+  document.getElementById('tabSync').innerHTML = `
+    <div class="sync-status">
+      <div class="sync-dot ${isOnline ? 'online' : 'offline'}"></div>
+      <span>${isOnline ? 'Có mạng' : 'Không có mạng'} · ${queue.length} điểm chờ đồng bộ</span>
+    </div>
+    ${tuyen?.trang_thai !== 'da_thi_cong' ? `
+      <button class="btn-hc" onclick="App.xacNhanHoanCong()">✅ Xác nhận đã thi công xong</button>
+    ` : `
+      <div style="background:var(--green-light);color:var(--green);border-radius:var(--r-sm);padding:12px;margin-bottom:10px;font-weight:700;text-align:center;">✅ Đã xác nhận hoàn công</div>
+      <button class="btn-hc" style="background:var(--purple);" onclick="App.xuatPDF('hc')">📄 Xuất bản vẽ hoàn công</button>
+    `}
+    <button class="btn-sync" onclick="App.syncNow()">☁ Đồng bộ ngay</button>
+    <button class="btn-export green" onclick="App.xuatJSON()">⬇ Xuất JSON (backup)</button>
+    <button class="btn-export" onclick="App.nhapJSON()">⬆ Nhập JSON (khôi phục)</button>
+    <input type="file" id="inpJSON" accept=".json" style="display:none" onchange="App.doNhapJSON(this)">`;
+}
+
+// ── SYNC ─────────────────────────────────────────────────────
+async function queueSync(diem) {
+  await idbAdd('hang_doi_sync', {
+    ma_tram   : tuyen.ma_tram,
+    ma_hop_don: tuyen.ma_hop_dong,
+    ten_doi   : tuyen.ten_doi,
+    loai_diem : diem.loai_diem,
+    chu_so_huu: diem.chu_so_huu,
+    stt       : diem.stt,
+    lat       : diem.lat,
+    lng       : diem.lng,
+    sai_so_gps: diem.sai_so_gps,
+    cham_bu   : diem.cham_bu,
+    vat_tu    : JSON.stringify(diem.vat_tu || []),
+    ghi_chu   : diem.ghi_chu,
+    thoi_gian : diem.thoi_gian
+  });
+}
+
+async function syncNow() {
+  const queue = await idbAll('hang_doi_sync');
+  if (!queue.length) { toast('Không có gì để đồng bộ'); return; }
+  if (!navigator.onLine) { toast('Không có mạng'); return; }
+  loader(true, `Đang đồng bộ ${queue.length} điểm...`);
+  try {
+    const r = await apiPost(queue);
+    if (r.ok) {
+      await idbClearStore('hang_doi_sync');
+      toast(`✅ Đã đồng bộ ${queue.length} điểm`);
+    } else throw new Error(r.error);
+  } catch(e) {
+    toast('Lỗi đồng bộ: ' + e.message, 4000);
+  }
+  loader(false);
+  renderTabSync();
+}
+
+async function syncIfOnline() {
+  if (!navigator.onLine) return;
+  const queue = await idbAll('hang_doi_sync');
+  if (!queue.length) return;
+  try {
+    const r = await apiPost(queue);
+    if (r.ok) await idbClearStore('hang_doi_sync');
+  } catch {}
+  renderTabSync();
+}
+
+// ── HOÀN CÔNG ────────────────────────────────────────────────
+async function xacNhanHoanCong() {
+  if (!confirm('Xác nhận đã thi công xong tuyến này?\nSau mốc này vẫn có thể sửa vật tư theo thực tế.')) return;
+  tuyen.trang_thai = 'da_thi_cong';
+  tuyen.ngay_hoan_cong = new Date().toISOString();
+  tuyen.thoi_gian_cap_nhat = new Date().toISOString();
+  await idbPut('tuyen_dien', tuyen);
+  renderTabSync();
+  renderTabTuyen();
+  toast('✅ Đã xác nhận hoàn công');
+}
+
+// ── JSON EXPORT / IMPORT ─────────────────────────────────────
+function xuatJSON() {
+  const data = JSON.stringify(tuyen, null, 2);
+  const blob = new Blob([data], { type:'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `tuyen_${tuyen.ma_tram}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function nhapJSON() { document.getElementById('inpJSON').click(); }
+
+async function doNhapJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.ma_tram || !Array.isArray(data.diem)) throw new Error('File không hợp lệ');
+    if (!confirm(`Nhập tuyến ${data.ma_tram} — ${data.diem.length} điểm?\nDữ liệu hiện tại sẽ bị ghi đè.`)) return;
+    await idbPut('tuyen_dien', data);
+    tuyen = data;
+    renderMap();
+    renderTabTuyen();
+    renderTabKL();
+    renderTabSync();
+    toast('✅ Đã nhập JSON thành công');
+  } catch(e) {
+    toast('Lỗi nhập JSON: ' + e.message, 4000);
+  }
+  input.value = '';
+}
+
+// ── CACHE BẢN ĐỒ OFFLINE ─────────────────────────────────────
+function showCache() {
+  const tram = tuyen?.diem?.find(d => d.chu_so_huu === 'tram');
+  const lat  = tram?.lat || gpsPos?.latitude  || 11.94;
+  const lng  = tram?.lng || gpsPos?.longitude || 108.40;
+  document.getElementById('cacheSub').textContent =
+    `Cache tile bán kính 3km quanh ${tram ? 'trạm BTS' : 'vị trí hiện tại'} (zoom 14–17) để dùng offline.`;
+  document.getElementById('cacheBar').style.width = '0%';
+  document.getElementById('cachePct').textContent = 'Chưa tải';
+  document.getElementById('btnCache').textContent = 'Tải ngay';
+  document.getElementById('btnCache').disabled = false;
+  document.getElementById('modalCache').classList.remove('hide');
+  // Lưu tọa độ cho nút
+  document.getElementById('btnCache')._lat = lat;
+  document.getElementById('btnCache')._lng = lng;
+}
+
+function closeCache() { document.getElementById('modalCache').classList.add('hide'); }
+
+async function startCache() {
+  const btn = document.getElementById('btnCache');
+  const lat = btn._lat, lng = btn._lng;
+  btn.disabled = true; btn.textContent = 'Đang tải...';
+
+  if (!('serviceWorker' in navigator)) { toast('SW không hỗ trợ'); return; }
+  const reg = await navigator.serviceWorker.getRegistration('./sw.js');
+  if (!reg?.active) { toast('Service Worker chưa sẵn sàng'); return; }
+
+  navigator.serviceWorker.addEventListener('message', function handler(e) {
+    if (e.data.type === 'PRECACHE_PROGRESS') {
+      const pct = Math.round(e.data.done / e.data.total * 100);
+      document.getElementById('cacheBar').style.width = pct + '%';
+      document.getElementById('cachePct').textContent = `${e.data.done}/${e.data.total} tile (${pct}%)`;
+    }
+    if (e.data.type === 'PRECACHE_DONE') {
+      navigator.serviceWorker.removeEventListener('message', handler);
+      document.getElementById('cachePct').textContent = `✅ Xong — ${e.data.total} tile đã lưu`;
+      btn.textContent = 'Đã tải xong';
+      toast('✅ Bản đồ đã lưu offline');
+    }
+  });
+
+  reg.active.postMessage({ type:'PRECACHE_TILES', lat, lng, radiusKm:3, minZoom:14, maxZoom:17 });
+}
+
+// ── XUẤT PDF ─────────────────────────────────────────────────
+function xuatPDF(loai) {
+  if (!tuyen || !tuyen.diem.length) { toast('Chưa có dữ liệu tuyến'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+
+  const isHC    = loai === 'hc';
+  const tieuDe  = isHC ? 'BẢN VẼ HOÀN CÔNG' : 'BẢN VẼ THI CÔNG';
+  const W = 297, H = 210;
+  const soSoi  = tuyen.loai_tuyen === '1pha' ? 2 : 4;
+  const total  = calcTotalDist();
+  const metDay = Math.round(total * tuyen.he_so_chung * soSoi);
+  const diem   = tuyen.diem;
+  const now    = new Date().toLocaleDateString('vi-VN');
+
+  // ── Trang 1: Sơ đồ tuyến ──
+  _pdfHeader(doc, tieuDe, W, H, now);
+
+  // Vẽ sơ đồ tuyến
+  const PAD = 20, SY = 90, mapW = W - PAD*2, mapH = 60;
+  if (diem.length >= 2) {
+    const lats = diem.map(d => d.lat), lngs = diem.map(d => d.lng);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+    const ranLat = maxLat - minLat || 0.001, ranLng = maxLng - minLng || 0.001;
+
+    const toX = (lng) => PAD + (lng - minLng) / ranLng * mapW;
+    const toY = (lat) => SY + mapH - (lat - minLat) / ranLat * mapH;
+
+    // Line
+    doc.setDrawColor(21,101,192); doc.setLineWidth(0.8);
+    for (let i = 0; i < diem.length - 1; i++) {
+      doc.line(toX(diem[i].lng), toY(diem[i].lat), toX(diem[i+1].lng), toY(diem[i+1].lat));
+    }
+
+    // Markers
+    diem.forEach(d => {
+      const cfg = CHU_CONFIG[d.chu_so_huu] || CHU_CONFIG.vnpt;
+      const x = toX(d.lng), y = toY(d.lat);
+      const [r,g,b] = hexToRGB(cfg.color);
+      doc.setFillColor(r,g,b);
+      if (d.chu_so_huu === 'tram') {
+        doc.setFillColor(r,g,b);
+        doc.rect(x-4, y-4, 8, 8, 'F');
+      } else {
+        doc.circle(x, y, 3, 'F');
+      }
+      if (d.cham_bu) { doc.setDrawColor(255,193,7); doc.setLineWidth(0.5); doc.circle(x,y,3.5,'S'); }
+      doc.setFontSize(7); doc.setTextColor(33,33,33);
+      doc.text(d.stt, x, y - 4, { align:'center' });
+    });
+  }
+
+  // Thông tin tuyến
+  doc.setFontSize(9); doc.setTextColor(33,33,33);
+  doc.text(`Chiều dài: ${Math.round(total)}m · Mét dây: ${metDay}m · ${soSoi} sợi · Hệ số chùng: ${tuyen.he_so_chung}`, PAD, SY + mapH + 10);
+  if (isHC && tuyen.ngay_hoan_cong) {
+    doc.setFontSize(8); doc.setTextColor(100,100,100);
+    doc.text(`Số liệu theo thực tế thi công — Ngày hoàn công: ${new Date(tuyen.ngay_hoan_cong).toLocaleDateString('vi-VN')}`, PAD, SY + mapH + 16);
+  }
+
+  // Chú giải màu
+  const legend = [
+    ['Công tơ','#E65100'],['VNPT','#F9A825'],['Viettel','#2E7D32'],
+    ['Điện lực','#C62828'],['Trồng mới','#1565C0'],['Trạm BTS','#6A1B9A']
+  ];
+  let lx = PAD;
+  legend.forEach(([name, color]) => {
+    const [r,g,b] = hexToRGB(color);
+    doc.setFillColor(r,g,b); doc.circle(lx+2, SY-6, 2, 'F');
+    doc.setFontSize(7); doc.setTextColor(33,33,33);
+    doc.text(name, lx+6, SY-4);
+    lx += 35;
+  });
+
+  // ── Trang 2: Bảng điểm + vật tư ──
+  doc.addPage();
+  _pdfHeader(doc, tieuDe, W, H, now);
+
+  doc.setFontSize(10); doc.setTextColor(21,101,192);
+  doc.text('BẢNG ĐIỂM VÀ VẬT TƯ', PAD, 42);
+
+  const cols = [12, 22, 22, 100, 30];
+  const headers = ['STT', 'Chủ sở hữu', 'GPS (±m)', 'Vật tư', 'Ghi chú'];
+  let y = 50;
+  doc.setFillColor(227,242,253); doc.rect(PAD, y-5, W-PAD*2, 8, 'F');
+  doc.setFontSize(8); doc.setTextColor(21,101,192);
+  let cx = PAD;
+  headers.forEach((h,i) => { doc.text(h, cx+1, y); cx += cols[i]; });
+  y += 6; doc.setTextColor(33,33,33);
+
+  diem.forEach(d => {
+    if (y > H - 20) { doc.addPage(); _pdfHeader(doc, tieuDe, W, H, now); y = 42; }
+    const cfg = CHU_CONFIG[d.chu_so_huu] || CHU_CONFIG.vnpt;
+    const vtTxt = d.vat_tu?.filter(v=>v.sl>0).map(v=>`${v.ten_vt}: ${v.sl}${v.don_vi}`).join(', ') || '—';
+    doc.setFontSize(8);
+    cx = PAD;
+    [d.stt, cfg.label, `±${d.sai_so_gps||0}m`, vtTxt, d.ghi_chu||''].forEach((txt,i) => {
+      doc.text(String(txt), cx+1, y, { maxWidth: cols[i]-2 });
+      cx += cols[i];
+    });
+    if (d.cham_bu) { doc.setFontSize(7); doc.setTextColor(230,81,0); doc.text('⚠BÙ', PAD+10, y-2); doc.setTextColor(33,33,33); }
+    y += 8; doc.setDrawColor(220,220,220); doc.setLineWidth(0.2); doc.line(PAD, y-3, W-PAD, y-3);
+  });
+
+  // ── Trang 3: Bảng khối lượng ──
+  doc.addPage();
+  _pdfHeader(doc, tieuDe, W, H, now);
+
+  doc.setFontSize(10); doc.setTextColor(21,101,192);
+  doc.text('BẢNG KHỐI LƯỢNG VÀ VẬT TƯ TỔNG HỢP', PAD, 42);
+
+  // KL
+  const dem = {};
+  diem.forEach(d => { if (d.loai_diem==='cot') dem[d.chu_so_huu] = (dem[d.chu_so_huu]||0)+1; });
+  const klRows = [
+    ['Tổng chiều dài tuyến', `${Math.round(total)} m`],
+    ['Mét dây quy đổi', `${metDay} m`],
+    ['Số sợi', String(soSoi)],
+    ...Object.entries(dem).map(([k,v]) => [`Cột ${CHU_CONFIG[k]?.label||k}`, `${v} cột`]),
+    ['Điểm đấu nối', String(diem.filter(d=>d.loai_diem!=='cot').length)],
+  ];
+  y = 52;
+  klRows.forEach(([k,v]) => {
+    doc.setFontSize(9); doc.setTextColor(33,33,33);
+    doc.text(k, PAD, y); doc.text(v, PAD+120, y, { align:'right' });
+    y += 7;
+  });
+
+  // Vật tư tổng hợp
+  y += 4;
+  doc.setFontSize(10); doc.setTextColor(21,101,192);
+  doc.text('Vật tư tổng hợp', PAD, y); y += 8;
+  doc.setFillColor(227,242,253); doc.rect(PAD, y-5, W-PAD*2, 8, 'F');
+  doc.setFontSize(8); doc.setTextColor(21,101,192);
+  doc.text('Tên vật tư', PAD+1, y); doc.text('ĐVT', PAD+140, y); doc.text('Số lượng', PAD+170, y);
+  y += 6; doc.setTextColor(33,33,33);
+
+  const vtTong = {};
+  diem.forEach(d => { (d.vat_tu||[]).forEach(v => {
+    if (!vtTong[v.ma_vt]) vtTong[v.ma_vt] = { ten_vt:v.ten_vt, don_vi:v.don_vi, sl:0 };
+    vtTong[v.ma_vt].sl += v.sl;
+  }); });
+  const maDayMap2 = { 'Muller 2x16':'DAY_MULLER_2x16', 'Muller 4x16':'DAY_MULLER_4x16' };
+  const maDayKey2 = maDayMap2[tuyen.loai_day] || 'DAY_MULLER_2x16';
+  if (!vtTong[maDayKey2]) vtTong[maDayKey2] = { ten_vt:tuyen.loai_day, don_vi:'m', sl:0 };
+  vtTong[maDayKey2].sl += metDay;
+
+  Object.values(vtTong).forEach(v => {
+    doc.setFontSize(8);
+    doc.text(v.ten_vt, PAD+1, y); doc.text(v.don_vi, PAD+140, y); doc.text(String(v.sl), PAD+175, y);
+    y += 7; doc.setDrawColor(220,220,220); doc.line(PAD, y-3, W-PAD, y-3);
+  });
+
+  doc.save(`${tieuDe.replace(/ /g,'_')}_${tuyen.ma_tram}_${now.replace(/\//g,'-')}.pdf`);
+  toast(`✅ Đã xuất ${tieuDe}`);
+}
+
+function _pdfHeader(doc, tieuDe, W, H, now) {
+  doc.setFillColor(21,101,192); doc.rect(0, 0, W, 30, 'F');
+  doc.setFontSize(14); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
+  doc.text(tieuDe, 14, 12);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text(`${tuyen.ma_tram} · ${tuyen.ma_hop_dong || ''} · ${tuyen.ten_cong_trinh || ''}`, 14, 20);
+  doc.text(`${tuyen.ten_doi || ''} · Ngày xuất: ${now}`, 14, 27);
+}
+
+function hexToRGB(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return [r,g,b];
+}
+
+// ── REGISTER SW & EVENTS ──────────────────────────────────────
+window.addEventListener('online',  () => { syncIfOnline(); renderTabSync(); });
+window.addEventListener('offline', () => { renderTabSync(); toast('Mất mạng — dữ liệu vẫn lưu máy'); });
+
+document.addEventListener('DOMContentLoaded', init);
+
+// Public API
+return {
+  saveCaiDat, skipCaiDat,
+  filterCT, loadCT, chonCT,
+  selectLoai, confirmLoaiTuyen,
+  goScreen, switchTab,
+  toggleTracking, addTaiGPS,
+  selectLoaiDiem, modalNext, modalBack, closeModalDiem,
+  changeVT, setVT, filterVT,
+  showXemDiem, closeModalXem, suaDiem, xoaDiem,
+  xacNhanHoanCong,
+  syncNow, xuatJSON, nhapJSON, doNhapJSON,
+  showCache, closeCache, startCache,
+  xuatPDF,
+};
+})();
+</script>
+</body>
+</html>
