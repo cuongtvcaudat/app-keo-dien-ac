@@ -404,6 +404,15 @@ window.onerror = function(msg, src, line) {
         </button>
       </div>
     </div>
+    <!-- STT thủ công (chỉ hiện với cột, ẩn với CT/TRAM) -->
+    <div class="modal-step" id="stepSTT" style="display:none;">
+      <div class="step-label">Số thứ tự cột <span style="font-weight:400;color:#aaa;">(để trống = tự động)</span></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <input class="form-inp" id="inpSTT" type="text" placeholder="VD: 5  hoặc  5a" style="margin:0;flex:1;" autocomplete="off">
+        <span id="sttAutoHint" style="font-size:12px;color:#888;white-space:nowrap;"></span>
+      </div>
+    </div>
+
     <!-- Bước 2: Vật tư -->
     <div class="modal-step" id="stepVatTu" style="display:none;">
       <div class="step-label">Vật tư tại điểm này</div>
@@ -901,7 +910,7 @@ function initMain() {
     });
   }
 
-  renderMap();
+  renderMap(true);
   startGPS();
   renderTabTuyen();
   renderTabKL();
@@ -1053,7 +1062,7 @@ function getOrderedLine() {
 }
 
 // ── RENDER MAP ────────────────────────────────────────────────
-function renderMap() {
+function renderMap(doFit = false) {
   if (!map || !tuyen) return;
 
   // Xóa marker + line cũ
@@ -1111,8 +1120,8 @@ function renderMap() {
     markers[d.id] = m;
   });
 
-  // Fly đến tuyến nếu có điểm
-  if (diem.length) {
+  // Fly đến tuyến nếu có điểm (chỉ khi doFit = true)
+  if (doFit && diem.length) {
     const bounds = L.latLngBounds(diem.map(d => [d.lat, d.lng]));
     map.fitBounds(bounds.pad(0.2));
   }
@@ -1142,6 +1151,7 @@ function openModalDiem(lat, lng, fromGPS) {
   document.getElementById('modalDiemTitle').textContent = 'Thêm điểm';
   document.querySelectorAll('.loai-btn').forEach(b => b.classList.remove('selected'));
   document.getElementById('inpGhiChu').value = '';
+  document.getElementById('inpSTT').value = '';
   document.getElementById('vtSearch').value = '';
 
   showModalStep(1);
@@ -1172,6 +1182,15 @@ function showModalStep(step) {
   document.getElementById('stepLoai').style.display   = step === 1 ? '' : 'none';
   document.getElementById('stepVatTu').style.display  = step === 2 ? '' : 'none';
   document.getElementById('stepGhiChu').style.display = step === 3 ? '' : 'none';
+
+  // Ô STT thủ công: chỉ hiện ở bước 3, và chỉ với cột thường (không phải CT/TRAM)
+  const isCot = currentLoaiDiem && currentLoaiDiem !== 'congto' && currentLoaiDiem !== 'tram';
+  document.getElementById('stepSTT').style.display = (step === 3 && isCot) ? '' : 'none';
+  if (step === 3 && isCot) {
+    // Gợi ý số tự động sẽ dùng nếu để trống
+    const autoN = tuyen.diem.filter(d => d.loai_diem === 'cot' && d.id !== editDiemId).length + (modalMode === 'add' ? 1 : 0);
+    document.getElementById('sttAutoHint').textContent = `tự động: ${autoN}`;
+  }
 
   const btnBack = document.getElementById('btnModalBack');
   const btnNext = document.getElementById('btnModalNext');
@@ -1276,6 +1295,7 @@ function setVT(maVt, val) {
 // ── LƯU ĐIỂM ────────────────────────────────────────────────
 async function saveDiem() {
   const ghiChu  = document.getElementById('inpGhiChu').value.trim();
+  const sttInput = (document.getElementById('inpSTT').value || '').trim();
   const vtFinal = tempVatTu.filter(v => v.sl > 0).map(v => ({ ma_vt:v.ma_vt, ten_vt:v.ten_vt, don_vi:v.don_vi, sl:v.sl }));
 
   // Chấm bù: điểm tạo cách GPS thật >100m
@@ -1291,13 +1311,20 @@ async function saveDiem() {
       d.vat_tu  = vtFinal;
       d.ghi_chu = ghiChu;
       d.cham_bu = chamBu;
+      if (d.loai_diem === 'cot') {
+        d.stt_custom = sttInput;
+        d.stt_locked = sttInput !== '';
+      }
     }
   } else {
+    const loaiDiem = currentLoaiDiem === 'congto' ? 'congto' : currentLoaiDiem === 'tram' ? 'tram' : 'cot';
     const newDiem = {
-      id: uuid(),
-      loai_diem   : currentLoaiDiem === 'congto' ? 'congto' : currentLoaiDiem === 'tram' ? 'tram' : 'cot',
+      id          : uuid(),
+      loai_diem   : loaiDiem,
       chu_so_huu  : currentLoaiDiem,
       stt         : '',
+      stt_custom  : loaiDiem === 'cot' ? sttInput : '',
+      stt_locked  : loaiDiem === 'cot' && sttInput !== '',
       lat         : pendingLat,
       lng         : pendingLng,
       sai_so_gps  : pendingFromGPS ? gpsAcc : 0,
@@ -1336,26 +1363,34 @@ async function saveDiem() {
   const d = tuyen.diem.find(x => x.id === (editDiemId || tuyen.diem[tuyen.diem.length-1]?.id));
   if (d) await queueSync(d);
 
+  const wasAdd = modalMode === 'add';
   closeModalDiem();
-  renderMap();
+  renderMap(wasAdd);
   renderTabTuyen();
   renderTabKL();
   renderTabSync();
-  toast(modalMode === 'edit' ? 'Đã cập nhật điểm' : '✅ Đã lưu điểm');
+  toast(wasAdd ? '✅ Đã lưu điểm' : 'Đã cập nhật điểm');
 
   // Auto sync
   syncIfOnline();
 }
 
 function recalcSTT() {
-  // CT luôn = "CT", TRAM luôn = "TRAM"
-  // Các cột đánh số 1, 2, 3... theo thứ tự trong mảng (= thứ tự tuyến)
-  // Khi chèn giữa C2 và C3 → C2 cũ thành C3, C3 cũ thành C4...
+  // CT = "CT", TRAM = "TRAM"
+  // Cột có stt_locked → dùng stt_custom người dùng đặt, không đánh số lại
+  // Cột tự động → đánh số 1, 2, 3... theo thứ tự mảng, bỏ qua locked
   let cotIdx = 0;
   tuyen.diem.forEach(d => {
     if (d.chu_so_huu === 'congto') { d.stt = 'CT';   return; }
     if (d.chu_so_huu === 'tram')   { d.stt = 'TRAM'; return; }
-    d.stt = String(++cotIdx);
+    if (d.stt_locked && d.stt_custom) {
+      d.stt = d.stt_custom;
+      // Cập nhật cotIdx để cột auto sau đó không trùng số
+      const n = parseFloat(d.stt_custom);
+      if (!isNaN(n) && Math.floor(n) >= cotIdx) cotIdx = Math.floor(n);
+    } else {
+      d.stt = String(++cotIdx);
+    }
   });
 }
 
@@ -1397,6 +1432,7 @@ function suaDiem() {
     sl: d.vat_tu?.find(x => x.ma_vt === v.ma_vt)?.sl || 0
   }));
   document.getElementById('inpGhiChu').value = d.ghi_chu || '';
+  document.getElementById('inpSTT').value = d.stt_custom || '';
   document.getElementById('vtSearch').value = '';
   document.getElementById('modalDiemTitle').textContent = 'Sửa điểm ' + d.stt;
   document.querySelectorAll('.loai-btn').forEach(b => {
@@ -1413,7 +1449,7 @@ async function xoaDiem() {
   recalcSTT();
   tuyen.thoi_gian_cap_nhat = new Date().toISOString();
   await idbPut('tuyen_dien', tuyen);
-  renderMap();
+  renderMap(true);
   renderTabTuyen();
   renderTabKL();
   toast('Đã xoá điểm');
@@ -1626,7 +1662,7 @@ async function doNhapJSON(input) {
     if (!confirm(`Nhập tuyến ${data.ma_tram} — ${data.diem.length} điểm?\nDữ liệu hiện tại sẽ bị ghi đè.`)) return;
     await idbPut('tuyen_dien', data);
     tuyen = data;
-    renderMap();
+    renderMap(true);
     renderTabTuyen();
     renderTabKL();
     renderTabSync();
