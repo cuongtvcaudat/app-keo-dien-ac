@@ -281,7 +281,7 @@ window.onerror = function(msg, src, line) {
     <div class="form-lbl">URL Endpoint (Google Apps Script)</div>
     <input class="form-inp" id="inpEndpoint" type="url" placeholder="https://script.google.com/macros/s/...">
     <button class="btn-primary" onclick="App.saveCaiDat()">Bắt đầu →</button>
-    <button class="btn-ghost" onclick="App.skipCaiDat()">Bỏ qua (dùng mock server)</button>
+    <button class="btn-ghost" onclick="App.skipCaiDat()">Bỏ qua</button>
   </div>
 </div>
 
@@ -496,7 +496,8 @@ const App = (() => {
 // ── CONSTANTS ─────────────────────────────────────────────────
 const DB_NAME    = 'dien_ac_db';
 const DB_VER     = 1;
-const MOCK_URL   = 'http://localhost:3000';
+const GAS_URL    = 'https://script.google.com/macros/s/AKfycbza-oDKtAGRWrW3vAUlIN2P90v4W_5UdbTyGmV6wAi66uh676Gjk7uQT29o7uPbUlyeHw/exec';
+const MOCK_URL   = GAS_URL; // fallback cũng trỏ GAS
 const HC_SO_CHUNG_DEFAULT = 1.03;
 
 const CHU_CONFIG = {
@@ -722,6 +723,10 @@ async function init() {
 
     // Seed dữ liệu mẫu nếu chưa có
     await seedDataIfEmpty();
+
+    // Pre-fill màn cài đặt
+    const savedEndpoint = localStorage.getItem('endpoint') || GAS_URL;
+    document.getElementById('inpEndpoint').value = savedEndpoint;
 
     const tenDoi = localStorage.getItem('ten_doi') || '';
     if (!tenDoi) {
