@@ -10,6 +10,7 @@
 //    doPost {action:save_tuyen,...}       → app lưu toàn bộ tuyến
 // ============================================================
 
+const SPREADSHEET_ID = '1g211FWIXhSY-bBpdtojkeVsfaCcYwXjuR3Gfst-Jy-Y';
 const SHEET_DANH_MUC = 'DanhMuc_VatTu';
 const SHEET_KE_HOACH = 'KeHoach_CongTrinh';
 const SHEET_TUYEN    = 'TuyenDien_Data';
@@ -136,7 +137,7 @@ function _saveTuyen(body) {
 
 // ── Helpers ─────────────────────────────────────────────────
 function _getOrCreate(name) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   return ss.getSheetByName(name) || ss.insertSheet(name);
 }
 
