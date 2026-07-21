@@ -1,0 +1,8 @@
+# Thư viện cho tool RPA Adobe Firefly
+pandas>=2.0
+openpyxl>=3.1          # đọc/ghi file Excel .xlsx
+pyautogui>=0.9.54      # điều khiển chuột/bàn phím
+pyperclip>=1.8         # dán prompt qua clipboard (an toàn tiếng Việt)
+# Tuỳ chọn: bật nhận diện nút bằng hình ảnh (use_image_recognition = true)
+opencv-python>=4.8     # cần cho pyautogui.locateCenterOnScreen(confidence=...)
+pillow>=10.0           # xử lý ảnh cho pyautogui

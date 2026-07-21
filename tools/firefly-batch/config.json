@@ -1,0 +1,27 @@
+{
+  "excel_file": "data.xlsx",
+  "excel_sheet": 0,
+  "template_image": "templates/mau_nghiem_thu.png",
+  "output_folder": "Output",
+  "downloads_folder": "",
+  "prompt_template": "Perform a precise text substitution in the top-right red text block of the image. Replace with [ThoiGian], [ToaDo], and [MaTram] [NoiDung]. Keep all other background elements unchanged.",
+  "images_per_generate": 1,
+  "wait_after_generate": 25,
+  "wait_upload": 4,
+  "wait_download": 6,
+  "start_countdown": 5,
+  "coords": {
+    "upload_button": null,
+    "prompt_box": null,
+    "generate_button": null,
+    "download_button": null,
+    "confirm_download": null
+  },
+  "use_image_recognition": false,
+  "button_images": {
+    "upload_button": "buttons/upload.png",
+    "generate_button": "buttons/generate.png",
+    "download_button": "buttons/download.png"
+  },
+  "image_match_confidence": 0.85
+}
