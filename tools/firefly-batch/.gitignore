@@ -1,0 +1,10 @@
+# Dữ liệu & kết quả cục bộ — KHÔNG đưa lên git
+Output/
+data.xlsx
+templates/
+buttons/
+__pycache__/
+*.pyc
+# config.json là bản mẫu (toạ độ null) đã commit sẵn; nếu bạn muốn giữ
+# toạ độ riêng không lên git thì bỏ dòng dưới đây khỏi comment:
+# config.json
