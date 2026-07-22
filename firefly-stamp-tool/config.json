@@ -1,0 +1,34 @@
+{
+  "_help": "Cau hinh chung. Sua duong dan / bat-tat Firefly o day. Khong can biet code.",
+
+  "input_dir": "data/input",
+  "output_dir": "data/output",
+  "excel_file": "data/du_lieu.xlsx",
+
+  "default_template": "kieu_B",
+  "match_by": "file",
+
+  "old_stamp_cleanup": {
+    "_help": "Cach lam sach vung stamp cu truoc khi ve stamp moi.",
+    "mode": "cover",
+    "_mode_options": "cover = phu 1 dai mo/lam toi len vung stamp cu (mien phi, offline). firefly = dung Adobe Firefly Generative Fill xoa sach stamp cu (can ban quyen API).",
+    "cover": {
+      "region": "bottom",
+      "height_frac": 0.32,
+      "style": "scrim",
+      "_style_options": "scrim = gradient toi dan (dep tren anh sach, che stamp cu tot), darken = toi deu, blur = lam mo, solid = mau dac",
+      "opacity": 0.55,
+      "blur_radius": 18,
+      "solid_color": [0, 0, 0]
+    }
+  },
+
+  "firefly": {
+    "enabled": false,
+    "_help": "Dien client_id / client_secret tu Adobe Developer Console. De trong => tool dung che do 'cover'.",
+    "client_id": "",
+    "client_secret": "",
+    "fill_prompt": "clean natural background, seamless, photorealistic, no text, no watermark",
+    "region_height_frac": 0.28
+  }
+}

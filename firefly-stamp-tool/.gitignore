@@ -1,0 +1,8 @@
+# Khong commit anh hien truong / du lieu / ket qua (rieng tu, dung luong lon)
+data/input/*
+data/output/*
+data/*.xlsx
+!data/input/.gitkeep
+!data/output/.gitkeep
+__pycache__/
+*.pyc
