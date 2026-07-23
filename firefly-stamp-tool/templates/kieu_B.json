@@ -1,0 +1,45 @@
+{
+  "_help": "Kieu B: chu canh PHAI goc duoi + la ban goc tren-trai (giong 4 anh Duc Trong).",
+  "name": "kieu_B",
+
+  "text": {
+    "align": "right",
+    "anchor": "bottom-right",
+    "pad_x_frac": 0.020,
+    "pad_bottom_frac": 0.015,
+    "font_size_frac": 0.040,
+    "line_spacing": 1.16,
+    "color": [255, 255, 255],
+    "shadow": { "enabled": true, "color": [0, 0, 0], "opacity": 0.75, "offset_frac": 0.003, "blur": 4 },
+    "stroke": { "enabled": false, "color": [0, 0, 0], "width_frac": 0.002 }
+  },
+
+  "lines": [
+    { "text": "{ngay}",                 "size": 1.0 },
+    { "text": "{lat} {lon}",            "size": 1.0, "required": ["lat"] },
+    { "text": "{huong}",                "size": 1.0, "required": ["huong"] },
+    { "text": "{dia_chi}",              "size": 1.0, "required": ["dia_chi"] },
+    { "text": "{huyen}",                "size": 1.0, "required": ["huyen"] },
+    { "text": "{tinh}",                 "size": 1.0, "required": ["tinh"] },
+    { "text": "Altitude:{altitude}msnm","size": 1.0, "required": ["altitude"] },
+    { "text": "Speed:{speed}km/h",      "size": 1.0, "required": ["speed"] },
+    { "text": "{ma_tram} {ghi_chu}",    "size": 1.0, "required": ["ma_tram"] },
+    { "text": "Index number: {index}", "size": 1.0, "required": ["index"] }
+  ],
+
+  "compass": {
+    "enabled": true,
+    "corner": "top-left",
+    "pad_frac": 0.015,
+    "diameter_frac": 0.16
+  },
+
+  "map": {
+    "enabled": false,
+    "corner": "bottom-left",
+    "pad_frac": 0.0,
+    "width_frac": 0.22,
+    "height_frac": 0.16,
+    "zoom": 15
+  }
+}

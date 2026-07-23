@@ -1,0 +1,35 @@
+{
+  "_help": "Kieu A: chu canh TRAI goc duoi, bat dau sau thumbnail ban do (giong anh cot B'Lao).",
+  "name": "kieu_A",
+
+  "text": {
+    "align": "left",
+    "anchor": "bottom-left",
+    "pad_x_frac": 0.155,
+    "pad_bottom_frac": 0.020,
+    "font_size_frac": 0.042,
+    "line_spacing": 1.16,
+    "color": [255, 255, 255],
+    "shadow": { "enabled": true, "color": [0, 0, 0], "opacity": 0.75, "offset_frac": 0.003, "blur": 4 },
+    "stroke": { "enabled": false, "color": [0, 0, 0], "width_frac": 0.002 }
+  },
+
+  "lines": [
+    { "text": "{ngay}",       "size": 1.05 },
+    { "text": "{lat} {lon}",  "size": 1.0, "required": ["lat"] },
+    { "text": "{phuong}",     "size": 1.0, "required": ["phuong"] },
+    { "text": "{tinh}",       "size": 1.0, "required": ["tinh"] },
+    { "text": "{ma_tram}",    "size": 1.0, "required": ["ma_tram"] }
+  ],
+
+  "compass": { "enabled": false },
+
+  "map": {
+    "enabled": true,
+    "corner": "bottom-left",
+    "pad_frac": 0.0,
+    "width_frac": 0.30,
+    "height_frac": 0.22,
+    "zoom": 15
+  }
+}
