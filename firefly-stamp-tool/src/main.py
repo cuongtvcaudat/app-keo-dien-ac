@@ -26,6 +26,22 @@ def load_config():
     return load_json(os.path.join(HERE, "config.json"))
 
 
+def normalize_template(raw, default="kieu_B"):
+    """Chap nhan 'A','B','kieu_a','kiểu B'... -> ten template chuan, co san file."""
+    s = str(raw or "").strip().lower().replace("ể", "e").replace(" ", "").replace("_", "")
+    if not s:
+        return default
+    if s in ("a", "kieua"):
+        return "kieu_A"
+    if s in ("b", "kieub"):
+        return "kieu_B"
+    # neu go dung ten file co san thi giu nguyen, nguoc lai dung mac dinh
+    if os.path.isfile(os.path.join(HERE, "templates", f"{str(raw).strip()}.json")):
+        return str(raw).strip()
+    print(f"  ! Kieu '{raw}' khong co -> dung mac dinh '{default}'. (Chi co: kieu_A, kieu_B)")
+    return default
+
+
 def load_template(name):
     return load_json(os.path.join(HERE, "templates", f"{name}.json"))
 
@@ -111,7 +127,7 @@ def run_batch(config):
     ok, miss = 0, 0
     print(f"> Doc {len(rows)} dong du lieu tu Excel.")
     for i, row in enumerate(rows, 1):
-        tpl_name = str(row.get("template", "")).strip() or config.get("default_template", "kieu_B")
+        tpl_name = normalize_template(row.get("template"), config.get("default_template", "kieu_B"))
         template = load_template(tpl_name)
         src = find_image_for(row, input_dir, match_by)
         if not src:
@@ -131,8 +147,8 @@ def run_manual(config):
     if not os.path.isfile(src):
         print("X Khong thay anh.")
         return
-    tpl_name = input(f"Kieu stamp [{config.get('default_template','kieu_B')}]: ").strip() \
-        or config.get("default_template", "kieu_B")
+    raw = input(f"Kieu stamp (A / B) [{config.get('default_template','kieu_B')}]: ").strip()
+    tpl_name = normalize_template(raw, config.get("default_template", "kieu_B"))
     template = load_template(tpl_name)
     fields = ["ngay", "lat", "lon", "huong", "dia_chi", "huyen", "phuong",
               "tinh", "altitude", "speed", "ma_tram", "ghi_chu", "index", "bearing_deg"]
