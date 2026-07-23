@@ -54,9 +54,10 @@ def _cover_old_stamp(img, cfg):
         # gradient toi dan tu tren xuong day: tu nhien tren anh sach, che stamp cu tot hon
         max_a = int(255 * c.get("opacity", 0.55))
         col = tuple(c.get("solid_color", [0, 0, 0]))
+        exp = c.get("gradient_exp", 0.8)
         grad = Image.new("L", (1, region_h))
         for yy in range(region_h):
-            grad.putpixel((0, yy), int(max_a * (yy / max(1, region_h - 1)) ** 1.2))
+            grad.putpixel((0, yy), int(max_a * (yy / max(1, region_h - 1)) ** exp))
         alpha = grad.resize((W, region_h))
         overlay = Image.new("RGBA", (W, region_h), col + (0,))
         overlay.putalpha(alpha)

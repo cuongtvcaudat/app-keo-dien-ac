@@ -14,10 +14,10 @@
     "_mode_options": "cover = phu 1 dai mo/lam toi len vung stamp cu (mien phi, offline). firefly = dung Adobe Firefly Generative Fill xoa sach stamp cu (can ban quyen API).",
     "cover": {
       "region": "bottom",
-      "height_frac": 0.32,
+      "height_frac": 0.40,
       "style": "scrim",
       "_style_options": "scrim = gradient toi dan (dep tren anh sach, che stamp cu tot), darken = toi deu, blur = lam mo, solid = mau dac",
-      "opacity": 0.55,
+      "opacity": 0.72,
       "blur_radius": 18,
       "solid_color": [0, 0, 0]
     }
