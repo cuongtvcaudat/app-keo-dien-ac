@@ -9,7 +9,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 echo "> Kiem tra thu vien..."
-python3 -m pip install --quiet --disable-pip-version-check Pillow openpyxl requests
+python3 -m pip install --quiet --disable-pip-version-check Pillow openpyxl requests numpy opencv-python-headless
 
 while true; do
   echo

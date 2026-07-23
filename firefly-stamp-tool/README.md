@@ -73,9 +73,12 @@ Mở `config.json`, mục `old_stamp_cleanup` → `mode`:
 
 | mode | Ý nghĩa | Cần gì |
 |------|---------|--------|
-| `cover` *(mặc định)* | Phủ dải gradient tối lên vùng stamp cũ rồi vẽ stamp mới. Miễn phí, offline. | — |
-| `firefly` | Dùng **Adobe Firefly Generative Fill** xoá sạch stamp cũ, tái tạo nền, rồi vẽ stamp mới. Sạch nhất. | Bản quyền Firefly API |
-| `none` | Không xử lý — dùng khi **ảnh gốc sạch** (chưa có stamp). Kết quả giống app nhất. | — |
+| `inpaint` *(mặc định, khuyên dùng)* | **AI xoá stamp cũ chạy local** (OpenCV top-hat + inpaint): bắt đúng nét chữ trắng rồi xoá, giữ nguyên nền. Miễn phí, offline, nhẹ. Rất sạch với nền cỏ/đất/công trình. | — (tự cài opencv) |
+| `cover` | Phủ dải gradient tối lên vùng stamp cũ rồi vẽ stamp mới. Còn vệt mờ nhẹ. | — |
+| `firefly` | Dùng **Adobe Firefly Generative Fill** xoá sạch stamp cũ. Sạch nhất. | Bản quyền Firefly API (doanh nghiệp) |
+| `none` | Không xử lý — dùng khi **ảnh gốc sạch** (chưa có stamp). | — |
+
+> **Lưu ý `inpaint`:** xoá rất tốt khi chữ cũ nằm trên nền có chi tiết (cỏ, đất, thiết bị). Với **chữ trắng trên nền trời xám nhạt** (tương phản thấp) có thể còn **vệt rất mờ**. Muốn tuyệt đối sạch mọi nền → dùng `firefly` (cần API).
 
 ### Bật Firefly
 Trong `config.json` → `firefly`:

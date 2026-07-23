@@ -10,8 +10,8 @@
 
   "old_stamp_cleanup": {
     "_help": "Cach lam sach vung stamp cu truoc khi ve stamp moi.",
-    "mode": "cover",
-    "_mode_options": "cover = phu 1 dai mo/lam toi len vung stamp cu (mien phi, offline). firefly = dung Adobe Firefly Generative Fill xoa sach stamp cu (can ban quyen API).",
+    "mode": "inpaint",
+    "_mode_options": "inpaint = AI local (OpenCV) xoa sach stamp cu, mien phi + offline (KHUYEN DUNG cho anh da co stamp cu). cover = phu dai mo, con vet nhe. firefly = Adobe Firefly xoa sach (can API doanh nghiep). none = anh sach san, khong xu ly.",
     "cover": {
       "region": "bottom",
       "height_frac": 0.40,

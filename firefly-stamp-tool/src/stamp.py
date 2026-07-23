@@ -184,10 +184,15 @@ def stamp_image(src_path, dst_path, template, row, config, firefly_client=None):
     mode = cleanup.get("mode", "cover")
     if mode == "firefly" and firefly_client is not None:
         cleaned = firefly_client.remove_stamp(img)
+        img = cleaned if cleaned is not None else _cover_old_stamp(img, cleanup)
+    elif mode == "inpaint":
+        from erase import smart_erase
+        cleaned = smart_erase(img, template)
         if cleaned is not None:
             img = cleaned
         else:
-            img = _cover_old_stamp(img, cleanup)  # fallback neu Firefly loi
+            print("    [inpaint] thieu opencv -> che do 'cover'.")
+            img = _cover_old_stamp(img, cleanup)
     elif mode == "cover":
         img = _cover_old_stamp(img, cleanup)
     # mode == "none": khong lam gi (anh sach san)

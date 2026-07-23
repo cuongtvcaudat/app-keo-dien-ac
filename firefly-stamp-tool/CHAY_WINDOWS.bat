@@ -12,7 +12,7 @@ if errorlevel 1 (
 )
 
 echo ^> Kiem tra thu vien...
-python -m pip install --quiet --disable-pip-version-check Pillow openpyxl requests
+python -m pip install --quiet --disable-pip-version-check Pillow openpyxl requests numpy opencv-python-headless
 
 :menu
 echo.
