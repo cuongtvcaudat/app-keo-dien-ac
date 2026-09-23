@@ -4,7 +4,7 @@ Code: `gas/NhacViec.js` (chung project Apps Script với `Code.js`, dùng chung 
 Bot gửi mỗi sáng **T2–T7, 8:00–8:05** (giờ VN). Quá 10h mà chưa gửi được thì bỏ qua, không gửi muộn.
 
 ## Bước 1 — Tạo Zalo Bot (5 phút, trên điện thoại)
-1. Mở Zalo → tìm OA **"Zalo Bot Manager"** → chọn **Tạo bot**.
+1. Mở Zalo → ô tìm kiếm gõ **"Zalo Bot Creator"** (Mini App, icon robot xanh) → chọn **Tạo bot**.
 2. Đặt tên bot (VD `Bot Nhắc Việc HT LDG`) → Zalo gửi về **Bot Token** (dạng `12345:abcXYZ...`).
 3. **Giữ bí mật token** — ai có token là gửi tin được bằng bot của anh.
 
