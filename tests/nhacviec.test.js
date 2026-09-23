@@ -136,4 +136,14 @@ test('nv_layChatId đọc được chat_id nhóm từ getUpdates', () => {
   assert.ok(env.calls[0].url.endsWith('/getUpdates'));
 });
 
+test('API nhacviec: sai key bị từ chối, đúng key trả nội dung', () => {
+  const env = taoMoiTruong({ viec: VIEC, congTrinh: CT, props: Object.assign({ NV_API_KEY: 'K1' }, PROPS) });
+  assert.strictEqual(env.ctx.nv_apiNoiDung('sai').ok, false);
+  assert.strictEqual(env.ctx.nv_apiNoiDung(undefined).ok, false);
+  const r = env.ctx.nv_apiNoiDung('K1');
+  assert.ok(r.ok && /NHẮC VIỆC/.test(r.text) && typeof r.gui_hom_nay === 'boolean');
+  const khongKey = taoMoiTruong({ viec: VIEC, congTrinh: CT, props: PROPS });
+  assert.strictEqual(khongKey.ctx.nv_apiNoiDung('').ok, false);
+});
+
 console.log(`\n${pass} test đạt.`);

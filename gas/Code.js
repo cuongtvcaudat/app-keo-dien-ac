@@ -22,6 +22,7 @@ function doGet(e) {
     if (type === 'vattu')     return _json({ ok:true, data: _getVatTu() });
     if (type === 'congtrinh') return _json({ ok:true, data: _getCongTrinh() });
     if (type === 'tuyen')     return _json({ ok:true, data: _getTuyen(e.parameter.ma_tram, e.parameter.ma_doi) });
+    if (type === 'nhacviec')  return _json(nv_apiNoiDung(e.parameter.key));   // xem NhacViec.js
     return _json({ ok:false, error: 'Unknown type: ' + type });
   } catch(err) {
     return _json({ ok:false, error: err.message });

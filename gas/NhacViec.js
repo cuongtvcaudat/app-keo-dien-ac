@@ -298,3 +298,21 @@ function _nvNgay(v) {
   const m = String(v || '').trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
   return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : null;
 }
+
+// ── API cho máy tính cơ quan lấy nội dung: doGet?type=nhacviec&key=<NV_API_KEY> ──
+// Web App để "Anyone" nên bắt buộc có key, tránh lộ danh sách việc ra ngoài.
+function nv_apiNoiDung(key) {
+  const dung = PropertiesService.getScriptProperties().getProperty('NV_API_KEY');
+  if (!dung || key !== dung) return { ok: false, error: 'Sai hoặc thiếu key' };
+  const now = new Date();
+  return { ok: true, ngay: _nvFmt(now, 'yyyy-MM-dd'), gui_hom_nay: _nvNgayDuocGui(now, PropertiesService.getScriptProperties()),
+           text: nv_taoNoiDung(now) };
+}
+
+// ── Tạo key ngẫu nhiên cho NV_API_KEY (chạy 1 lần, copy key vào config.json trên PC) ──
+function nv_taoKey() {
+  const key = Utilities.getUuid().replace(/-/g, '');
+  PropertiesService.getScriptProperties().setProperty('NV_API_KEY', key);
+  Logger.log('🔑 NV_API_KEY = ' + key + '  → dán vào zalo-pc/config.json');
+  return key;
+}
