@@ -169,6 +169,7 @@ html[data-theme="dalat"] .brand small { color: #6fdcb6; }
 .nav a .ico { width: 22px; text-align: center; font-size: 17px; }
 .nav a .count { margin-left: auto; font-size: 11px; background: rgba(255,255,255,.12); padding: 2px 8px; border-radius: 99px; font-weight: 700; }
 .nav a.active .count { background: rgba(0,0,0,.18); }
+.nav a .count:empty { display: none; }
 .nav a .count.warn { background: var(--hot); color: #fff; }
 .sidebar .foot { margin-top: auto; font-size: 11px; color: var(--sidebar-muted); padding: 8px; position: relative; z-index: 1; }
 
@@ -226,6 +227,7 @@ html[data-theme="dalat"] .brand small { color: #6fdcb6; }
 .card h3 .muted { margin-left: auto; font-weight: 500; }
 .muted { color: var(--muted); font-size: 12px; }
 .grid { display: grid; gap: 16px; }
+.grid > * { min-width: 0; }
 .g4 { grid-template-columns: repeat(4, 1fr); }
 .g3 { grid-template-columns: repeat(3, 1fr); }
 .g2 { grid-template-columns: repeat(2, 1fr); }
@@ -312,7 +314,7 @@ html[data-theme="dalat"] .bar-row:hover .bar-name { color: var(--primary); }
   background: var(--input-bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; outline: none;
 }
 .toolbar select:focus, .toolbar input:focus, .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent); }
-.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+.seg { display: inline-flex; flex-wrap: wrap; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
 .seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--muted); }
 .seg button.on { background: var(--primary); color: var(--on-primary); font-weight: 800; }
 .table-wrap { overflow: auto; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
@@ -442,12 +444,12 @@ html[data-theme="volt"] .avatar { color: #001319; }
   .profile-head .meta { justify-content: center; }
   .hide-m { display: none; }
   .bottom-nav {
-    display: grid; grid-template-columns: repeat(5, 1fr);
+    display: grid; grid-template-columns: repeat(6, 1fr);
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
     background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(12px);
     border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   }
-  .bottom-nav a { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10.5px; color: var(--muted); padding: 4px; border-radius: 10px; font-weight: 600; }
+  .bottom-nav a { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; white-space: nowrap; color: var(--muted); padding: 4px; border-radius: 10px; font-weight: 600; }
   .bottom-nav a .ico { font-size: 20px; }
   .bottom-nav a.active { color: var(--on-primary); font-weight: 800; background: var(--primary); }
   .fab {

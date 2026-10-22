@@ -2,8 +2,11 @@
    Giai đoạn 1: dữ liệu cục bộ. Giai đoạn 2: thay Store bằng API (Google Sheets/GAS hoặc Supabase). */
 (() => {
   'use strict';
-  const YEAR = 2026;
-  const KEY = 'dalat-sports-hub-v1';
+  const TODAY = new Date(); TODAY.setHours(0, 0, 0, 0);
+  const YEAR = TODAY.getFullYear();
+  const KEY = 'dalat-sports-hub-v2'; // v2: thêm hợp đồng, trạng thái Tuyển mới / Thôi đào tạo
+  const QUIT = 'Thôi đào tạo', NEW = 'Tuyển mới';
+  const STATUSES = ['', NEW, QUIT];
   const SPORT = Object.fromEntries(SPORTS.map(s => [s.code, s]));
 
   // ---------- Store ----------
@@ -22,7 +25,9 @@
       try { localStorage.setItem(KEY, JSON.stringify(this.db)); } catch { toast('Không lưu được vào bộ nhớ trình duyệt'); }
     },
     get people() { return this.db.people; },
-    athletes() { return this.db.people.filter(p => p.role === 'VĐV'); },
+    // Giống công thức Excel: mọi thống kê loại VĐV có TRẠNG THÁI = "Thôi đào tạo"
+    athletes() { return this.db.people.filter(p => p.role === 'VĐV' && p.status !== QUIT); },
+    allAthletes() { return this.db.people.filter(p => p.role === 'VĐV'); },
     coaches() { return this.db.people.filter(p => p.role === 'HLV'); },
     person(id) { return this.db.people.find(p => p.id === id); },
     tournament(id) { return this.db.tournaments.find(t => t.id === id); },
@@ -53,6 +58,20 @@
     const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
     document.body.appendChild(t); setTimeout(() => t.remove(), 2400);
   }
+  // NGÀY CÒN LẠI = HỢP ĐỒNG − TODAY() (như cột J sheet VĐV); null = "Chưa xác định"
+  const daysLeft = p => (p.contractEnd ? Math.round((new Date(p.contractEnd + 'T00:00:00') - TODAY) / 864e5) : null);
+  const fmtDate = iso => (iso ? new Date(iso + 'T00:00:00').toLocaleDateString('vi-VN') : '');
+  function contractTag(p) {
+    const d = daysLeft(p);
+    if (d === null) return p.contractType ? `<span class="tag info">${esc(p.contractType)}</span>` : '<span class="tag warn">Chưa xác định</span>';
+    if (d < 0) return `<span class="tag err" title="Hết hạn ${fmtDate(p.contractEnd)}">Hết hạn ${-d} ngày</span>`;
+    if (d <= 30) return `<span class="tag err" title="${fmtDate(p.contractEnd)}">Còn ${d} ngày</span>`;
+    if (d <= 90) return `<span class="tag warn" title="${fmtDate(p.contractEnd)}">Còn ${d} ngày</span>`;
+    return `<span class="tag info" title="Còn ${d} ngày">${fmtDate(p.contractEnd)}</span>`;
+  }
+  const statusTag = p => (p.status === QUIT ? '<span class="tag err">Thôi đào tạo</span>' : p.status === NEW ? '<span class="tag tre">Tuyển mới</span>' : '');
+  const noteTags = p => (p.note ? p.note.split(/[,;]/).map(n => `<span class="tag hlv">${esc(n.trim())}</span>`).join(' ') : '');
+
   function tally(results) {
     const t = { HCV: 0, HCB: 0, HCĐ: 0 };
     results.forEach(r => { if (r.medal in t) t[r.medal]++; });
@@ -81,8 +100,14 @@
       const a = A.filter(p => p.code === s.code).length, c = C.filter(p => p.code === s.code).length;
       if (c && a / c > 15) list.push({ lvl: 'warn', type: 'Tỉ lệ VĐV/HLV cao', sport: s, msg: `${s.name}: ${a} VĐV / ${c} HLV = ${(a / c).toFixed(1)} VĐV/HLV` });
     });
-    const noContract = A.filter(p => !p.contract).length;
-    if (noContract) list.push({ lvl: 'info', type: 'Chưa có hợp đồng', msg: `${noContract}/${A.length} VĐV để trống cột HỢP ĐỒNG` });
+    // Hợp đồng
+    Store.people.filter(p => p.status !== QUIT).forEach(p => {
+      const d = daysLeft(p);
+      if (d !== null && d < 0) list.push({ lvl: 'err', type: 'Hợp đồng đã hết hạn', p, msg: `${p.role} · ${p.team} · hết hạn ${fmtDate(p.contractEnd)} (${-d} ngày trước)` });
+      else if (d !== null && d <= 30) list.push({ lvl: 'err', type: 'Hợp đồng hết hạn ≤ 30 ngày', p, msg: `${p.role} · ${p.team} · hết hạn ${fmtDate(p.contractEnd)} (còn ${d} ngày)` });
+      else if (d !== null && d <= 90) list.push({ lvl: 'warn', type: 'Hợp đồng hết hạn ≤ 90 ngày', p, msg: `${p.role} · ${p.team} · hết hạn ${fmtDate(p.contractEnd)} (còn ${d} ngày)` });
+      if (d === null && !p.contractType) list.push({ lvl: 'warn', type: 'Chưa có ngày hết hạn HĐ', p, msg: `${p.role} · ${p.team} · ${p.tier}` });
+    });
     return list;
   }
 
@@ -94,6 +119,9 @@
     [/^#\/p\/(.+)$/, m => viewProfile(decodeURIComponent(m[1])), 'Hồ sơ'],
     [/^#\/mon$/, viewSports, 'Bộ môn'],
     [/^#\/mon\/(.+)$/, m => viewSport(decodeURIComponent(m[1])), 'Bộ môn'],
+    [/^#\/doi\/(.+)$/, m => viewTeam(decodeURIComponent(m[1])), 'Đội'],
+    [/^#\/hopdong$/, viewContracts, 'Hợp đồng'],
+    [/^#\/biendong$/, viewMovements, 'Tuyển mới / Thôi đào tạo'],
     [/^#\/giai$/, viewTournaments, 'Giải đấu & Thành tích'],
     [/^#\/giai\/(.+)$/, m => viewTournament(decodeURIComponent(m[1])), 'Giải đấu'],
     [/^#\/kiemtra$/, viewIssues, 'Kiểm tra dữ liệu'],
@@ -115,6 +143,8 @@
         });
         $('#nav-issues').textContent = issues().filter(i => i.lvl !== 'info').length;
         $('#nav-vdv').textContent = Store.athletes().length;
+        $('#nav-hd').textContent = Store.people.filter(p => p.status !== QUIT && daysLeft(p) !== null && daysLeft(p) <= 90).length || '';
+        $('#nav-bd').textContent = Store.people.filter(p => p.status).length || '';
         $('#nav-hlv').textContent = Store.coaches().length;
         bind();
         return;
@@ -140,11 +170,14 @@
     const bands = [['≤12', a => a <= 12], ['13–15', a => a >= 13 && a <= 15], ['16–18', a => a >= 16 && a <= 18], ['19–23', a => a >= 19 && a <= 23], ['24–30', a => a >= 24 && a <= 30], ['>30', a => a > 30]]
       .map(([l, f]) => [l, ages.filter(f).length]);
     const bandMax = Math.max(...bands.map(b => b[1]), 1);
+    const live = Store.people.filter(p => p.status !== QUIT).map(p => daysLeft(p)).filter(d => d !== null);
+    const hd = { expired: live.filter(d => d < 0).length, d30: live.filter(d => d >= 0 && d <= 30).length, d90: live.filter(d => d >= 0 && d <= 90).length };
+    const moves = { new: Store.people.filter(p => p.status === NEW).length, quit: Store.people.filter(p => p.status === QUIT).length };
 
     return `
     <section class="hero">
-      <h2>Thể thao Đà Lạt 2026 — Cao nguyên của những nhà vô địch</h2>
-      <p>Dữ liệu từ "Bảng tổng hợp HLV, VĐV tháng 9/2026" · cập nhật ${new Date(Store.db.updated).toLocaleString('vi-VN')}</p>
+      <h2>Thể thao Đà Lạt ${YEAR} — Cao nguyên của những nhà vô địch</h2>
+      <p>Dữ liệu gốc: ${esc(window.SEED_SOURCE || 'file Excel')} · cập nhật ${new Date(Store.db.updated).toLocaleString('vi-VN')} · VĐV "Thôi đào tạo" không tính vào thống kê (như Excel)</p>
       <div class="chips"><span class="chip">🏔️ ${sportsUsed} bộ môn</span><span class="chip">👥 ${teams} đội / nhóm</span><span class="chip">🏆 ${Store.db.tournaments.length} giải đấu</span></div>
     </section>
     <div class="grid g4">
@@ -152,6 +185,12 @@
       ${kpi('Huấn luyện viên', C.length, `Tỉ lệ ${(A.length / Math.max(C.length, 1)).toFixed(1)} VĐV/HLV`, '📋', 'bg-electric', '#/hlv')}
       ${kpi('Huy chương', tl.HCV + tl.HCB + tl.HCĐ, `🥇${tl.HCV} · 🥈${tl.HCB} · 🥉${tl.HCĐ}`, '🏅', 'bg-gold', '#/giai')}
       ${kpi('Cảnh báo dữ liệu', iss.filter(i => i.lvl !== 'info').length, `${iss.filter(i => i.lvl === 'err').length} lỗi cần sửa ngay`, '⚠️', 'bg-orange', '#/kiemtra')}
+    </div>
+    <div class="grid g4" style="margin-top:16px">
+      ${kpi('HĐ đã hết hạn', hd.expired, 'Cần gia hạn / thanh lý ngay', '⛔', 'bg-orange', '#/hopdong')}
+      ${kpi('HĐ hết hạn ≤ 90 ngày', hd.d90, `Trong đó ≤ 30 ngày: ${hd.d30}`, '⏳', 'bg-gold', '#/hopdong')}
+      ${kpi('Tuyển mới', moves.new, 'Đánh dấu TRẠNG THÁI = Tuyển mới', '🆕', 'bg-jade', '#/biendong')}
+      ${kpi('Thôi đào tạo', moves.quit, 'Đã loại khỏi thống kê', '🚪', 'bg-electric', '#/biendong')}
     </div>
     <div class="grid g-2-1" style="margin-top:16px">
       <div class="card">
@@ -246,10 +285,16 @@
     if (f.gender) list = list.filter(p => p.gender === f.gender);
     if (f.ageMin) list = list.filter(p => age(p) !== null && age(p) >= +f.ageMin);
     if (f.ageMax) list = list.filter(p => age(p) !== null && age(p) <= +f.ageMax);
-    if (q) list = list.filter(p => fold(`${p.name} ${p.id} ${p.team} ${p.year}`).includes(q));
+    // Mặc định ẩn VĐV "Thôi đào tạo" (giống thống kê Excel)
+    const st = f.status ?? 'active';
+    if (st === 'active') list = list.filter(p => p.status !== QUIT);
+    else if (st) list = list.filter(p => p.status === st);
+    if (f.note) list = list.filter(p => fold(p.note).includes(fold(f.note)));
+    if (q) list = list.filter(p => fold(`${p.name} ${p.id} ${p.team} ${p.year} ${p.note}`).includes(q));
     if (state.sort) {
       const [k, dir] = state.sort;
-      list = [...list].sort((a, b) => (a[k] ?? '') > (b[k] ?? '') ? dir : (a[k] ?? '') < (b[k] ?? '') ? -dir : 0);
+      const val = x => (k === 'days' ? daysLeft(x) ?? 1e9 : x[k] ?? '');
+      list = [...list].sort((a, b) => val(a) > val(b) ? dir : val(a) < val(b) ? -dir : 0);
     }
     return list;
   }
@@ -272,6 +317,8 @@
       <div class="seg" data-seg="gender">${['', 'Nam', 'Nữ'].map(t => `<button class="${(f.gender || '') === t ? 'on' : ''}" data-v="${t}">${t || 'Nam + Nữ'}</button>`).join('')}</div>
       <input data-f="ageMin" type="number" placeholder="Tuổi từ" style="width:90px" value="${esc(f.ageMin || '')}">
       <input data-f="ageMax" type="number" placeholder="đến" style="width:80px" value="${esc(f.ageMax || '')}">
+      ${role === 'VĐV' ? `<select data-f="status">${[['active', 'Đang đào tạo'], ['', 'Tất cả (kể cả thôi)'], [NEW, 'Chỉ Tuyển mới'], [QUIT, 'Chỉ Thôi đào tạo']].map(([v, l]) => `<option value="${v}" ${(f.status ?? 'active') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}
+      <select data-f="note"><option value="">Mọi ghi chú</option>${[...new Set(Store.people.filter(p => p.role === role && p.note).map(p => p.note))].map(n => `<option ${f.note === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
       <span class="muted"><b>${list.length}</b> / ${Store.people.filter(p => p.role === role).length} ${role}</span>
       <span style="margin-left:auto;display:flex;gap:8px">
         <button class="btn ghost sm" data-act="clear-filter">Xoá lọc</button>
@@ -280,7 +327,7 @@
       </span>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr>${th('id', 'Mã', 'hide-m')}${th('name', 'Họ và tên')}${th('year', 'Năm sinh', 'num')}<th class="num hide-m">Tuổi</th>${th('gender', 'Giới tính', 'hide-m')}${th('team', 'Môn / Đội')}${th('tier', 'Tuyến')}${role === 'VĐV' ? '<th class="num hide-m">Huy chương</th>' : ''}</tr></thead>
+      <thead><tr>${th('id', 'Mã', 'hide-m')}${th('name', 'Họ và tên')}${th('year', 'Năm sinh', 'num')}<th class="num hide-m">Tuổi</th>${th('gender', 'Giới tính', 'hide-m')}${th('team', 'Môn / Đội')}${th('tier', 'Tuyến')}${th('days', 'Hợp đồng')}<th class="hide-m">Ghi chú</th>${role === 'VĐV' ? '<th class="num hide-m">Huy chương</th>' : ''}</tr></thead>
       <tbody>${slice.map(p => {
         const t = tally(res.filter(r => r.athleteId === p.id));
         return `<tr data-href="#/p/${encodeURIComponent(p.id)}">
@@ -289,10 +336,12 @@
           <td class="num">${p.year ?? '<span class="tag err">Thiếu</span>'}</td><td class="num hide-m">${age(p) ?? '–'}</td>
           <td class="hide-m">${esc(p.gender)}</td>
           <td><span class="person">${sico(p.code, 'sm')}${esc(p.team)}</span></td>
-          <td>${tierTag(p.tier)}</td>
+          <td>${tierTag(p.tier)} ${statusTag(p)}</td>
+          <td>${contractTag(p)}</td>
+          <td class="hide-m">${noteTags(p)}</td>
           ${role === 'VĐV' ? `<td class="num hide-m">${t.HCV + t.HCB + t.HCĐ ? `🥇${t.HCV} 🥈${t.HCB} 🥉${t.HCĐ}` : '–'}</td>` : ''}
         </tr>`;
-      }).join('') || `<tr><td colspan="8"><div class="empty">Không có kết quả phù hợp</div></td></tr>`}</tbody>
+      }).join('') || `<tr><td colspan="10"><div class="empty">Không có kết quả phù hợp</div></td></tr>`}</tbody>
     </table></div>
     <div class="pager"><button class="btn ghost sm" data-act="page" data-v="-1" ${state.page <= 1 ? 'disabled' : ''}>‹ Trước</button><span class="muted">Trang ${state.page}/${pages}</span><button class="btn ghost sm" data-act="page" data-v="1" ${state.page >= pages ? 'disabled' : ''}>Sau ›</button></div>`;
   }
@@ -311,11 +360,14 @@
       <div>
         <div class="muted" style="color:#bfe9d9">${esc(p.id)} · ${p.role === 'HLV' ? 'Huấn luyện viên' : 'Vận động viên'}</div>
         <h2>${esc(p.name)}</h2>
-        <div class="meta"><span class="chip">${s.icon || '🏅'} ${esc(p.team)}</span><span class="chip">${esc(p.tier)}</span><span class="chip">${esc(p.gender)}</span><span class="chip">${p.year ? `${p.year} · ${age(p)} tuổi` : 'Chưa có năm sinh'}</span></div>
+        <div class="meta"><span class="chip">${s.icon || '🏅'} ${esc(p.team)}</span><span class="chip">${esc(p.tier)}</span><span class="chip">${esc(p.gender)}</span><span class="chip">${p.year ? `${p.year} · ${age(p)} tuổi` : 'Chưa có năm sinh'}</span>${p.status ? `<span class="chip">${p.status === QUIT ? '🚪' : '🆕'} ${esc(p.status)}${p.statusDate ? ' · ' + fmtDate(p.statusDate) : ''}</span>` : ''}${p.note ? `<span class="chip">📝 ${esc(p.note)}</span>` : ''}</div>
       </div>
       <div class="actions">
         ${p.role === 'VĐV' ? `<button class="btn gold" data-act="add-result" data-athlete="${esc(p.id)}">🏅 Nhập thành tích</button>` : ''}
         <button class="btn ghost" data-act="edit-person" data-id="${esc(p.id)}">✏️ Sửa</button>
+        ${p.role === 'VĐV' ? (p.status === QUIT
+          ? `<button class="btn ghost" data-act="set-status" data-id="${esc(p.id)}" data-v="">↩️ Đào tạo lại</button>`
+          : `<button class="btn ghost" data-act="set-status" data-id="${esc(p.id)}" data-v="${QUIT}">🚪 Thôi đào tạo</button>`) : ''}
       </div>
     </div>
     ${myIssues.length ? `<div class="card" style="margin-bottom:16px;border-left:4px solid var(--hot)">${myIssues.map(issueRow).join('')}</div>` : ''}
@@ -330,7 +382,10 @@
       <div class="grid" style="align-content:start">
         <div class="card"><h3>🪪 Thông tin</h3><dl class="kv">
           <dt>Mã</dt><dd>${esc(p.id)}</dd><dt>Mã môn</dt><dd>${esc(p.code)}</dd><dt>Bộ môn</dt><dd>${esc(s.name || p.code)}</dd><dt>Đội</dt><dd>${esc(p.team)}</dd>
-          <dt>Tuyến</dt><dd>${tierTag(p.tier)}</dd><dt>Hợp đồng</dt><dd>${esc(p.contract) || '<span class="tag warn">Chưa có</span>'}</dd><dt>Ghi chú</dt><dd>${esc(p.note) || '–'}</dd></dl></div>
+          <dt>Tuyến</dt><dd>${tierTag(p.tier)}</dd><dt>${p.role === 'HLV' ? 'Thời hạn HĐLĐ' : 'Hợp đồng đến'}</dt><dd>${p.contractEnd ? fmtDate(p.contractEnd) : esc(p.contractType) || '–'}</dd>
+          <dt>Ngày còn lại</dt><dd>${contractTag(p)}</dd>
+          <dt>Trạng thái</dt><dd>${statusTag(p) || '<span class="tag info">Đang đào tạo</span>'}</dd>
+          <dt>Ghi chú</dt><dd>${noteTags(p) || '–'}</dd></dl></div>
         <div class="card"><h3>${p.role === 'VĐV' ? '📋 HLV cùng bộ môn' : '👥 VĐV cùng tuyến'} <span class="muted">${mates.length}</span></h3>
           ${mates.slice(0, 12).map(m => `<a class="person" style="padding:6px 0" href="#/p/${encodeURIComponent(m.id)}">${avatar(m)}<span>${esc(m.name)}<div class="muted">${esc(m.team)} · ${esc(m.tier)}</div></span></a>`).join('') || '<div class="muted">Chưa có</div>'}
           ${mates.length > 12 ? `<div class="muted">… và ${mates.length - 12} người khác</div>` : ''}
@@ -375,7 +430,7 @@
     </div>
     <div class="card" style="margin-bottom:16px"><h3>🧮 Bảng chi tiết theo đội × tuyến × giới tính <span class="muted">(tương đương bảng COUNTIFS trong Excel)</span></h3>
       <div class="table-wrap"><table><thead><tr><th>Đội</th>${TIERS.map(t => `<th class="num">${t} Nam</th><th class="num">${t} Nữ</th>`).join('')}<th class="num">Tổng VĐV</th><th class="num">HLV</th></tr></thead><tbody>
-      ${teams.map(team => `<tr style="cursor:default"><td><b>${esc(team)}</b></td>${TIERS.map(t => `<td class="num">${cell(A, team, t, 'Nam')}</td><td class="num">${cell(A, team, t, 'Nữ')}</td>`).join('')}<td class="num"><b>${A.filter(p => p.team === team).length}</b></td><td class="num">${C.filter(p => p.team === team).length}</td></tr>`).join('')}
+      ${teams.map(team => `<tr data-href="#/doi/${encodeURIComponent(team)}"><td><b>${esc(team)}</b> <span class="muted">›</span></td>${TIERS.map(t => `<td class="num">${cell(A, team, t, 'Nam')}</td><td class="num">${cell(A, team, t, 'Nữ')}</td>`).join('')}<td class="num"><b>${A.filter(p => p.team === team).length}</b></td><td class="num">${C.filter(p => p.team === team).length}</td></tr>`).join('')}
       </tbody></table></div></div>
     <div class="grid g2">
       <div class="card"><h3>📋 Huấn luyện viên</h3>${C.map(m => `<a class="person" style="padding:6px 0" href="#/p/${encodeURIComponent(m.id)}">${avatar(m)}<span>${esc(m.name)}<div class="muted">${esc(m.team)} · ${esc(m.tier)} · ${m.year}</div></span></a>`).join('') || '<div class="muted">Chưa có HLV</div>'}</div>
@@ -434,19 +489,98 @@
     </div>`;
   }
 
+  // Tương đương các sheet lọc theo đội (U15, U16, Judo…): =FILTER(VĐV, MÔN THỂ THAO = đội) + COUNTIFS bỏ "Thôi đào tạo"
+  function viewTeam(team) {
+    const all = Store.people.filter(p => p.team === team);
+    if (!all.length) return `<div class="empty">Không có đội ${esc(team)}</div>`;
+    const code = all[0].code;
+    const A = all.filter(p => p.role === 'VĐV'), live = A.filter(p => p.status !== QUIT), C = all.filter(p => p.role === 'HLV');
+    const g = count(live, p => p.gender), t = count(live, p => p.tier);
+    const row = p => `<tr data-href="#/p/${encodeURIComponent(p.id)}" style="${p.status === QUIT ? 'opacity:.55' : ''}"><td><span class="person">${avatar(p)}<b>${esc(p.name)}</b></span></td><td class="num">${p.year ?? '–'}</td><td class="hide-m">${esc(p.gender)}</td><td>${tierTag(p.tier)} ${statusTag(p)}</td><td>${contractTag(p)}</td><td class="hide-m">${noteTags(p)}</td></tr>`;
+    return `
+    <div class="profile-head" style="background:linear-gradient(120deg, var(--hero-dark), ${(SPORT[code] || {}).color || '#333'})">
+      ${sico(code, 'lg')}<div><h2>${esc(team)}</h2><div class="meta"><span class="chip">${live.length} VĐV đang đào tạo</span><span class="chip">${C.length} HLV</span>${A.length - live.length ? `<span class="chip">🚪 ${A.length - live.length} thôi đào tạo</span>` : ''}</div></div>
+      <div class="actions"><button class="btn ghost" data-act="export-team" data-team="${esc(team)}">⬇ Xuất Excel đội</button></div>
+    </div>
+    <div class="grid g4" style="margin-bottom:16px">
+      ${kpi('Nam', g.Nam || 0, 'không tính thôi đào tạo', '♂', 'bg-electric', '#/doi/' + encodeURIComponent(team))}
+      ${kpi('Nữ', g['Nữ'] || 0, 'không tính thôi đào tạo', '♀', 'bg-orange', '#/doi/' + encodeURIComponent(team))}
+      ${kpi('Tuyển / Trẻ', `${t['Tuyển'] || 0} / ${t['Trẻ'] || 0}`, 'VĐV theo tuyến', '🎯', 'bg-jade', '#/doi/' + encodeURIComponent(team))}
+      ${kpi('Năng khiếu', t['Năng khiếu'] || 0, `Tổng ${live.length}`, '🌱', 'bg-gold', '#/doi/' + encodeURIComponent(team))}
+    </div>
+    ${C.length ? `<div class="card" style="margin-bottom:16px"><h3>📋 HLV</h3><div class="table-wrap"><table><thead><tr><th>Họ tên</th><th class="num">Năm sinh</th><th class="hide-m">Giới tính</th><th>Tuyến</th><th>HĐLĐ</th><th class="hide-m">Ghi chú</th></tr></thead><tbody>${C.map(row).join('')}</tbody></table></div></div>` : ''}
+    <div class="card"><h3>🏃 VĐV (${A.length})</h3><div class="table-wrap"><table><thead><tr><th>Họ tên</th><th class="num">Năm sinh</th><th class="hide-m">Giới tính</th><th>Tuyến</th><th>Hợp đồng</th><th class="hide-m">Ghi chú</th></tr></thead><tbody>${A.map(row).join('')}</tbody></table></div></div>`;
+  }
+
+  function viewContracts() {
+    const f = state.hd || (state.hd = { win: '90', role: '' });
+    let list = Store.people.filter(p => p.status !== QUIT && (!f.role || p.role === f.role));
+    const W = { exp: d => d !== null && d < 0, '30': d => d !== null && d <= 30, '90': d => d !== null && d <= 90, '180': d => d !== null && d <= 180, '365': d => d !== null && d <= 365, none: d => d === null, all: () => true };
+    list = list.filter(p => W[f.win](daysLeft(p))).sort((a, b) => (daysLeft(a) ?? 1e9) - (daysLeft(b) ?? 1e9));
+    const all = Store.people.filter(p => p.status !== QUIT).map(daysLeft);
+    const n = k => all.filter(W[k]).length;
+    const byYear = count(Store.people.filter(p => p.status !== QUIT && p.contractEnd), p => p.contractEnd.slice(0, 4));
+    const yrs = Object.keys(byYear).sort(), ymax = Math.max(...Object.values(byYear), 1);
+    return `
+    <div class="grid g4" style="margin-bottom:16px">
+      ${kpi('Đã hết hạn', n('exp'), 'HĐ < hôm nay', '⛔', 'bg-orange', '#/hopdong')}
+      ${kpi('≤ 30 ngày', n('30') - n('exp'), 'cần trình gia hạn ngay', '🔥', 'bg-gold', '#/hopdong')}
+      ${kpi('≤ 90 ngày', n('90') - n('exp'), 'lên kế hoạch gia hạn', '⏳', 'bg-electric', '#/hopdong')}
+      ${kpi('Chưa xác định', n('none'), 'trống ngày / viên chức / không thời hạn', '❔', 'bg-jade', '#/hopdong')}
+    </div>
+    <div class="grid g-2-1">
+      <div class="card">
+        <div class="toolbar">
+          <div class="seg" data-seg-hd="win">${[['exp', 'Hết hạn'], ['30', '≤30 ngày'], ['90', '≤90 ngày'], ['180', '≤180 ngày'], ['365', '≤1 năm'], ['none', 'Chưa xác định'], ['all', 'Tất cả']].map(([v, l]) => `<button class="${f.win === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>
+          <div class="seg" data-seg-hd="role">${[['', 'VĐV + HLV'], ['VĐV', 'VĐV'], ['HLV', 'HLV']].map(([v, l]) => `<button class="${f.role === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>
+          <span class="muted"><b>${list.length}</b> người</span>
+          <button class="btn ghost sm" style="margin-left:auto" data-act="export-hd">⬇ Xuất Excel</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Họ tên</th><th class="hide-m">Vai trò</th><th>Đội</th><th class="hide-m">Tuyến</th><th>Hết hạn</th><th class="num">Còn lại</th></tr></thead><tbody>
+        ${list.slice(0, 300).map(p => { const d = daysLeft(p); return `<tr data-href="#/p/${encodeURIComponent(p.id)}"><td><span class="person">${avatar(p)}<b>${esc(p.name)}</b></span></td><td class="hide-m">${p.role}</td><td><span class="person">${sico(p.code, 'sm')}${esc(p.team)}</span></td><td class="hide-m">${tierTag(p.tier)}</td><td>${p.contractEnd ? fmtDate(p.contractEnd) : esc(p.contractType) || '–'}</td><td class="num">${contractTag(p)}</td></tr>`; }).join('') || '<tr><td colspan="6"><div class="empty">Không có hợp đồng trong khoảng này 👍</div></td></tr>'}
+        </tbody></table></div>
+        ${list.length > 300 ? `<div class="muted" style="margin-top:8px">Hiển thị 300/${list.length} — dùng Xuất Excel để xem đủ</div>` : ''}
+      </div>
+      <div class="card"><h3>📅 Số HĐ hết hạn theo năm</h3>
+        <div class="bars">${yrs.map(y => `<div class="bar-row" style="grid-template-columns:52px 1fr 40px;cursor:default"><span class="bar-name">${y}</span><span class="bar-track"><span style="width:${byYear[y] / ymax * 100}%;background:${+y <= YEAR ? 'var(--hot)' : 'var(--c-age)'}"></span></span><span class="bar-val">${byYear[y]}</span></div>`).join('')}</div>
+        <p class="muted">Ngày còn lại = Ngày hết hạn − hôm nay (${TODAY.toLocaleDateString('vi-VN')}), giống cột "NGÀY CÒN LẠI" trong Excel.</p>
+      </div>
+    </div>`;
+  }
+
+  // Tương đương sheet "Tuyển - Nghĩ": =FILTER(VĐV, TRẠNG THÁI = "Thôi đào tạo" hoặc "Tuyển mới")
+  function viewMovements() {
+    const list = Store.people.filter(p => p.status).sort((a, b) => (b.statusDate || '').localeCompare(a.statusDate || ''));
+    const row = p => `<tr data-href="#/p/${encodeURIComponent(p.id)}"><td><span class="person">${avatar(p)}<b>${esc(p.name)}</b></span></td><td class="num">${p.year ?? '–'}</td><td><span class="person">${sico(p.code, 'sm')}${esc(p.team)}</span></td><td>${tierTag(p.tier)}</td><td>${statusTag(p)}</td><td>${p.statusDate ? fmtDate(p.statusDate) : '–'}</td></tr>`;
+    const sec = (st, ico) => { const l = list.filter(p => p.status === st); return `<div class="card"><h3>${ico} ${st} <span class="muted">${l.length}</span></h3>${l.length ? `<div class="table-wrap"><table><thead><tr><th>Họ tên</th><th class="num">Năm sinh</th><th>Đội</th><th>Tuyến</th><th>Trạng thái</th><th>Ngày</th></tr></thead><tbody>${l.map(row).join('')}</tbody></table></div>` : `<div class="empty">Chưa có VĐV nào ${st.toLowerCase()}.<br><span class="muted">Mở hồ sơ VĐV → bấm "Thôi đào tạo", hoặc khi thêm VĐV mới chọn trạng thái "Tuyển mới".</span></div>`}</div>`; };
+    return `<div class="toolbar"><span class="muted">VĐV "Thôi đào tạo" vẫn được lưu hồ sơ nhưng không tính vào số lượng (công thức COUNTIFS … "&lt;&gt;Thôi đào tạo" trong file Excel).</span><button class="btn ghost sm" style="margin-left:auto" data-act="export-bd">⬇ Xuất Excel</button></div>
+      <div class="grid g2">${sec(NEW, '🆕')}${sec(QUIT, '🚪')}</div>`;
+  }
+
   function viewIssues() {
     const iss = issues();
     const groups = count(iss, i => i.type);
-    return `<div class="toolbar">${Object.entries(groups).map(([k, n]) => `<span class="tag ${iss.find(i => i.type === k).lvl}">${esc(k)}: ${n}</span>`).join('')}</div>
+    const fileBugs = [
+      ['err', 'VĐV!E692, F692, F693', 'Công thức COUNTIFS bị lệch cột (đếm DS_VĐV[ĐỘI TUYẾN] theo tên môn, DS_VĐV[HỢP ĐỒNG] theo "*Trẻ*"…) → ô Trẻ/Năng khiếu của "Đội tuyển Bóng đá" và Năng khiếu của "Bóng đá Trẻ" luôn = 0, sai khi có VĐV mới.'],
+      ['err', 'VĐV!M692', 'Gõ thiếu dấu "*Năng khiêu*" → luôn đếm 0.'],
+      ['err', 'VĐV!N692', 'Cột NỮ Năng khiếu lại đếm "*Nam*" → đếm trùng Nam.'],
+      ['warn', 'VĐV!B692', 'STT dùng =ROW()-691, các dòng sau =ROW()-690 → số thứ tự nhảy 1 → 3.'],
+      ['warn', 'HLV!G97:N121', 'Bảng giới tính HLV lệch 1 dòng so với bảng số lượng (B96 ↔ G97).'],
+      ['warn', 'HLV', 'Sheet HLV chưa có cột TRẠNG THÁI → không theo dõi được HLV nghỉ/tuyển mới; tổng HLV không trừ người nghỉ.'],
+      ['info', '33 Name (BOILOI, VDV.JUDO…)', 'Tên vùng (Defined Names) đều #REF! — rác còn sót, nên xoá trong Name Manager.'],
+      ['info', 'Sheet "Tuyển - Nghĩ"', 'Tên sheet sai chính tả (Nghĩ → Nghỉ); cột TRẠNG THÁI hiện để trống 675/675 nên sheet này đang rỗng.'],
+    ];
+    return `<div class="card" style="margin-bottom:16px;border-left:4px solid var(--pink)"><h3>🧾 Lỗi công thức trong file Excel gốc <span class="muted">app đã tự tính lại đúng, không dùng các ô này</span></h3>${fileBugs.map(([lvl, where, msg]) => issueRow({ lvl, type: where, msg })).join('')}</div>
+    <div class="toolbar">${Object.entries(groups).map(([k, n]) => `<span class="tag ${iss.find(i => i.type === k).lvl}">${esc(k)}: ${n}</span>`).join('')}</div>
       <div class="card">${iss.map(issueRow).join('') || '<div class="empty">Không phát hiện vấn đề</div>'}</div>`;
   }
 
   function viewData() {
     return `<div class="grid g2">
       <div class="card"><h3>⬆️ Nhập từ Excel</h3>
-        <p class="muted">Chấp nhận file cùng cấu trúc với "bang_tong_hop_HLV_V_V_Thang_*.xlsx": sheet <b>HLV</b> và <b>VĐV</b>, dòng tiêu đề có các cột CODE MÔN, HỌ VÀ TÊN, NĂM SINH, GIỚI TÍNH, NHIỆM VỤ, MÔN THỂ THAO, ĐỘI TUYẾN (HỢP ĐỒNG, GHI CHÚ tuỳ chọn). Các dòng bảng tổng hợp COUNTIFS bên dưới sẽ tự bỏ qua.</p>
+        <p class="muted">Chấp nhận file cùng cấu trúc "Bang_Tong_Hop_HLV_V_V_2026.xlsx": chỉ đọc sheet <b>HLV</b> và <b>VĐV</b> (bỏ qua các sheet lọc theo đội và "Tuyển - Nghĩ"). Cột bắt buộc: CODE MÔN, HỌ VÀ TÊN, NĂM SINH, GIỚI TÍNH, NHIỆM VỤ, MÔN THỂ THAO, ĐỘI TUYẾN; tuỳ chọn: HỢP ĐỒNG / THỜI HẠN HĐLĐ, TRẠNG THÁI, Ghi chú / Column1. Các bảng COUNTIFS phía dưới tự bỏ qua.</p>
         <input type="file" id="file-in" accept=".xlsx,.xls" style="margin:10px 0">
-        <div class="seg" data-seg="importMode"><button class="${state.importMode !== 'merge' ? 'on' : ''}" data-v="replace">Thay toàn bộ danh sách</button><button class="${state.importMode === 'merge' ? 'on' : ''}" data-v="merge">Chỉ thêm người mới</button></div>
+        <div class="seg" data-seg="importMode"><button class="${state.importMode !== 'merge' ? 'on' : ''}" data-v="replace">Thay toàn bộ danh sách</button><button class="${state.importMode === 'merge' ? 'on' : ''}" data-v="merge">Cập nhật + thêm người mới</button></div>
         <p class="muted">⚠ "Thay toàn bộ" giữ nguyên giải đấu, nhưng kết quả của VĐV không còn trong file mới sẽ mất liên kết.</p>
       </div>
       <div class="card"><h3>⬇️ Xuất dữ liệu</h3>
@@ -461,7 +595,7 @@
         <button class="btn danger" data-act="clear-results">Xoá toàn bộ giải & thành tích</button>
       </div>
       <div class="card"><h3>🔄 Khôi phục gốc</h3>
-        <p class="muted">Đưa danh sách về đúng 79 HLV + 662 VĐV từ file Excel tháng 9/2026, xoá mọi giải đấu/thành tích.</p>
+        <p class="muted">Đưa danh sách về đúng dữ liệu gốc (${SEED_PEOPLE.filter(p => p.role === 'HLV').length} HLV + ${SEED_PEOPLE.filter(p => p.role === 'VĐV').length} VĐV từ ${esc(window.SEED_SOURCE || 'file Excel')}), xoá mọi giải đấu/thành tích.</p>
         <button class="btn danger" data-act="reset">Khôi phục dữ liệu gốc</button>
       </div>
     </div>`;
@@ -486,7 +620,7 @@
 
   function personForm(p, role) {
     const isNew = !p;
-    p = p || { role, code: state.filters.code || SPORTS[0].code, tier: 'Tuyển', gender: 'Nam', name: '', year: '', team: '', contract: '', note: '' };
+    p = p || { role, code: state.filters.code || SPORTS[0].code, tier: 'Tuyển', gender: 'Nam', name: '', year: '', team: '', contractEnd: '', contractType: '', status: role === 'VĐV' ? NEW : '', note: '' };
     const teams = [...new Set(Store.people.map(x => x.team))];
     modal(`<h3>${isNew ? 'Thêm' : 'Sửa'} ${p.role}</h3>
       <div class="form">
@@ -496,13 +630,19 @@
         <div class="field"><label>Bộ môn (CODE MÔN)</label><select name="code">${SPORTS.map(s => `<option value="${esc(s.code)}" ${p.code === s.code ? 'selected' : ''}>${s.icon} ${esc(s.name)}</option>`).join('')}</select></div>
         <div class="field"><label>Đội (MÔN THỂ THAO)</label><input name="team" list="teams" value="${esc(p.team)}" placeholder="vd. U17, Bóng đá Trẻ, Judo"><datalist id="teams">${teams.map(t => `<option>${esc(t)}</option>`).join('')}</datalist></div>
         <div class="field"><label>Tuyến (ĐỘI TUYẾN)</label><select name="tier">${TIERS.map(t => `<option ${p.tier === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-        <div class="field"><label>Hợp đồng</label><input name="contract" value="${esc(p.contract)}" placeholder="Số HĐ / thời hạn"></div>
-        <div class="field full"><label>Ghi chú</label><textarea name="note" rows="2">${esc(p.note)}</textarea></div>
+        <div class="field"><label>${p.role === 'HLV' ? 'Thời hạn HĐLĐ đến ngày' : 'Hợp đồng đến ngày'}</label><input name="contractEnd" type="date" value="${esc(p.contractEnd || '')}"></div>
+        ${p.role === 'HLV'
+          ? `<div class="field"><label>Loại HĐ (khi không có ngày)</label><select name="contractType">${['', 'Viên chức', 'không xác định thời hạn'].map(v => `<option value="${v}" ${p.contractType === v ? 'selected' : ''}>${v || '— có thời hạn —'}</option>`).join('')}</select></div>`
+          : `<div class="field"><label>Trạng thái</label><select name="status">${STATUSES.map(v => `<option value="${v}" ${p.status === v ? 'selected' : ''}>${v || 'Đang đào tạo'}</option>`).join('')}</select></div>`}
+        <div class="field full"><label>Ghi chú ${p.role === 'HLV' ? '(BÁC SỸ, KIÊM VĐV, NQ31…)' : '(NQ31, NQ15, Kiêm HLV…)'}</label><input name="note" list="notes" value="${esc(p.note)}"><datalist id="notes">${[...new Set(Store.people.map(x => x.note).filter(Boolean))].map(n => `<option>${esc(n)}</option>`).join('')}</datalist></div>
         ${isNew ? '' : `<div class="field full"><button type="button" class="btn danger" data-del="${esc(p.id)}">🗑 Xoá ${esc(p.role)} này</button></div>`}
       </div>`, d => {
       d.name = d.name.trim().replace(/\s+/g, ' ');
       d.year = d.year ? +d.year : null;
       d.team = d.team.trim() || SPORT[d.code].name;
+      d.note = d.note.trim();
+      if (d.contractEnd) d.contractType = '';
+      if ('status' in d && (isNew || d.status !== (p.status || ''))) d.statusDate = d.status ? new Date().toISOString().slice(0, 10) : '';
       if (isNew) {
         const np = { ...d, role: p.role, id: Store.nextId(p.role, d.code) };
         Store.db.people.push(np); Store.save(); toast(`Đã thêm ${np.name}`); location.hash = `#/p/${encodeURIComponent(np.id)}`;
@@ -575,27 +715,45 @@
     if (window.XLSX) return true;
     toast('Chưa tải được thư viện Excel (cần mạng lần đầu)'); return false;
   }
+  // Chỉ đọc 2 sheet gốc HLV và VĐV (các sheet đội U15, Judo…, "Tuyển - Nghĩ" chỉ là FILTER của sheet VĐV → bỏ để không nhân đôi)
   function parseWorkbook(wb) {
     const out = [];
     const seen = {};
-    wb.SheetNames.forEach(sheet => {
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheet], { header: 1, defval: '' });
+    const main = wb.SheetNames.filter(n => ['hlv', 'vdv'].includes(fold(n).trim()));
+    const toISO = v => {
+      if (v instanceof Date && !isNaN(v)) return new Date(v.getTime() - v.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+      if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10);
+      const m = String(v || '').match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+      return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+    };
+    (main.length ? main : wb.SheetNames).forEach(sheet => {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheet], { header: 1, defval: '', raw: true });
       const hi = rows.findIndex(r => r.some(c => String(c).trim().toUpperCase() === 'HỌ VÀ TÊN'));
       if (hi < 0) return;
       const H = rows[hi].map(c => String(c).trim().toUpperCase());
-      const col = k => H.indexOf(k);
+      const col = (...ks) => { for (const k of ks) { const i = H.indexOf(k); if (i >= 0) return i; } return -1; };
+      const get = (r, ...ks) => { const i = col(...ks); return i >= 0 ? r[i] : ''; };
       for (const r of rows.slice(hi + 1)) {
-        const name = String(r[col('HỌ VÀ TÊN')] || '').trim().replace(/\s+/g, ' ');
-        const code = String(r[col('CODE MÔN')] || '').trim();
-        const duty = String(r[col('NHIỆM VỤ')] || '').toLowerCase();
+        const name = String(get(r, 'HỌ VÀ TÊN') || '').trim().replace(/\s+/g, ' ');
+        const code = String(get(r, 'CODE MÔN') || '').trim();
+        const duty = String(get(r, 'NHIỆM VỤ') || '').toLowerCase();
         // Bỏ dòng trống và các bảng tổng hợp COUNTIFS phía dưới (không có cột NHIỆM VỤ hợp lệ)
         if (!name || !code || /^\d+$/.test(name) || !/huấn luyện|vận động/.test(duty)) continue;
         const role = duty.includes('huấn luyện') ? 'HLV' : 'VĐV';
         const key = role + code; seen[key] = (seen[key] || 0) + 1;
-        let team = String(r[col('MÔN THỂ THAO')] || '').trim().replace(/\s+/g, ' ');
-        if (fold(team) === fold('Khiêu vũ thể thao')) team = 'Khiêu vũ thể thao';
-        const y = parseInt(r[col('NĂM SINH')], 10);
-        out.push({ id: `${role === 'HLV' ? 'H' : 'V'}-${code}-${String(seen[key]).padStart(3, '0')}`, name, year: Number.isFinite(y) ? y : null, gender: String(r[col('GIỚI TÍNH')] || '').trim(), role, code, team, tier: String(r[col('ĐỘI TUYẾN')] || '').trim(), contract: col('HỢP ĐỒNG') >= 0 ? String(r[col('HỢP ĐỒNG')] || '').trim() : '', note: col('GHI CHÚ') >= 0 ? String(r[col('GHI CHÚ')] || '').trim() : '' });
+        let team = String(get(r, 'MÔN THỂ THAO') || '').trim().replace(/\s+/g, ' ');
+        const canon = { [fold('Khiêu vũ thể thao')]: 'Khiêu vũ thể thao', [fold('Bơi lặn')]: 'Bơi lặn' };
+        team = canon[fold(team)] || team;
+        const y = parseInt(get(r, 'NĂM SINH'), 10);
+        const hd = get(r, 'HỢP ĐỒNG', 'THỜI HẠN HĐLĐ');
+        const iso = toISO(hd);
+        out.push({
+          id: `${role === 'HLV' ? 'H' : 'V'}-${code}-${String(seen[key]).padStart(3, '0')}`, name, year: Number.isFinite(y) ? y : null,
+          gender: String(get(r, 'GIỚI TÍNH') || '').trim(), role, code, team, tier: String(get(r, 'ĐỘI TUYẾN') || '').trim(),
+          contractEnd: iso, contractType: iso ? '' : String(hd || '').trim(),
+          status: String(get(r, 'TRẠNG THÁI') || '').trim(),
+          note: String(get(r, 'GHI CHÚ', 'COLUMN1') || '').trim(),
+        });
       }
     });
     return out;
@@ -603,14 +761,26 @@
   function importExcel(file) {
     if (!needXLSX()) return;
     file.arrayBuffer().then(buf => {
-      const list = parseWorkbook(XLSX.read(buf));
+      const list = parseWorkbook(XLSX.read(buf, { cellDates: true }));
       if (!list.length) return toast('Không tìm thấy dòng dữ liệu hợp lệ');
       const h = list.filter(p => p.role === 'HLV').length, v = list.length - h;
       if (state.importMode === 'merge') {
-        const keys = new Set(Store.people.map(p => `${fold(p.name)}|${p.year}|${p.code}`));
-        const add = list.filter(p => !keys.has(`${fold(p.name)}|${p.year}|${p.code}`));
-        add.forEach(p => { p.id = Store.nextId(p.role, p.code); Store.db.people.push(p); });
-        Store.save(); toast(`Đã thêm ${add.length} người mới (bỏ qua ${list.length - add.length} trùng)`);
+        // Khớp theo họ tên + năm sinh + môn: người đã có thì cập nhật HĐ/trạng thái/ghi chú/đội/tuyến, người chưa có thì thêm
+        const idx = new Map(Store.people.map(p => [`${p.role}|${fold(p.name)}|${p.year}|${p.code}`, p]));
+        let add = 0, upd = 0;
+        list.forEach(p => {
+          const old = idx.get(`${p.role}|${fold(p.name)}|${p.year}|${p.code}`);
+          if (old) {
+            // Ô trống trong file không xoá dữ liệu đã nhập trên app (trạng thái, ngày HĐ, ghi chú)
+            const { id, ...fresh } = p;
+            ['contractEnd', 'contractType', 'status', 'note'].forEach(k => { if (!fresh[k]) delete fresh[k]; });
+            if (fresh.contractEnd) fresh.contractType = '';
+            if ('status' in fresh && fresh.status !== old.status) fresh.statusDate = new Date().toISOString().slice(0, 10);
+            Object.assign(old, fresh); upd++;
+          }
+          else { p.id = Store.nextId(p.role, p.code); if (p.role === 'VĐV' && !p.status) p.status = NEW; p.statusDate = new Date().toISOString().slice(0, 10); Store.db.people.push(p); add++; }
+        });
+        Store.save(); toast(`Cập nhật ${upd} người, thêm mới ${add} người (đánh dấu Tuyển mới)`);
       } else {
         if (!confirm(`Thay danh sách hiện tại bằng ${h} HLV + ${v} VĐV từ file?`)) return;
         Store.db.people = list; Store.save(); toast(`Đã nhập ${h} HLV + ${v} VĐV`);
@@ -618,17 +788,25 @@
       render();
     }).catch(e => toast('Lỗi đọc file: ' + e.message));
   }
-  const personRow = p => ({ 'MÃ': p.id, 'CODE MÔN': p.code, 'HỌ VÀ TÊN': p.name, 'NĂM SINH': p.year, 'TUỔI': age(p), 'GIỚI TÍNH': p.gender, 'NHIỆM VỤ': p.role === 'HLV' ? 'Huấn luyện viên' : 'Vận động viên', 'MÔN THỂ THAO': p.team, 'ĐỘI TUYẾN': p.tier, 'HỢP ĐỒNG': p.contract, 'GHI CHÚ': p.note });
+  const personRow = p => ({ 'MÃ': p.id, 'CODE MÔN': p.code, 'HỌ VÀ TÊN': p.name, 'NĂM SINH': p.year, 'TUỔI': age(p), 'GIỚI TÍNH': p.gender, 'NHIỆM VỤ': p.role === 'HLV' ? 'Huấn luyện viên' : 'Vận động viên', 'MÔN THỂ THAO': p.team, 'ĐỘI TUYẾN': p.tier,
+    [p.role === 'HLV' ? 'THỜI HẠN HĐLĐ' : 'HỢP ĐỒNG']: p.contractEnd ? new Date(p.contractEnd + 'T00:00:00') : p.contractType || '', 'NGÀY CÒN LẠI': daysLeft(p) ?? 'Chưa xác định', 'TRẠNG THÁI': p.status || '', 'NGÀY ĐỔI TT': p.statusDate || '', 'GHI CHÚ': p.note });
+  const writeSheet = (wb, rows, name) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows, { cellDates: true }), name);
+  function exportList(rows, sheet, file) {
+    if (!needXLSX()) return;
+    const wb = XLSX.utils.book_new(); writeSheet(wb, rows.map(personRow), sheet);
+    XLSX.writeFile(wb, `${file}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
   function exportAll() {
     if (!needXLSX()) return;
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Store.coaches().map(personRow)), 'DS_HLV');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Store.athletes().map(personRow)), 'DS_VĐV');
+    writeSheet(wb, Store.coaches().map(personRow), 'DS_HLV');
+    writeSheet(wb, Store.allAthletes().map(personRow), 'DS_VĐV');
+    writeSheet(wb, Store.people.filter(p => p.status).map(personRow), 'Tuyển - Nghỉ');
     const teams = [...new Set(Store.people.map(p => p.team))];
     const sum = teams.map(team => {
       const row = { 'MÔN THỂ THAO': team };
       ['VĐV', 'HLV'].forEach(role => TIERS.forEach(t => ['Nam', 'Nữ'].forEach(g => {
-        row[`${role} ${t} ${g}`] = Store.people.filter(p => p.role === role && p.team === team && p.tier === t && p.gender === g).length;
+        row[`${role} ${t} ${g}`] = Store.people.filter(p => p.role === role && p.status !== QUIT && p.team === team && p.tier === t && p.gender === g).length;
       })));
       row['TỔNG VĐV'] = Store.athletes().filter(p => p.team === team).length;
       row['TỔNG HLV'] = Store.coaches().filter(p => p.team === team).length;
@@ -669,6 +847,9 @@
       if (seg.dataset.seg === 'importMode') { state.importMode = b.dataset.v; return render(); }
       state.filters[seg.dataset.seg] = b.dataset.v; state.page = 1; render();
     })));
+    c.querySelectorAll('[data-seg-hd]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      state.hd[seg.dataset.segHd] = b.dataset.v; render();
+    })));
     c.querySelectorAll('th[data-sort]').forEach(th => th.addEventListener('click', () => {
       const k = th.dataset.sort; state.sort = state.sort?.[0] === k ? [k, -state.sort[1]] : [k, 1]; render();
     }));
@@ -706,6 +887,14 @@
     else if (a === 'clear-results') { if (confirm('Xoá toàn bộ giải đấu và thành tích?')) { Store.db.tournaments = []; Store.db.results = []; Store.save(); render(); } }
     else if (a === 'reset') { if (confirm('Khôi phục 79 HLV + 662 VĐV gốc và xoá mọi thành tích?')) { Store.reset(); render(); } }
     else if (a === 'fab') resultForm();
+    else if (a === 'set-status') {
+      const p = Store.person(b.dataset.id), v = b.dataset.v;
+      if (!confirm(v === QUIT ? `Đánh dấu ${p.name} "Thôi đào tạo"? VĐV sẽ không còn được tính vào thống kê (hồ sơ vẫn giữ).` : `Đưa ${p.name} trở lại đang đào tạo?`)) return;
+      p.status = v; p.statusDate = v ? new Date().toISOString().slice(0, 10) : ''; Store.save(); toast('Đã cập nhật trạng thái'); render();
+    }
+    else if (a === 'export-team') exportList(Store.people.filter(p => p.team === b.dataset.team), 'DOI', fold(b.dataset.team).replace(/\W+/g, '_'));
+    else if (a === 'export-hd') { const f = state.hd; exportList(Store.people.filter(p => p.status !== QUIT && (!f.role || p.role === f.role)).sort((x, y) => (daysLeft(x) ?? 1e9) - (daysLeft(y) ?? 1e9)), 'HOP_DONG', 'Hop_dong'); }
+    else if (a === 'export-bd') exportList(Store.people.filter(p => p.status), 'Tuyen-Nghi', 'Tuyen_moi_Thoi_dao_tao');
   });
 
   // ---------- Theme ----------
@@ -724,6 +913,7 @@
     setTheme(t); toast({ volt: 'Theme: Neon Đêm', blaze: 'Theme: Bùng Cháy', dalat: 'Theme: Xanh Đà Lạt' }[t]);
   });
   setTheme(document.documentElement.dataset.theme);
+  $('#src').textContent = window.SEED_SOURCE || 'file Excel';
 
   let qTimer;
   $('#q').addEventListener('input', () => {

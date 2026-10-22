@@ -1,7 +1,41 @@
 # DALAT SPORTS HUB: quản lý VĐV, HLV và thành tích thi đấu
 
 Ứng dụng web (PWA, cài được lên Android) để quản lý nhân sự VĐV, HLV và thành tích thi đấu các bộ môn thể thao Đà Lạt.
-Dữ liệu khởi tạo lấy từ `bang_tong_hop_HLV_V_V_Thang_9_2026.xlsx`.
+Dữ liệu khởi tạo lấy từ `Huu_Bang_Tong_Hop_HLV_V_V_2026.xlsx` (bản mới, 81 HLV + 675 VĐV). Bản cũ là `bang_tong_hop_HLV_V_V_Thang_9_2026.xlsx` (79 + 662).
+
+## 0. Đưa lên Vercel (làm 1 lần, khoảng 2 phút)
+
+1. Vào https://vercel.com/new và đăng nhập đúng tài khoản đang có project `web-cuongtv1089-3159s-projects`.
+2. Mục **Import Git Repository**, chọn `cuongtvcaudat/app-keo-dien-ac`. Nếu chưa thấy repo, bấm "Adjust GitHub App Permissions" và cấp quyền cho repo này.
+3. **Root Directory**: bấm Edit, chọn `dalat-sports`. **Framework Preset**: `Other`. Không cần Build Command.
+4. Bấm **Deploy**. Vercel sẽ cấp link dạng `https://<tên-project>.vercel.app`.
+5. Sau đó mỗi lần có code mới đẩy lên GitHub, Vercel tự triển khai lại: nhánh `main` lên link chính, các nhánh khác lên link Preview.
+   - Để chạy ngay bản trên nhánh `claude/athlete-management-app-xfwsqa`: vào project → Settings → Git → Production Branch, đặt tên nhánh này. Hoặc merge PR #4 vào `main`.
+
+## Logic nghiệp vụ lấy từ file Excel mới
+
+| Trong Excel | Trong app |
+|---|---|
+| `DS_VĐV[TRẠNG THÁI]` (Data Validation: "Thôi đào tạo", "Tuyển mới") | Trường `status`. Mọi thống kê **loại "Thôi đào tạo"**, giống tiêu chí `"<>Thôi đào tạo"` trong các hàm COUNTIFS. Hồ sơ người nghỉ vẫn giữ lại |
+| `DS_VĐV[HỢP ĐỒNG]` (ngày) + `NGÀY CÒN LẠI = IF(ISBLANK(I),"Chưa xác định",I-TODAY())` | `contractEnd` + số ngày còn lại tính theo ngày hôm nay. Cảnh báo theo các mốc: đã hết hạn / ≤30 ngày / ≤90 ngày / ≤180 ngày / ≤1 năm |
+| `DS_HLV[THỜI HẠN HĐLĐ]` (ngày, "Viên chức", "không xác định thời hạn") | `contractEnd` hoặc `contractType` |
+| `Ghi chú` (NQ31, NQ15, NQ31- Kiêm HLV) / HLV `Column1` (BÁC SỸ, KIÊM VĐV, NQ31) | `note`: có bộ lọc riêng và hiện dạng thẻ (tag) |
+| Sheet "Tuyển - Nghĩ" = `FILTER(TRẠNG THÁI = Thôi đào tạo hoặc Tuyển mới)` | Trang **Tuyển mới / Thôi**, có ghi ngày đổi trạng thái |
+| 25 sheet theo đội (U15, U16, Judo…) = `FILTER(MÔN THỂ THAO = đội)` + bảng Nam/Nữ, Tuyển/Trẻ/Năng khiếu | Trang **Đội** (`#/doi/<tên đội>`), mở từ bảng chi tiết của từng môn; có nút xuất Excel theo đội |
+
+Lỗi công thức trong file mới (app không dùng các ô này mà tự tính lại; chi tiết xem mục Kiểm tra dữ liệu):
+- `VĐV!E692`, `F692`, `F693`: COUNTIFS bị lệch cột, luôn ra 0.
+- `M692` gõ thiếu dấu "*Năng khiêu*".
+- `N692` đếm "*Nam*" thay vì "*Nữ*".
+- STT `B692` lệch.
+- Bảng giới tính HLV lệch 1 dòng.
+- 33 Defined Name đều `#REF!`.
+- Sheet HLV chưa có cột TRẠNG THÁI.
+
+Số liệu hợp đồng tại ngày 22/10/2026:
+- 3 VĐV đã hết hạn: Trần Hữu Ngọc Long 30/09, Nguyễn Ngọc Tiến 01/10, Võ Khai Nguyên 01/10.
+- 1 người hết hạn trong ≤30 ngày: Lê Hoàng Tỷ, 31/10.
+- **92 người hết hạn trong ≤90 ngày**, phần lớn vào ngày 31/12/2026.
 
 - Bản thiết kế giao diện trên Canva: https://canva.link/nvc1a9ptviphgv9
 - Có 3 giao diện, đổi bằng nút ở cuối sidebar hoặc nút 🎨 trên điện thoại. App nhớ lựa chọn của từng máy:
