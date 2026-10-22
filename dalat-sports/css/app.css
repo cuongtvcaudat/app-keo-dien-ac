@@ -171,7 +171,7 @@ html[data-theme="dalat"] .brand small { color: #6fdcb6; }
 .nav a.active .count { background: rgba(0,0,0,.18); }
 .nav a .count:empty { display: none; }
 .nav a .count.warn { background: var(--hot); color: #fff; }
-.sidebar .foot { margin-top: auto; font-size: 11px; color: var(--sidebar-muted); padding: 8px; position: relative; z-index: 1; }
+.sidebar .foot { margin-top: auto; font-size: 11px; color: var(--sidebar-muted); padding: 8px; position: relative; z-index: 1; overflow-wrap: anywhere; }
 
 /* Theme switcher */
 .themes { display: flex; gap: 8px; margin: 8px 0 12px; }

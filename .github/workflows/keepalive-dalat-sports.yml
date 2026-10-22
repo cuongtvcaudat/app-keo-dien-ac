@@ -1,0 +1,48 @@
+# Ping hằng ngày cho Dalat Sports Hub (Vercel):
+# - Truy cập trang chủ + file dữ liệu để kiểm tra web còn sống, đúng app.
+# - Nếu web lỗi/không truy cập được → job đỏ → GitHub gửi email cảnh báo cho chủ repo.
+# - GitHub tự tắt lịch chạy (schedule) khi repo 60 ngày không có hoạt động;
+#   bước cuối gọi API "enable" để giữ lịch luôn bật.
+name: Keepalive Dalat Sports Hub
+
+on:
+  schedule:
+    - cron: "17 0 * * *" # 07:17 sáng giờ Việt Nam, mỗi ngày
+  workflow_dispatch: {}
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # Đổi tên miền ở đây nếu gắn domain riêng
+      SITE: https://dalat-sports-hub.vercel.app
+    steps:
+      - name: Truy cập web và kiểm tra nội dung
+        run: |
+          ok=""
+          # Hỗ trợ cả 2 cấu hình Root Directory: "dalat-sports" (link gọn) hoặc "./" (link /dalat-sports/)
+          for base in "$SITE" "$SITE/dalat-sports"; do
+            code=$(curl -sS -L -o page.html -w '%{http_code}' --retry 3 --retry-delay 10 "$base/" || echo 000)
+            echo "$base/ -> HTTP $code"
+            if [ "$code" = "200" ] && grep -q "Dalat Sports Hub" page.html; then
+              data=$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 "$base/js/seed-data.js" || echo 000)
+              echo "$base/js/seed-data.js -> HTTP $data"
+              if [ "$data" = "200" ]; then ok="$base"; break; fi
+            fi
+          done
+          if [ -z "$ok" ]; then
+            echo "::error::Không truy cập được Dalat Sports Hub tại $SITE — kiểm tra project trên Vercel"
+            exit 1
+          fi
+          echo "Web hoạt động tốt: $ok/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Giữ lịch chạy luôn bật (chống GitHub tự tắt sau 60 ngày)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/keepalive-dalat-sports.yml/enable"
