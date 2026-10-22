@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0B4D3B">
+  <title>Dalat Sports Hub</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><img src="icon.svg" alt=""><div><b>DALAT SPORTS HUB</b><small>Quản lý VĐV · HLV</small></div></div>
+      <nav class="nav">
+        <a href="#/" data-nav="#/"><span class="ico">🏠</span>Tổng quan</a>
+        <a href="#/vdv" data-nav="#/vdv"><span class="ico">🏃</span>Vận động viên<span class="count" id="nav-vdv"></span></a>
+        <a href="#/hlv" data-nav="#/hlv"><span class="ico">📋</span>Huấn luyện viên<span class="count" id="nav-hlv"></span></a>
+        <a href="#/mon" data-nav="#/mon"><span class="ico">🎽</span>Bộ môn</a>
+        <a href="#/giai" data-nav="#/giai"><span class="ico">🏆</span>Giải đấu & Thành tích</a>
+        <a href="#/kiemtra" data-nav="#/kiemtra"><span class="ico">🛡️</span>Kiểm tra dữ liệu<span class="count warn" id="nav-issues"></span></a>
+        <a href="#/dulieu" data-nav="#/dulieu"><span class="ico">🔄</span>Nhập / Xuất Excel</a>
+      </nav>
+      <div class="foot">Nguồn: Bảng tổng hợp HLV, VĐV tháng 9/2026<br>Dữ liệu lưu trên trình duyệt này</div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div><h1 id="title">Tổng quan</h1><div class="sub">Thể thao Đà Lạt · Lâm Đồng · 2026</div></div>
+        <label class="search">🔎<input id="q" type="search" placeholder="Tìm VĐV, HLV, mã, đội… (không dấu được)" autocomplete="off"></label>
+      </header>
+      <div class="content" id="content"></div>
+    </main>
+  </div>
+  <nav class="bottom-nav">
+    <a href="#/" data-nav="#/"><span class="ico">🏠</span>Tổng quan</a>
+    <a href="#/vdv" data-nav="#/vdv"><span class="ico">🏃</span>VĐV</a>
+    <a href="#/mon" data-nav="#/mon"><span class="ico">🎽</span>Bộ môn</a>
+    <a href="#/giai" data-nav="#/giai"><span class="ico">🏆</span>Giải</a>
+    <a href="#/kiemtra" data-nav="#/kiemtra"><span class="ico">🛡️</span>Kiểm tra</a>
+  </nav>
+  <button class="fab" data-act="fab" aria-label="Nhập thành tích nhanh">🏅</button>
+
+  <script src="js/vendor/xlsx.full.min.js" defer></script>
+  <script src="js/sports.js"></script>
+  <script src="js/seed-data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

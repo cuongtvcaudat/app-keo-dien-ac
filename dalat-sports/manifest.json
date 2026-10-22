@@ -1,0 +1,11 @@
+{
+  "name": "Dalat Sports Hub — Quản lý VĐV, HLV",
+  "short_name": "Sports Hub",
+  "description": "Quản lý nhân sự VĐV, HLV và thành tích thi đấu các bộ môn thể thao Đà Lạt",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B4D3B",
+  "theme_color": "#0B4D3B",
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
