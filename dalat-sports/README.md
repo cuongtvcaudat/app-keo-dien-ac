@@ -4,6 +4,10 @@
 Dữ liệu khởi tạo lấy từ `bang_tong_hop_HLV_V_V_Thang_9_2026.xlsx`.
 
 - Bản thiết kế giao diện trên Canva: https://canva.link/nvc1a9ptviphgv9
+- Có 3 giao diện, đổi bằng nút ở cuối sidebar hoặc nút 🎨 trên điện thoại. App nhớ lựa chọn của từng máy:
+  - **Neon Đêm** (mặc định): nền tối, xanh chanh neon `#C6FF1A`, cyan `#00E0FF`, cam lửa `#FF4D2E`, hồng `#FF2E93`, tím `#8B3DFF`.
+  - **Bùng Cháy**: nền sáng, cam lửa `#FF3D00`, xanh hoàng gia `#0050FF`, hồng `#E5007A`.
+  - **Xanh Đà Lạt**: xanh thông `#0B4D3B` và `#00B37A`, vàng huy chương `#FFC727`.
 - Chạy thử: `cd dalat-sports && python3 -m http.server 8765`, sau đó mở http://localhost:8765. Mở thẳng file `index.html` cũng chạy được, chỉ thiếu chế độ offline.
 
 ## 1. Cấu trúc file Excel gốc

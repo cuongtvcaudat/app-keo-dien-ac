@@ -171,15 +171,15 @@
       <div class="grid" style="align-content:start">
         <div class="card">
           <h3>⚖️ Cơ cấu giới tính VĐV</h3>
-          ${donut([[g.Nam || 0, 'var(--pine-800)', 'Nam'], [g['Nữ'] || 0, 'var(--rose)', 'Nữ']], A.length, 'VĐV')}
+          ${donut([[g.Nam || 0, 'var(--c-male)', 'Nam'], [g['Nữ'] || 0, 'var(--c-female)', 'Nữ']], A.length, 'VĐV')}
         </div>
         <div class="card">
           <h3>🎯 Cơ cấu tuyến</h3>
-          ${donut([[t['Tuyển'] || 0, 'var(--pine-800)', 'Tuyển'], [t['Trẻ'] || 0, 'var(--jade-500)', 'Trẻ'], [t['Năng khiếu'] || 0, 'var(--gold)', 'Năng khiếu']], A.length, 'VĐV')}
+          ${donut([[t['Tuyển'] || 0, 'var(--c-tuyen)', 'Tuyển'], [t['Trẻ'] || 0, 'var(--c-tre)', 'Trẻ'], [t['Năng khiếu'] || 0, 'var(--c-nk)', 'Năng khiếu']], A.length, 'VĐV')}
         </div>
         <div class="card">
           <h3>🎂 Độ tuổi VĐV <span class="muted">tính đến ${YEAR}</span></h3>
-          <div class="bars">${bands.map(([l, n]) => `<div class="bar-row" style="grid-template-columns:52px 1fr 40px;cursor:default"><span class="bar-name">${l}</span><span class="bar-track"><span style="width:${n / bandMax * 100}%;background:var(--electric)"></span></span><span class="bar-val">${n}</span></div>`).join('')}</div>
+          <div class="bars">${bands.map(([l, n]) => `<div class="bar-row" style="grid-template-columns:52px 1fr 40px;cursor:default"><span class="bar-name">${l}</span><span class="bar-track"><span style="width:${n / bandMax * 100}%;background:var(--c-age)"></span></span><span class="bar-val">${n}</span></div>`).join('')}</div>
         </div>
       </div>
     </div>
@@ -196,7 +196,8 @@
   }
 
   function kpi(label, value, foot, ico, bg, href) {
-    return `<a class="card kpi" href="${href}"><div class="label">${label}</div><div class="value">${value.toLocaleString('vi-VN')}</div><div class="foot">${foot}</div><span class="badge-ico ${bg}">${ico}</span></a>`;
+    const k = { 'bg-jade': 'k-primary', 'bg-electric': 'k-secondary', 'bg-gold': 'k-gold', 'bg-orange': 'k-hot' }[bg] || '';
+    return `<a class="card kpi ${k}" href="${href}"><div class="label">${label}</div><div class="value">${value.toLocaleString('vi-VN')}</div><div class="foot">${foot}</div><span class="badge-ico ${bg}">${ico}</span></a>`;
   }
 
   function donut(parts, total, unit) {
@@ -209,11 +210,11 @@
     }).join('');
     return `<div class="donut-wrap">
       <svg class="donut" viewBox="0 0 140 140" role="img" aria-label="${parts.map(p => `${p[2]} ${p[0]}`).join(', ')}">
-        <circle r="${R}" cx="70" cy="70" fill="none" stroke="var(--mist-100)" stroke-width="18"/>${arcs}
-        <text x="70" y="70" text-anchor="middle" font-size="30" font-weight="700" fill="var(--ink-900)">${total}</text>
-        <text x="70" y="90" text-anchor="middle" font-size="13" fill="var(--ink-600)">${unit}</text>
+        <circle r="${R}" cx="70" cy="70" fill="none" stroke="var(--track)" stroke-width="18"/>${arcs}
+        <text x="70" y="70" text-anchor="middle" font-size="30" font-weight="700" fill="var(--text)">${total}</text>
+        <text x="70" y="90" text-anchor="middle" font-size="13" fill="var(--muted)">${unit}</text>
       </svg>
-      <div class="legend" style="flex-direction:column;gap:8px">${parts.map(([v, c, l]) => `<span><i style="background:${c}"></i><b style="color:var(--ink-900)">${l}</b> · ${v} (${total ? (v / total * 100).toFixed(1) : 0}%)</span>`).join('')}</div>
+      <div class="legend" style="flex-direction:column;gap:8px">${parts.map(([v, c, l]) => `<span><i style="background:${c}"></i><b style="color:var(--text)">${l}</b> · ${v} (${total ? (v / total * 100).toFixed(1) : 0}%)</span>`).join('')}</div>
     </div>`;
   }
 
@@ -317,7 +318,7 @@
         <button class="btn ghost" data-act="edit-person" data-id="${esc(p.id)}">✏️ Sửa</button>
       </div>
     </div>
-    ${myIssues.length ? `<div class="card" style="margin-bottom:16px;border-left:4px solid var(--orange)">${myIssues.map(issueRow).join('')}</div>` : ''}
+    ${myIssues.length ? `<div class="card" style="margin-bottom:16px;border-left:4px solid var(--hot)">${myIssues.map(issueRow).join('')}</div>` : ''}
     <div class="grid g-2-1">
       <div class="card">
         <h3>🏆 Lịch sử thi đấu ${p.role === 'VĐV' ? `<span class="muted medal-tally" style="margin-left:auto"><span>🥇 ${t.HCV}</span><span>🥈 ${t.HCB}</span><span>🥉 ${t.HCĐ}</span></span>` : ''}</h3>
@@ -352,7 +353,7 @@
       const a = A.filter(p => p.code === s.code), c = C.filter(p => p.code === s.code).length;
       const t = count(a, p => p.tier), tl = tally(Store.db.results.filter(r => Store.person(r.athleteId)?.code === s.code));
       const ratio = c ? a.length / c : Infinity;
-      return `<a class="card sport-card" href="#/mon/${encodeURIComponent(s.code)}">
+      return `<a class="card sport-card" style="--sc:${s.color}" href="#/mon/${encodeURIComponent(s.code)}">
         <div class="top">${sico(s.code, 'lg')}<div><div class="name">${esc(s.name)}</div><div class="muted">${esc(s.code)} · ${esc(s.group)}</div></div></div>
         <div class="stats"><div><b>${t['Tuyển'] || 0}</b><span>Tuyển</span></div><div><b>${t['Trẻ'] || 0}</b><span>Trẻ</span></div><div><b>${t['Năng khiếu'] || 0}</b><span>N.khiếu</span></div></div>
         <div class="ratio"><span>👥 ${a.length} VĐV · 📋 ${c} HLV</span><span class="tag ${ratio > 15 ? 'warn' : 'tuyen'}">${c ? ratio.toFixed(1) : '∞'} VĐV/HLV</span></div>
@@ -368,7 +369,7 @@
     const teams = [...new Set([...A, ...C].map(p => p.team))];
     const cell = (list, team, tier, g) => list.filter(p => p.team === team && p.tier === tier && (!g || p.gender === g)).length;
     return `
-    <div class="profile-head" style="background:linear-gradient(120deg, var(--pine-900), ${s.color})">
+    <div class="profile-head" style="background:linear-gradient(120deg, var(--hero-dark), ${s.color})">
       ${sico(code, 'lg')}<div><h2>${esc(s.name)}</h2><div class="meta"><span class="chip">${A.length} VĐV</span><span class="chip">${C.length} HLV</span><span class="chip">${teams.length} đội</span></div></div>
       <div class="actions"><button class="btn ghost" data-act="goto-filter" data-code="${esc(code)}">Xem danh sách VĐV →</button></div>
     </div>
@@ -706,6 +707,23 @@
     else if (a === 'reset') { if (confirm('Khôi phục 79 HLV + 662 VĐV gốc và xoá mọi thành tích?')) { Store.reset(); render(); } }
     else if (a === 'fab') resultForm();
   });
+
+  // ---------- Theme ----------
+  const THEMES = ['volt', 'blaze', 'dalat'];
+  const THEME_COLOR = { volt: '#0a0e15', blaze: '#ff3d00', dalat: '#0b4d3b' };
+  function setTheme(t) {
+    if (!THEMES.includes(t)) t = 'volt';
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem('dsh-theme', t); } catch { /* chế độ riêng tư */ }
+    document.querySelector('meta[name=theme-color]')?.setAttribute('content', THEME_COLOR[t]);
+    document.querySelectorAll('[data-theme-set]').forEach(b => b.classList.toggle('on', b.dataset.themeSet === t));
+  }
+  document.querySelectorAll('[data-theme-set]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeSet)));
+  $('#theme-cycle').addEventListener('click', () => {
+    const t = THEMES[(THEMES.indexOf(document.documentElement.dataset.theme) + 1) % THEMES.length];
+    setTheme(t); toast({ volt: 'Theme: Neon Đêm', blaze: 'Theme: Bùng Cháy', dalat: 'Theme: Xanh Đà Lạt' }[t]);
+  });
+  setTheme(document.documentElement.dataset.theme);
 
   let qTimer;
   $('#q').addEventListener('input', () => {
