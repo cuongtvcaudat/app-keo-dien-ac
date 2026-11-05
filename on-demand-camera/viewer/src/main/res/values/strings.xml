@@ -51,10 +51,20 @@
     <string name="action_flash_on">Bật flash</string>
     <string name="action_flash_off">Tắt flash</string>
     <string name="action_snapshot">Chụp ảnh</string>
-    <string name="live_view_coming">Xem video trực tiếp sẽ có ở bản sau. Camera tự tắt nếu không có ai xem.</string>
     <string name="last_snapshot">Ảnh chụp gần nhất</string>
     <string name="delete_title">Xoá camera?</string>
     <string name="delete_message">Xoá “%1$s” khỏi app này. Máy camera không bị ảnh hưởng.</string>
+
+    <!-- Xem trực tiếp -->
+    <string name="action_live">Xem trực tiếp</string>
+    <string name="live_video_desc">Video trực tiếp từ camera</string>
+    <string name="live_connecting">Đang mở camera và kết nối video…</string>
+    <string name="live_reconnecting">Mất hình, đang kết nối lại…</string>
+    <string name="live_camera_off">Camera đang tắt.</string>
+    <string name="live_offline">Camera đang offline.</string>
+    <string name="live_info">%1$d hình/giây • %2$d người xem</string>
+    <string name="live_info_latency">%1$d hình/giây • trễ %2$s giây • %3$d người xem</string>
+    <string name="live_no_audio">Chưa có âm thanh (sẽ có khi nâng cấp WebRTC). Chạm vào video để ẩn/hiện nút.</string>
 
     <!-- Kết nối -->
     <string name="conn_idle">Chưa kết nối</string>

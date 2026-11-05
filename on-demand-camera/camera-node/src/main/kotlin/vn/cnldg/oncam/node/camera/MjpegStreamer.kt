@@ -14,7 +14,8 @@ import vn.cnldg.oncam.shared.security.StreamAuth
 /**
  * HTTP server phát MJPEG (NanoHTTPD) — chỉ bind trên [host] (IP Tailscale), KHÔNG bao giờ 0.0.0.0.
  *
- * - `GET /stream.mjpeg` → `multipart/x-mixed-replace`, mỗi phần là một khung JPEG.
+ * - `GET /stream.mjpeg` → `multipart/x-mixed-replace`, mỗi phần là một khung JPEG kèm header
+ *   [StreamPaths.TIMESTAMP_HEADER] (thời điểm chụp) để viewer ước lượng độ trễ.
  * - `GET /snapshot.jpg` → khung JPEG mới nhất.
  * - Mọi request phải có header [StreamAuth.HEADER] hợp lệ (quyết định D6), sai → 401.
  * - Tối đa [maxClients] người xem cùng lúc để máy cũ không quá tải, quá → 503.
@@ -118,7 +119,7 @@ internal class MjpegInputStream(
         if (pos >= buffer.size) {
             val frame = hub.awaitAfter(lastSeq, FRAME_WAIT_MS) ?: return -1
             lastSeq = frame.seq
-            buffer = part(frame.jpeg)
+            buffer = part(frame.jpeg, frame.capturedAtMs)
             pos = 0
         }
         val n = minOf(len, buffer.size - pos)
@@ -133,9 +134,11 @@ internal class MjpegInputStream(
         onClose()
     }
 
-    private fun part(jpeg: ByteArray): ByteArray {
-        val header = "--${StreamPaths.BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpeg.size}\r\n\r\n"
-            .toByteArray(Charsets.US_ASCII)
+    private fun part(jpeg: ByteArray, capturedAtMs: Long): ByteArray {
+        val header = (
+            "--${StreamPaths.BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpeg.size}\r\n" +
+                "${StreamPaths.TIMESTAMP_HEADER}: $capturedAtMs\r\n\r\n"
+            ).toByteArray(Charsets.US_ASCII)
         return header + jpeg + CRLF
     }
 

@@ -1,6 +1,6 @@
 # Hướng dẫn sử dụng OnCam
 
-> Bản đầy đủ viết ở **Phase 6**. Hiện có phần máy camera (Phase 2–3) và app Xem (Phase 4).
+> Bản đầy đủ viết ở **Phase 6**. Hiện có phần máy camera (Phase 2–3) và app Xem (Phase 4–5).
 
 ## Máy camera (app OnCam Quay) — từ Phase 2
 
@@ -73,6 +73,16 @@ Sau khi máy camera **khởi động lại** hoặc app bị hệ thống tắt 
 | Thấp / Vừa / Cao | Chất lượng: 640×480@10 · 1280×720@15 · 1280×720@30 hình/giây |
 
 Thoát hoặc ẩn app Xem → camera do app bật sẽ tự tắt (có thể tắt tính năng này trong Cài đặt).
+
+### Xem trực tiếp (từ Phase 5)
+
+1. Trên thẻ camera bấm **Xem trực tiếp** → app tự bật camera (nếu đang tắt) và hiện video toàn màn hình.
+2. Dòng trên cùng: **số hình/giây • độ trễ • số người xem**. Độ trễ đúng khi cả 2 máy bật *Ngày giờ tự động*.
+3. Chạm vào video để ẩn/hiện nút. Các nút: Tắt/Bật camera, Đổi camera, Flash, **Chụp ảnh** (lưu đúng khung đang xem), Thấp/Vừa/Cao.
+4. Màn hình máy xem luôn sáng trong lúc xem. Xoay ngang để xem to hơn.
+5. Bấm **Quay lại**: ngắt video; camera tự tắt sau thời gian chờ nếu không còn ai xem. Ẩn app: tắt luôn camera do app bật.
+
+Chưa có âm thanh (sẽ có khi nâng cấp WebRTC).
 
 ### Khi camera hiện Offline
 

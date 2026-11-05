@@ -27,7 +27,7 @@
 |---|---|---|
 | `shared` | Kotlin/JVM thuần | Data class lệnh/trạng thái/sự kiện (`protocol/`), ký/kiểm HMAC (`security/`), wrapper MQTT Paho mqttv3 (`mqtt/`), **client giao thức cho viewer** (`client/CameraClient`). Không phụ thuộc Android → unit test chạy trên JVM, có test tích hợp với broker thật (Moquette) |
 | `camera-node` | Android app | Foreground Service, broker MQTT nhúng (Moquette), xử lý lệnh, đọc pin/nhiệt, CameraX + MJPEG (NanoHTTPD). Phần lõi `core/`, `mqtt/`, `broker/`, `camera/FrameHub`, `camera/MjpegStreamer` không dùng API Android → test trên JVM |
-| `viewer` | Android app | Danh sách camera (lưu mã hoá), kết nối khi app hiển thị, gửi lệnh, hiển thị trạng thái, lưu snapshot vào MediaStore; xem live (Phase 5) |
+| `viewer` | Android app | Danh sách camera (lưu mã hoá), kết nối khi app hiển thị, gửi lệnh, hiển thị trạng thái, lưu snapshot vào MediaStore, xem trực tiếp toàn màn hình (`stream/StreamClient`, `stream/MjpegView`, `ui/LiveViewScreen`) |
 
 ## 3. Kênh MQTT
 
@@ -88,6 +88,10 @@ STOP / idle / quá nhiệt / lỗi camera ──► đóng HTTP server + gỡ Ca
 | D22 | App Xem chỉ kết nối MQTT khi đang hiển thị; rời app → tắt camera do chính app bật (cài đặt, mặc định bật) rồi ngắt; keepalive 10 s | Spec mục 7.3; tiết kiệm pin máy Xem; phát hiện offline ≤ ~20 s |
 | D23 | Khoá ký **debug** dùng chung commit trong `keystore/` (mật khẩu mặc định công khai "android") | APK debug từ các lần CI khác nhau cài đè được, không mất cấu hình. Không phải bí mật; bản release dùng khoá riêng (Phase 6) |
 | D24 | App Xem bật `cleartextTrafficPermitted` (network_security_config) | Android không cho khai báo theo dải IP 100.64.0.0/10; đường truyền đã được Tailscale mã hoá và request video/ảnh bắt buộc header HMAC |
+| D25 | Mỗi phần MJPEG có header `X-OnCam-Timestamp` (giờ chụp) | App Xem hiện **độ trễ thực tế** để kiểm tiêu chí < 2 s (2 máy cần bật giờ tự động) |
+| D26 | Bộ đọc MJPEG (`client/MjpegReader`) đặt trong `shared` | Test đầu-cuối được với MJPEG server thật của camera-node: đo FPS, độ trễ, số người xem |
+| D27 | App Xem giải mã RGB_565 và tái sử dụng 3 bitmap luân phiên | 720p: ~1,8 MB/khung thay vì tạo mới 3,7 MB/khung (~55 MB rác/giây ở 15 hình/giây) → máy xem đỡ giật |
+| D28 | Chưa có âm thanh (spec cho phép để phase sau) | MJPEG không mang âm thanh; làm cùng WebRTC (Phase 7) |
 | D12 | Thêm sự kiện `COMMAND_RESULT` (kèm `commandId`, `success`) và các trường trạng thái `displayName`, `flashOn`, `quality`, `charging`, `network`, `protocolVersion` | Cần để trả lời PING, báo lỗi lệnh, hiển thị đúng nút flash/chất lượng và tình trạng mạng (mục 2.1.4 spec). Đều có giá trị mặc định nên tương thích ngược |
 
 ## 6. Ràng buộc Android cần nhớ

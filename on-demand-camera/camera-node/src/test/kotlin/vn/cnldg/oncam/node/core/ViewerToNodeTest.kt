@@ -14,11 +14,13 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import vn.cnldg.oncam.node.broker.EmbeddedBroker
 import vn.cnldg.oncam.shared.client.CameraClient
 import vn.cnldg.oncam.shared.client.CameraEndpoint
 import vn.cnldg.oncam.shared.client.CommandResult
+import vn.cnldg.oncam.shared.client.MjpegReader
 import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
 import vn.cnldg.oncam.shared.protocol.Action
 import vn.cnldg.oncam.shared.protocol.CameraCodes
@@ -119,6 +121,40 @@ class ViewerToNodeTest {
         assertIs<CommandResult.Ok>(viewer.send(Action.STOP_STREAM))
         withTimeout(TIMEOUT_MS) { viewer.view.first { it.status?.cameraState == CameraState.OFF } }
         assertEquals(null, fake.opened, "Tắt camera phải nhả camera")
+    }
+
+    @Test
+    fun `xem truc tiep MJPEG do tre dem nguoi xem va khong tu tat khi dang xem`() = runBlocking<Unit> {
+        connect()
+        assertIs<CommandResult.Ok>(viewer.send(Action.START_STREAM, CommandParams(idleTimeoutSec = 30)))
+        val url = withTimeout(TIMEOUT_MS) {
+            viewer.view.first { it.status?.cameraState == CameraState.STREAMING }.status!!.streamUrl!!
+        }
+
+        val reader = withContext(Dispatchers.IO) { MjpegReader.open(url, viewer.streamAuthHeader()) }
+        try {
+            val startedMs = System.currentTimeMillis()
+            var frames = 0
+            var maxLatencyMs = 0L
+            withContext(Dispatchers.IO) {
+                // Xem ~1 giây: gấp hơn 3 lần thời gian chờ tự tắt (0,3 s trong test).
+                while (System.currentTimeMillis() - startedMs < 1_000) {
+                    val f = reader.next()!!
+                    assertEquals(0xD8.toByte(), f.jpeg[1])
+                    maxLatencyMs = maxOf(maxLatencyMs, System.currentTimeMillis() - f.capturedAtMs!!)
+                    frames++
+                }
+            }
+            assertTrue(frames >= 10, "Chỉ nhận $frames khung trong 1 giây")
+            assertTrue(maxLatencyMs < 2_000, "Độ trễ $maxLatencyMs ms (yêu cầu < 2 s)")
+            withTimeout(TIMEOUT_MS) { viewer.view.first { it.status?.viewers == 1 } }
+            assertEquals(CameraState.STREAMING, viewer.view.value.status?.cameraState)
+        } finally {
+            reader.close()
+        }
+
+        // Rời màn hình xem → 0 người xem → hết thời gian chờ thì camera tự tắt.
+        withTimeout(TIMEOUT_MS) { viewer.view.first { it.status?.cameraState == CameraState.OFF } }
     }
 
     @Test

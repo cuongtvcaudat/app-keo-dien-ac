@@ -47,6 +47,9 @@ interface CameraActions {
     /** Chụp ảnh lưu vào Thư viện. */
     fun snapshot(entry: CameraEntry)
 
+    /** Mở màn hình xem trực tiếp. */
+    fun openLive(entry: CameraEntry)
+
     /** Sửa camera. */
     fun edit(entry: CameraEntry)
 
@@ -115,6 +118,7 @@ fun HomeScreen(
                         onToggleFlash = { actions.toggleFlash(entry) },
                         onQuality = { actions.setQuality(entry, it) },
                         onSnapshot = { actions.snapshot(entry) },
+                        onOpenLive = { actions.openLive(entry) },
                         onEdit = { actions.edit(entry) },
                         onDelete = { actions.delete(entry) },
                     )

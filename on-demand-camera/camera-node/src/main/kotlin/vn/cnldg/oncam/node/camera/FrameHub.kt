@@ -14,16 +14,18 @@ class FrameHub {
     private val lock = ReentrantLock()
     private val newFrame = lock.newCondition()
     private var frame: ByteArray? = null
+    private var frameAtMs = 0L
     private var seq = 0L
     private var closed = false
 
-    /** Một khung kèm số thứ tự. */
-    class Frame(val seq: Long, val jpeg: ByteArray)
+    /** Một khung kèm số thứ tự và thời điểm chụp (ms). */
+    class Frame(val seq: Long, val jpeg: ByteArray, val capturedAtMs: Long)
 
     /** Đưa khung mới vào (luồng camera). */
     fun publish(jpeg: ByteArray) = lock.withLock {
         if (closed) return@withLock
         frame = jpeg
+        frameAtMs = System.currentTimeMillis()
         seq++
         newFrame.signalAll()
     }
@@ -42,7 +44,7 @@ class FrameHub {
             remainingNs = newFrame.awaitNanos(remainingNs)
         }
         val current = frame
-        if (closed || current == null) null else Frame(seq, current)
+        if (closed || current == null) null else Frame(seq, current, frameAtMs)
     }
 
     /** Đóng hub: các luồng đang chờ được đánh thức và nhận null. */

@@ -10,6 +10,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -22,10 +24,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -35,6 +37,7 @@ import vn.cnldg.oncam.viewer.mqtt.CommandSender
 import vn.cnldg.oncam.viewer.ui.AddCameraScreen
 import vn.cnldg.oncam.viewer.ui.CameraActions
 import vn.cnldg.oncam.viewer.ui.HomeScreen
+import vn.cnldg.oncam.viewer.ui.LiveViewScreen
 import vn.cnldg.oncam.viewer.ui.SettingsScreen
 import vn.cnldg.oncam.viewer.ui.UiMessage
 import vn.cnldg.oncam.viewer.ui.ViewerViewModel
@@ -51,22 +54,28 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var sender: CommandSender
 
+    private val vm: ViewerViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            OnCamViewerTheme { ViewerApp() }
+            OnCamViewerTheme { ViewerApp(vm) }
         }
     }
 
     override fun onStart() {
         super.onStart()
         sender.connectAll()
+        vm.resumeLive()
     }
 
     override fun onStop() {
         // Xoay màn hình không tính là rời app.
-        if (!isChangingConfigurations) sender.onAppBackground()
+        if (!isChangingConfigurations) {
+            vm.pauseLive()
+            sender.onAppBackground()
+        }
         super.onStop()
     }
 }
@@ -76,21 +85,26 @@ private sealed interface Screen {
     data object Home : Screen
     data object Settings : Screen
     data class Edit(val deviceId: String?) : Screen
+    data class Live(val deviceId: String) : Screen
 }
 
 @Composable
-private fun ViewerApp(vm: ViewerViewModel = hiltViewModel()) {
+private fun ViewerApp(vm: ViewerViewModel) {
     val context = LocalContext.current
     val cameras by vm.cameras.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val lastSnapshot by vm.lastSnapshot.collectAsStateWithLifecycle()
     val idleTimeoutSec by vm.idleTimeoutSec.collectAsStateWithLifecycle()
     val stopOnLeave by vm.stopOnLeave.collectAsStateWithLifecycle()
+    val streamState by vm.streamState.collectAsStateWithLifecycle()
+    val liveDeviceId by vm.liveDeviceId.collectAsStateWithLifecycle()
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var screenName by rememberSaveable { mutableStateOf(HOME) }
-    val screen: Screen = when (screenName) {
-        SETTINGS -> Screen.Settings
-        EDIT -> Screen.Edit(editing)
+    val live = liveDeviceId
+    val screen: Screen = when {
+        live != null -> Screen.Live(live)
+        screenName == SETTINGS -> Screen.Settings
+        screenName == EDIT -> Screen.Edit(editing)
         else -> Screen.Home
     }
     val snackbar = remember { SnackbarHostState() }
@@ -107,12 +121,23 @@ private fun ViewerApp(vm: ViewerViewModel = hiltViewModel()) {
         }
     }
 
-    // Android 9 trở xuống cần quyền ghi bộ nhớ để lưu ảnh vào Thư viện.
-    var pendingSnapshot by remember { mutableStateOf<CameraEntry?>(null) }
+    // Android 9 trở xuống cần quyền ghi bộ nhớ để lưu ảnh vào Thư viện: giữ việc cần làm, xin quyền, làm tiếp.
+    var pendingSave by remember { mutableStateOf<(() -> Unit)?>(null) }
     val storagePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        val entry = pendingSnapshot
-        pendingSnapshot = null
-        if (granted && entry != null) vm.snapshot(entry)
+        val action = pendingSave
+        pendingSave = null
+        if (granted) action?.invoke()
+    }
+    val withStoragePermission: (() -> Unit) -> Unit = { action ->
+        val needsPermission = Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+            PackageManager.PERMISSION_GRANTED
+        if (needsPermission) {
+            pendingSave = action
+            storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            action()
+        }
     }
 
     val actions = remember(vm) {
@@ -121,26 +146,42 @@ private fun ViewerApp(vm: ViewerViewModel = hiltViewModel()) {
             override fun switchCamera(entry: CameraEntry) = vm.switchCamera(entry)
             override fun toggleFlash(entry: CameraEntry) = vm.toggleFlash(entry)
             override fun setQuality(entry: CameraEntry, quality: StreamQuality) = vm.setQuality(entry, quality)
-            override fun snapshot(entry: CameraEntry) {
-                val needsPermission = Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
-                    PackageManager.PERMISSION_GRANTED
-                if (needsPermission) {
-                    pendingSnapshot = entry
-                    storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                } else {
-                    vm.snapshot(entry)
-                }
-            }
+            override fun snapshot(entry: CameraEntry) = withStoragePermission { vm.snapshot(entry) }
             override fun edit(entry: CameraEntry) {
                 editing = entry.saved.deviceId
                 screenName = EDIT
             }
             override fun delete(entry: CameraEntry) = vm.removeCamera(entry.saved.deviceId)
+            override fun openLive(entry: CameraEntry) = vm.openLive(entry)
         }
     }
 
-    if (screen != Screen.Home) BackHandler { screenName = HOME }
+    if (screen is Screen.Live) {
+        BackHandler { vm.closeLive() }
+    } else if (screen != Screen.Home) {
+        BackHandler { screenName = HOME }
+    }
+
+    if (screen is Screen.Live) {
+        val entry = cameras?.firstOrNull { it.saved.deviceId == screen.deviceId }
+        // Toàn màn hình, nền đen: không đặt trong Scaffold để video chiếm hết màn hình.
+        Box(Modifier.fillMaxSize()) {
+            LiveViewScreen(
+                entry = entry,
+                name = entry?.let(vm::displayName) ?: screen.deviceId,
+                stream = streamState,
+                busy = screen.deviceId in busy,
+                onBack = vm::closeLive,
+                onToggleCamera = { entry?.let(vm::toggleCamera) },
+                onSwitchCamera = { entry?.let(vm::switchCamera) },
+                onToggleFlash = { entry?.let(vm::toggleFlash) },
+                onQuality = { q -> entry?.let { vm.setQuality(it, q) } },
+                onSnapshot = { entry?.let { e -> withStoragePermission { vm.snapshotFromLive(e) } } },
+            )
+            SnackbarHost(snackbar, modifier = Modifier.align(Alignment.Center))
+        }
+        return
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -175,6 +216,7 @@ private fun ViewerApp(vm: ViewerViewModel = hiltViewModel()) {
                 onCancel = { screenName = HOME },
                 modifier = modifier,
             )
+            is Screen.Live -> Unit // đã vẽ ở trên
         }
     }
 }

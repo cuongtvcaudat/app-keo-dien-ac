@@ -55,6 +55,7 @@ fun CameraCard(
     onToggleFlash: () -> Unit,
     onQuality: (StreamQuality) -> Unit,
     onSnapshot: () -> Unit,
+    onOpenLive: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -116,7 +117,10 @@ fun CameraCard(
                 }
             }
 
-            Button(onClick = onToggleCamera, enabled = online && !busy, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = onOpenLive, enabled = online, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.action_live))
+            }
+            OutlinedButton(onClick = onToggleCamera, enabled = online && !busy, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(if (cameraOn) R.string.action_camera_off else R.string.action_camera_on))
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -142,9 +146,6 @@ fun CameraCard(
                         }
                     }
                 }
-            }
-            if (streaming) {
-                Text(stringResource(R.string.live_view_coming), style = MaterialTheme.typography.bodySmall)
             }
 
             lastSnapshot?.let { bytes ->

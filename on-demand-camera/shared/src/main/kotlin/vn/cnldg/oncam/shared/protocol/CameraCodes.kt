@@ -61,4 +61,7 @@ object StreamPaths {
 
     /** Ranh giới giữa các khung trong luồng MJPEG. */
     const val BOUNDARY: String = "oncamframe"
+
+    /** Header trong mỗi phần MJPEG: thời điểm chụp khung (ms, đồng hồ máy camera) để viewer ước lượng độ trễ. */
+    const val TIMESTAMP_HEADER: String = "X-OnCam-Timestamp"
 }

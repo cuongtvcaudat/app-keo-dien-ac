@@ -26,7 +26,11 @@ import vn.cnldg.oncam.viewer.data.SavedCamera
 import vn.cnldg.oncam.viewer.data.ViewerSettings
 import vn.cnldg.oncam.viewer.mqtt.CameraEntry
 import vn.cnldg.oncam.viewer.mqtt.CommandSender
+import vn.cnldg.oncam.viewer.log.TimberLogSink
 import vn.cnldg.oncam.viewer.stream.SnapshotSaver
+import vn.cnldg.oncam.viewer.stream.StreamClient
+import vn.cnldg.oncam.viewer.stream.StreamSource
+import vn.cnldg.oncam.viewer.stream.StreamState
 
 /** Thông báo ngắn hiện ở cuối màn hình (giao diện đổi sang câu tiếng Việt). */
 sealed interface UiMessage {
@@ -73,6 +77,16 @@ class ViewerViewModel @Inject constructor(
 
     /** Ảnh chụp gần nhất của từng camera (hiện ảnh nhỏ trên thẻ camera). */
     val lastSnapshot: StateFlow<Map<String, ByteArray>> = _lastSnapshot.asStateFlow()
+
+    private val stream = StreamClient(viewModelScope, TimberLogSink)
+
+    /** Luồng xem trực tiếp. */
+    val streamState: StateFlow<StreamState> = stream.state
+
+    private val _liveDeviceId = MutableStateFlow<String?>(null)
+
+    /** Camera đang xem trực tiếp (null nếu không ở màn hình xem). */
+    val liveDeviceId: StateFlow<String?> = _liveDeviceId.asStateFlow()
 
     private val _messages = MutableSharedFlow<UiMessage>(extraBufferCapacity = 8)
 
@@ -141,6 +155,57 @@ class ViewerViewModel @Inject constructor(
                 _busy.update { it - id }
             }
         }
+    }
+
+    /** Mở màn hình xem trực tiếp: bật camera nếu đang tắt rồi kết nối luồng MJPEG khi camera sẵn sàng. */
+    fun openLive(entry: CameraEntry) {
+        _liveDeviceId.value = entry.saved.deviceId
+        val state = entry.view.status?.cameraState
+        if (entry.view.online && state != CameraState.STREAMING && state != CameraState.STARTING) {
+            command(entry, Action.START_STREAM, CommandParams(idleTimeoutSec = settings.idleTimeoutSec.value))
+        }
+        playLive(entry.saved.deviceId)
+    }
+
+    /** Rời màn hình xem trực tiếp. Camera tự tắt sau thời gian chờ nếu không còn ai xem. */
+    fun closeLive() {
+        stream.stop()
+        _liveDeviceId.value = null
+    }
+
+    /** App bị ẩn: ngắt luồng video (đỡ tốn dữ liệu), giữ nguyên màn hình đang xem. */
+    fun pauseLive() = stream.stop()
+
+    /** App hiện lại: nối lại luồng nếu đang ở màn hình xem (không tự bật lại camera). */
+    fun resumeLive() {
+        _liveDeviceId.value?.let { playLive(it) }
+    }
+
+    /** Chụp ảnh trong lúc xem: lưu ngay khung đang hiển thị (không cần tải lại). */
+    fun snapshotFromLive(entry: CameraEntry) {
+        val jpeg = stream.state.value.jpeg ?: return snapshot(entry)
+        val id = entry.saved.deviceId
+        viewModelScope.launch {
+            if (snapshots.save(jpeg, id) != null) {
+                _lastSnapshot.update { it + (id to jpeg) }
+                _messages.emit(UiMessage.SnapshotSaved)
+            } else {
+                _messages.emit(UiMessage.SnapshotFailed)
+            }
+        }
+    }
+
+    private fun playLive(deviceId: String) {
+        stream.play {
+            val client = sender.client(deviceId) ?: return@play null
+            val status = client.view.value.status ?: return@play null
+            if (status.cameraState != CameraState.STREAMING) return@play null
+            status.streamUrl?.let { StreamSource(it, client.streamAuthHeader()) }
+        }
+    }
+
+    override fun onCleared() {
+        stream.stop()
     }
 
     /** Thêm hoặc sửa camera. */
