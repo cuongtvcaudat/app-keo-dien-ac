@@ -200,6 +200,7 @@ class MqttClientWrapperTest {
             setProperty(IConfig.PORT_PROPERTY_NAME, port.toString())
             setProperty(IConfig.WEB_SOCKET_PORT_PROPERTY_NAME, "disabled")
             setProperty(IConfig.PERSISTENCE_ENABLED_PROPERTY_NAME, "false")
+            setProperty(IConfig.ENABLE_TELEMETRY_NAME, "false") // Moquette mặc định gửi telemetry ra ngoài
             setProperty(IConfig.ALLOW_ANONYMOUS_PROPERTY_NAME, (authenticator == null).toString())
         }
         return Server().apply { startServer(MemoryConfig(props), emptyList(), null, authenticator, null) }

@@ -56,5 +56,16 @@ class NodeConfigAndAddressTest {
         assertNull(TailscaleIp.pick(emptyList()))
     }
 
+    @Test
+    fun `broker nhung tat telemetry va anonymous chi nghe IP duoc chi dinh`() {
+        val props = vn.cnldg.oncam.node.broker.EmbeddedBroker(java.io.File("build/tmp")).properties("100.101.102.103", 1883)
+
+        assertEquals("false", props.getProperty("telemetry_enabled"), "Moquette mặc định gửi IP công cộng ra ngoài")
+        assertEquals("false", props.getProperty("allow_anonymous"))
+        assertEquals("false", props.getProperty("persistence_enabled"))
+        assertEquals("disabled", props.getProperty("websocket_port"))
+        assertEquals("100.101.102.103", props.getProperty("host"))
+    }
+
     private fun ip(a: Int, b: Int, c: Int, d: Int) = byteArrayOf(a.toByte(), b.toByte(), c.toByte(), d.toByte())
 }
