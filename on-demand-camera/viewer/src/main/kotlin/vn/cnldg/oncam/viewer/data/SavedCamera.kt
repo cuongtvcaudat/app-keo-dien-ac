@@ -39,11 +39,10 @@ data class SavedCamera(
 
     /** Không in token/mật khẩu ra log. */
     override fun toString(): String = "SavedCamera(deviceId=$deviceId, brokerUri=$brokerUri, secret=***)"
-
-    private companion object {
-        val BROKER_URI = Regex("^(tcp|ssl)://[A-Za-z0-9.\\-]+:\\d{2,5}$")
-    }
 }
+
+// Đặt ngoài class: companion object của lớp @Serializable chứa hàm serializer() nên không được để private.
+private val BROKER_URI = Regex("^(tcp|ssl)://[A-Za-z0-9.\\-]+:\\d{2,5}$")
 
 /** Lỗi nhập liệu khi thêm camera. */
 enum class SavedCameraProblem { INVALID_DEVICE_ID, INVALID_BROKER_URI, WEAK_SECRET }
