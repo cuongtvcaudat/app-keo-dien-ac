@@ -28,19 +28,24 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import vn.cnldg.oncam.node.broker.EmbeddedBroker
+import vn.cnldg.oncam.node.camera.CameraController
 import vn.cnldg.oncam.node.config.NodeConfigRepository
 import vn.cnldg.oncam.node.core.BrokerMode
 import vn.cnldg.oncam.node.core.NodeController
+import vn.cnldg.oncam.node.core.StreamManager
 import vn.cnldg.oncam.node.core.TailscaleIp
 import vn.cnldg.oncam.node.log.TimberLogSink
 import vn.cnldg.oncam.node.system.DeviceInfoReader
 import vn.cnldg.oncam.node.system.NetworkMonitor
+import vn.cnldg.oncam.shared.protocol.CameraState
+import vn.cnldg.oncam.shared.security.StreamAuth
 
 /**
  * Foreground Service của camera node — chạy thường trực ở chế độ "nghe lệnh".
  *
  * Thiết kế theo ràng buộc Android 14+ (spec mục 4.1):
- * - Chỉ một service; khi có lệnh mở camera (Phase 3) service tự mở camera, không start service mới.
+ * - Chỉ một service; khi có lệnh START_STREAM, chính service này mở camera (CameraX gắn vào vòng đời service),
+ *   không start service mới.
  * - Loại `camera` chỉ được dùng khi service được khởi động lúc app đang hiển thị ([EXTRA_FROM_UI]).
  *   Khởi động lại từ nền (START_STICKY, khởi động máy) → chỉ dùng `specialUse`: vẫn nghe lệnh được,
  *   nhưng chưa mở được camera cho tới khi người dùng mở app (MainActivity gửi lại [EXTRA_FROM_UI]).
@@ -61,6 +66,7 @@ class CameraForegroundService : LifecycleService() {
 
     private val work = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var controller: NodeController? = null
+    private var cameraController: CameraController? = null
     private var starting = false
     private var observers: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -75,6 +81,15 @@ class CameraForegroundService : LifecycleService() {
         if (intent?.action == ACTION_STOP) {
             stopNode()
             return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_STOP_CAMERA) {
+            val c = controller
+            if (c == null) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            work.launch { c.stopCamera() }
+            return START_STICKY
         }
         val fromUi = intent?.getBooleanExtra(EXTRA_FROM_UI, false) == true
         if (!enterForeground(fromUi)) {
@@ -95,12 +110,15 @@ class CameraForegroundService : LifecycleService() {
             runBlocking { withTimeoutOrNull(STOP_TIMEOUT_MS) { c.stop() } }
         }
         work.cancel()
+        cameraController?.release()
+        cameraController = null
         releaseWakeLock()
         super.onDestroy()
     }
 
     private fun enterForeground(fromUi: Boolean): Boolean {
-        val notification = notifications.buildOngoing(notifications.statusText(controller?.state?.value))
+        val state = controller?.state?.value
+        val notification = notifications.buildOngoing(notifications.statusText(state), state?.camera?.state?.isOn() == true)
         val cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
         // Android 11+: quyền camera "khi đang dùng" chỉ có khi service được (khởi động lại) lúc app đang hiển thị.
@@ -157,6 +175,16 @@ class CameraForegroundService : LifecycleService() {
             } else {
                 null
             }
+            val cam = CameraController(applicationContext, this@CameraForegroundService, config.orientation, TimberLogSink)
+            val streams = StreamManager(
+                camera = cam,
+                auth = StreamAuth(config.secret, config.deviceId),
+                scope = work,
+                addressProvider = TailscaleIp::find,
+                cameraAllowed = { runtime.cameraAccess.value },
+                deviceInfo = deviceInfo,
+                log = TimberLogSink,
+            )
             val c = NodeController(
                 config = config,
                 scope = work,
@@ -164,17 +192,19 @@ class CameraForegroundService : LifecycleService() {
                 addressProvider = TailscaleIp::find,
                 broker = broker,
                 log = TimberLogSink,
+                camera = streams,
             )
             withContext(Dispatchers.Main) {
                 controller = c
+                cameraController = cam
                 starting = false
                 runtime.attach(c)
                 acquireWakeLock()
                 observers = lifecycleScope.launch {
                     launch {
-                        c.state.map { notifications.statusText(it) }
+                        c.state.map { notifications.statusText(it) to it.camera.state.isOn() }
                             .distinctUntilChanged()
-                            .collect { notifications.updateOngoing(it) }
+                            .collect { (text, cameraOn) -> notifications.updateOngoing(text, cameraOn) }
                     }
                     launch { networkMonitor.changes().collect { c.onNetworkChanged() } }
                 }
@@ -222,6 +252,7 @@ class CameraForegroundService : LifecycleService() {
     companion object {
         private const val ACTION_START = "vn.cnldg.oncam.node.action.START"
         private const val ACTION_STOP = "vn.cnldg.oncam.node.action.STOP"
+        private const val ACTION_STOP_CAMERA = "vn.cnldg.oncam.node.action.STOP_CAMERA"
         private const val EXTRA_FROM_UI = "from_ui"
         private const val WAKE_LOCK_TAG = "OnCam:node"
         private const val STOP_TIMEOUT_MS = 3_000L
@@ -244,6 +275,10 @@ class CameraForegroundService : LifecycleService() {
             }
         }
 
+        /** Intent tắt camera (giữ node chạy) cho nút "Tắt camera" trên notification. */
+        fun stopCameraIntent(context: Context): Intent =
+            Intent(context, CameraForegroundService::class.java).setAction(ACTION_STOP_CAMERA)
+
         /** Intent dừng node (dùng cho nút trên notification và màn hình). */
         fun stopIntent(context: Context): Intent =
             Intent(context, CameraForegroundService::class.java).setAction(ACTION_STOP)
@@ -258,3 +293,5 @@ class CameraForegroundService : LifecycleService() {
         }
     }
 }
+
+private fun CameraState.isOn() = this == CameraState.STREAMING || this == CameraState.STARTING

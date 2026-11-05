@@ -134,6 +134,9 @@ private fun NodeApp(modifier: Modifier = Modifier, vm: NodeViewModel = hiltViewM
                 onSelfTest = vm::selfTest,
                 onOpenGuide = { screen = Screen.GUIDE },
                 onEditConfig = { screen = Screen.SETUP },
+                onStartCamera = vm::startCameraTest,
+                onStopCamera = vm::stopCamera,
+                latestFrame = vm::latestFrame,
                 modifier = modifier,
             )
         }

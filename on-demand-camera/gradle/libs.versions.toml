@@ -30,6 +30,8 @@ serializationJson = "1.9.0"
 paho = "1.2.5"
 
 # camera-node
+camerax = "1.4.2"
+nanohttpd = "2.3.1"
 securityCrypto = "1.0.0"
 hiltNavigationCompose = "1.2.0"
 # Broker MQTT nhúng (đề xuất P1) — cũng dùng trong test của module shared.
@@ -71,6 +73,10 @@ paho-mqttv3 = { group = "org.eclipse.paho", name = "org.eclipse.paho.client.mqtt
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlin-test-junit = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version.ref = "kotlin" }
 moquette-broker = { group = "io.moquette", name = "moquette-broker", version.ref = "moquette" }
+androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 

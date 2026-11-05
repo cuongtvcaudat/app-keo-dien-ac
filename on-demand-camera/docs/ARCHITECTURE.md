@@ -26,7 +26,7 @@
 | Module | Loại | Trách nhiệm |
 |---|---|---|
 | `shared` | Kotlin/JVM thuần | Data class lệnh/trạng thái/sự kiện (`protocol/`), ký/kiểm HMAC (`security/`), wrapper MQTT Paho mqttv3 (`mqtt/`). Không phụ thuộc Android → unit test chạy trên JVM, có test tích hợp với broker thật (Moquette) |
-| `camera-node` | Android app | Foreground Service, broker MQTT nhúng (Moquette), xử lý lệnh, đọc pin/nhiệt; CameraX + MJPEG (Phase 3). Phần lõi `core/`, `mqtt/`, `broker/` không dùng API Android → test trên JVM |
+| `camera-node` | Android app | Foreground Service, broker MQTT nhúng (Moquette), xử lý lệnh, đọc pin/nhiệt, CameraX + MJPEG (NanoHTTPD). Phần lõi `core/`, `mqtt/`, `broker/`, `camera/FrameHub`, `camera/MjpegStreamer` không dùng API Android → test trên JVM |
 | `viewer` | Android app | Gửi lệnh, hiển thị trạng thái, xem live, lưu snapshot vào MediaStore |
 
 ## 3. Kênh MQTT
@@ -40,7 +40,28 @@
 **Phát hiện offline < 30s:** keepalive 15s, broker tuyên bố mất kết nối sau 1,5 × 15 = 22,5s rồi phát LWT `online:false` (retain).
 **Kết nối lại < 30s:** lắng nghe `ConnectivityManager.NetworkCallback` + thử lại lùi dần, tối đa 10s/lần.
 
-## 4. Quyết định đã chốt (ngoài/bổ sung spec gốc)
+## 4. Luồng video (Phase 3)
+
+```
+START_STREAM ──► StreamManager ──► CameraController (CameraX ImageAnalysis, xoay theo hướng đặt máy)
+                     │                    │ YUV_420_888 → NV21 → JPEG (giới hạn FPS theo chất lượng)
+                     │                    ▼
+                     │                FrameHub (giữ khung mới nhất)
+                     │                    │
+                     └──► MjpegStreamer (NanoHTTPD, chỉ bind IP Tailscale:8080, header X-OnCam-Auth)
+                              ├─ GET /stream.mjpeg  → multipart/x-mixed-replace (tối đa 3 người xem)
+                              └─ GET /snapshot.jpg  → khung mới nhất
+Vòng giám sát mỗi 1s: số người xem → idle timeout · IP Tailscale · nhiệt độ pin (mỗi 10s)
+STOP / idle / quá nhiệt / lỗi camera ──► đóng HTTP server + gỡ CameraX (nhả camera hoàn toàn)
+```
+
+| Chất lượng | Độ phân giải | FPS | JPEG |
+|---|---|---|---|
+| LOW | 640×480 | 10 | 60 |
+| MEDIUM (mặc định) | 1280×720 | 15 | 70 |
+| HIGH | 1280×720 | 30 | 80 |
+
+## 5. Quyết định đã chốt (ngoài/bổ sung spec gốc)
 
 | # | Quyết định | Lý do |
 |---|---|---|
@@ -59,9 +80,13 @@
 | D14 | Foreground service khai báo `camera\|specialUse`; chỉ xin loại `camera` khi được gọi từ màn hình đang hiển thị | Android 11+ không cấp quyền camera cho service khởi động từ nền; Android 14+ ném lỗi nếu xin loại `camera` từ nền. Mở app → service tự nâng lên loại `camera` |
 | D15 | Giữ partial WakeLock suốt khi node chạy | Ping MQTT (Paho dùng Timer) bị trễ khi CPU ngủ → broker tưởng mất kết nối. Máy camera luôn cắm sạc |
 | D16 | BootReceiver tự chạy lại node sau khởi động máy/cập nhật app nếu người dùng chưa bấm Dừng | Tiêu chí tự khôi phục (spec 2.1.5). ColorOS cần bật "Cho phép tự khởi chạy" |
+| D17 | Video: CameraX `ImageAnalysis` (không cần màn hình xem trước) → YUV → JPEG một lần mỗi khung → `FrameHub` → NanoHTTPD phát cho tối đa 3 người xem | Nhiều người xem không làm tăng tải mã hoá; người xem chậm tự bỏ khung cũ |
+| D18 | Tự tắt khi 0 người xem liên tục `idleTimeoutSec` (mặc định 180s); nhiệt độ pin ≥ 42°C → hạ 1 mức chất lượng (tối đa 1 lần/phút), ≥ 45°C → tắt camera; IP Tailscale đổi → tắt | Spec mục 4.2. Ngưỡng là nhiệt độ PIN (BatteryManager), sẽ chỉnh theo đo thực tế trên Reno 5 |
+| D19 | Thêm cấu hình **Hướng đặt máy** (đứng / ngang trái / ngang phải / ngược) để xoay ảnh trước khi mã hoá | Camera đặt cố định có thể nằm ngang; ảnh và snapshot luôn đứng đúng chiều |
+| D20 | Nút **Bật camera thử** trên máy camera gửi lệnh START_STREAM đã ký qua broker (đi đúng đường của app Xem) và có xem thử ngay trên máy | Test được Phase 3 khi chưa có app Xem |
 | D12 | Thêm sự kiện `COMMAND_RESULT` (kèm `commandId`, `success`) và các trường trạng thái `displayName`, `flashOn`, `quality`, `charging`, `network`, `protocolVersion` | Cần để trả lời PING, báo lỗi lệnh, hiển thị đúng nút flash/chất lượng và tình trạng mạng (mục 2.1.4 spec). Đều có giá trị mặc định nên tương thích ngược |
 
-## 5. Ràng buộc Android cần nhớ
+## 6. Ràng buộc Android cần nhớ
 
 - **Quyền camera là quyền "khi đang dùng" (while-in-use).** Service type `camera` phải được khởi động lúc app đang hiển thị (người dùng mở app). Nếu service bị kill rồi tự khởi động lại từ nền (`START_STICKY`, boot), service chỉ nghe lệnh được; mở camera sẽ bị chặn → node báo `cameraState: ERROR` + thông điệp "cần mở app trên máy camera". Phương án khắc phục sẽ chốt ở Phase 3.
 - Android 15 chặn khởi động foreground service type `camera` từ `BOOT_COMPLETED`.
@@ -69,6 +94,6 @@
 - Camera trước thường không có đèn flash → `SET_FLASH` khi đang dùng camera trước trả lỗi.
 - Máy Xiaomi/Oppo/Samsung có cơ chế diệt app riêng → cần tắt tối ưu pin + cho phép tự khởi chạy (màn hình hướng dẫn trong app).
 
-## 6. Đề xuất chờ duyệt
+## 7. Đề xuất chờ duyệt
 
 (Không có. P1 đã duyệt → D13.)

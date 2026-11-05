@@ -1,0 +1,64 @@
+package vn.cnldg.oncam.shared.protocol
+
+/**
+ * Mã lỗi/thông điệp camera dùng trong [DeviceStatus.error], [DeviceEvent.message] và kết quả lệnh.
+ * Viewer đổi mã sang câu tiếng Việt; giữ dạng mã để không phụ thuộc ngôn ngữ.
+ */
+object CameraCodes {
+    /** Service bị khởi động lại từ nền (Android 11+) → cần mở app trên máy camera một lần. */
+    const val NEEDS_APP_OPEN: String = "CAMERA_NEEDS_APP_OPEN"
+
+    /** Chưa cấp quyền Camera cho app camera-node. */
+    const val NO_PERMISSION: String = "NO_CAMERA_PERMISSION"
+
+    /** Máy không có camera trước/sau như yêu cầu. */
+    const val NO_CAMERA: String = "NO_CAMERA"
+
+    /** Chưa có IP Tailscale để mở HTTP stream (không bao giờ mở trên 0.0.0.0). */
+    const val NO_TAILSCALE: String = "NO_TAILSCALE"
+
+    /** Không mở được cổng HTTP stream. */
+    const val HTTP_BIND_FAILED: String = "HTTP_BIND_FAILED"
+
+    /** CameraX không mở được camera. */
+    const val OPEN_FAILED: String = "CAMERA_OPEN_FAILED"
+
+    /** Camera báo lỗi khi đang chạy (bị app khác chiếm, bị hệ thống tắt...). Dạng "CAMERA_ERROR:chi_tiết". */
+    const val CAMERA_ERROR: String = "CAMERA_ERROR"
+
+    /** Lệnh cần camera đang bật. */
+    const val CAMERA_OFF: String = "CAMERA_OFF"
+
+    /** Camera hiện tại không có đèn flash (thường là camera trước). */
+    const val NO_FLASH: String = "NO_FLASH"
+
+    /** Camera đang bật nhưng chưa có khung hình nào. */
+    const val NO_FRAME: String = "NO_FRAME"
+
+    /** IP Tailscale đổi khi đang phát → đã tắt stream, viewer cần bật lại. */
+    const val ADDRESS_CHANGED: String = "ADDRESS_CHANGED"
+
+    /** STOP_STREAM khi camera đã tắt. */
+    const val ALREADY_OFF: String = "ALREADY_OFF"
+
+    /** Lý do tắt (trong sự kiện CAMERA_STOPPED). */
+    const val STOP_BY_VIEWER: String = "VIEWER"
+    const val STOP_ON_DEVICE: String = "ON_DEVICE"
+    const val STOP_SHUTDOWN: String = "SHUTDOWN"
+
+    /** Tiền tố thông điệp THERMAL_THROTTLE: "LOWERED:LOW:43.1" hoặc "STOPPED:45.2". */
+    const val THERMAL_LOWERED: String = "LOWERED"
+    const val THERMAL_STOPPED: String = "STOPPED"
+}
+
+/** Đường dẫn HTTP trên camera-node. */
+object StreamPaths {
+    /** Luồng MJPEG (multipart/x-mixed-replace). */
+    const val STREAM: String = "/stream.mjpeg"
+
+    /** Khung hình mới nhất dạng JPEG. */
+    const val SNAPSHOT: String = "/snapshot.jpg"
+
+    /** Ranh giới giữa các khung trong luồng MJPEG. */
+    const val BOUNDARY: String = "oncamframe"
+}

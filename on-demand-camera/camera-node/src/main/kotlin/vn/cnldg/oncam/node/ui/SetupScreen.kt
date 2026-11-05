@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import vn.cnldg.oncam.node.R
 import vn.cnldg.oncam.node.core.BrokerMode
 import vn.cnldg.oncam.node.core.ConfigProblem
+import vn.cnldg.oncam.node.core.MountOrientation
 import vn.cnldg.oncam.node.core.NodeConfig
 import vn.cnldg.oncam.shared.OnCam
 
@@ -60,6 +61,7 @@ fun SetupScreen(
     var externalUri by rememberSaveable { mutableStateOf(initial?.externalUri.orEmpty()) }
     var externalUser by rememberSaveable { mutableStateOf(initial?.externalUsername.orEmpty()) }
     var externalPass by rememberSaveable { mutableStateOf(initial?.externalPassword.orEmpty()) }
+    var orientation by rememberSaveable { mutableStateOf(initial?.orientation ?: MountOrientation.UP) }
     var autoStart by rememberSaveable { mutableStateOf(initialAutoStart) }
     var problems by remember { mutableStateOf(emptyList<ConfigProblem>()) }
 
@@ -91,6 +93,21 @@ fun SetupScreen(
                 isError = ConfigProblem.INVALID_DEVICE_ID in problems,
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
+
+        SectionCard(title = stringResource(R.string.setup_section_orientation)) {
+            Text(stringResource(R.string.setup_orientation_hint), style = MaterialTheme.typography.bodySmall)
+            MountOrientation.entries.forEach { o ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectable(selected = orientation == o, onClick = { orientation = o }),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = orientation == o, onClick = { orientation = o })
+                    Text(stringResource(o.labelRes()), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
 
         SectionCard(title = stringResource(R.string.setup_section_secret)) {
@@ -185,6 +202,7 @@ fun SetupScreen(
                     externalUri = externalUri,
                     externalUsername = externalUser,
                     externalPassword = externalPass,
+                    orientation = orientation,
                 )
                 problems = config.problems()
                 if (problems.isEmpty()) onSave(config, autoStart)
@@ -213,6 +231,13 @@ private fun BrokerOption(selected: Boolean, title: String, description: String, 
             Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+private fun MountOrientation.labelRes(): Int = when (this) {
+    MountOrientation.UP -> R.string.orientation_up
+    MountOrientation.LEFT -> R.string.orientation_left
+    MountOrientation.RIGHT -> R.string.orientation_right
+    MountOrientation.DOWN -> R.string.orientation_down
 }
 
 private fun ConfigProblem.messageRes(): Int = when (this) {

@@ -70,4 +70,5 @@ data class NodeState(
     val lastCommand: CommandRecord? = null,
     val selfTest: SelfTestResult? = null,
     val device: DeviceSnapshot = DeviceSnapshot(),
+    val camera: CameraStatus = CameraStatus(),
 )

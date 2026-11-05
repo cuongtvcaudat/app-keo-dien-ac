@@ -19,6 +19,8 @@ import vn.cnldg.oncam.node.config.NodeConfigRepository
 import vn.cnldg.oncam.node.core.NodeConfig
 import vn.cnldg.oncam.node.core.NodeState
 import vn.cnldg.oncam.node.service.NodeRuntime
+import vn.cnldg.oncam.shared.protocol.Action
+import vn.cnldg.oncam.shared.protocol.CommandParams
 import vn.cnldg.oncam.shared.security.SharedSecret
 
 /**
@@ -82,7 +84,25 @@ class NodeViewModel @Inject constructor(
         }
     }
 
+    /** Bật camera thử ngay trên máy (đi đúng đường lệnh như từ app Xem); tự tắt sau 60 giây không ai xem. */
+    fun startCameraTest() {
+        val controller = runtime.controller.value ?: return
+        viewModelScope.launch {
+            controller.sendLocalCommand(Action.START_STREAM, CommandParams(idleTimeoutSec = TEST_IDLE_TIMEOUT_SEC))
+        }
+    }
+
+    /** Tắt camera ngay trên máy. */
+    fun stopCamera() {
+        val controller = runtime.controller.value ?: return
+        viewModelScope.launch { controller.stopCamera() }
+    }
+
+    /** Khung JPEG mới nhất để xem thử. */
+    fun latestFrame(): ByteArray? = runtime.controller.value?.latestFrame()
+
     private companion object {
+        const val TEST_IDLE_TIMEOUT_SEC = 60
         const val STOP_TIMEOUT_MS = 5_000L
     }
 }

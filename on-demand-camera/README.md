@@ -17,7 +17,7 @@ Kiến trúc chi tiết: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 0 | Khung dự án 3 module, CI build | ✅ |
 | 1 | `shared`: Commands/Status/Topics, ký HMAC, wrapper MQTT, 38 test (gồm test với broker thật) | ✅ |
 | 2 | camera-node: Foreground Service, broker MQTT nhúng, trả lời `PING`, tự kiểm tra, chống tắt app | ✅ |
-| 3 | camera-node: CameraX + MJPEG (NanoHTTPD), idle timeout | ⏳ |
+| 3 | camera-node: CameraX + MJPEG (NanoHTTPD), flash, đổi camera, chất lượng, snapshot, idle timeout, chống quá nhiệt | ✅ |
 | 4 | viewer: MQTT + UI điều khiển | ⏳ |
 | 5 | viewer: xem live MJPEG | ⏳ |
 | 6 | Đóng gói APK + tài liệu hướng dẫn | ⏳ |
@@ -40,7 +40,7 @@ on-demand-camera/
 Mỗi lần push thay đổi trong `on-demand-camera/`, workflow [`OnCam Android build`](../.github/workflows/oncam-android.yml) chạy 2 job song song:
 
 - **build**: `./gradlew build` (biên dịch, unit test, lint) và xuất APK.
-- **emulator**: chạy test của camera-node trên emulator Android 13 (API 33) — kiểm chứng broker nhúng chạy được trên Android.
+- **emulator**: chạy test của camera-node trên emulator Android 13 (API 33, camera sau giả lập) — kiểm chứng broker nhúng, CameraX và MJPEG chạy được trên Android.
 
 Tải APK về điện thoại:
 1. Vào repo trên GitHub → tab **Actions** → chọn lần chạy mới nhất của **OnCam Android build** (dấu ✅ xanh).
@@ -73,6 +73,8 @@ cd on-demand-camera
 | kotlinx-serialization-json / coroutines | 1.9.0 / 1.10.2 |
 | Moquette (broker nhúng trong camera-node) | 0.17 |
 | security-crypto (EncryptedSharedPreferences) | 1.0.0 |
+| CameraX | 1.4.2 |
+| NanoHTTPD | 2.3.1 |
 
 Toàn bộ phiên bản khai báo tập trung ở [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
 

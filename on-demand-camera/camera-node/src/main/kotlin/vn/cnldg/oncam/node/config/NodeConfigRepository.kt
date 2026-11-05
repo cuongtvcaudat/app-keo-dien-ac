@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import vn.cnldg.oncam.node.core.BrokerMode
+import vn.cnldg.oncam.node.core.MountOrientation
 import vn.cnldg.oncam.node.core.NodeConfig
 import vn.cnldg.oncam.node.di.ApplicationScope
 import vn.cnldg.oncam.shared.OnCam
@@ -76,6 +77,7 @@ class NodeConfigRepository @Inject constructor(
             putString(KEY_EXTERNAL_URI, config.externalUri)
             putString(KEY_EXTERNAL_USERNAME, config.externalUsername)
             putString(KEY_EXTERNAL_PASSWORD, config.externalPassword)
+            putString(KEY_ORIENTATION, config.orientation.name)
         }
         _config.value = ConfigLoad.Loaded(config)
     }
@@ -103,6 +105,8 @@ class NodeConfigRepository @Inject constructor(
             externalUri = secure.getString(KEY_EXTERNAL_URI, "").orEmpty(),
             externalUsername = secure.getString(KEY_EXTERNAL_USERNAME, "").orEmpty(),
             externalPassword = secure.getString(KEY_EXTERNAL_PASSWORD, "").orEmpty(),
+            orientation = runCatching { MountOrientation.valueOf(secure.getString(KEY_ORIENTATION, "").orEmpty()) }
+                .getOrDefault(MountOrientation.UP),
         )
     } catch (e: Exception) {
         Timber.e(e, "Không đọc được cấu hình mã hoá")
@@ -138,6 +142,7 @@ class NodeConfigRepository @Inject constructor(
         const val KEY_EXTERNAL_URI = "external_uri"
         const val KEY_EXTERNAL_USERNAME = "external_username"
         const val KEY_EXTERNAL_PASSWORD = "external_password"
+        const val KEY_ORIENTATION = "orientation"
         const val KEY_AUTO_START = "auto_start"
         const val KEY_NODE_ENABLED = "node_enabled"
     }

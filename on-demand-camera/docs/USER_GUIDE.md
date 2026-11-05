@@ -1,6 +1,6 @@
 # Hướng dẫn sử dụng OnCam
 
-> Bản đầy đủ viết ở **Phase 6**. Hiện có phần cài đặt máy camera (Phase 2).
+> Bản đầy đủ viết ở **Phase 6**. Hiện có phần máy camera (Phase 2–3).
 
 ## Máy camera (app OnCam Quay) — từ Phase 2
 
@@ -27,6 +27,16 @@
 | MQTT | `Đã kết nối` |
 | Mở camera từ xa | `Có` |
 | Bấm **Tự kiểm tra (PING)** | `✅ Thông suốt: … ms` |
+
+### Thử camera ngay trên máy (từ Phase 3)
+
+1. Cấu hình → chọn đúng **Hướng đặt máy** (dựng đứng / nằm ngang...) → Lưu → Dừng rồi Khởi động lại node.
+2. Màn hình trạng thái → mục **Camera** → bấm **Bật camera thử**.
+3. Trong vài giây: trạng thái `Đang phát video`, hiện ảnh xem thử, notification có nút **Tắt camera**.
+4. Không làm gì → sau **60 giây** camera tự tắt (vì không có ai xem). Từ app Xem, thời gian chờ mặc định là **3 phút**.
+5. Bấm **Tắt camera** → mở app Camera của máy: phải mở được ngay (camera đã được nhả).
+
+Camera tự tắt khi nhiệt độ pin ≥ 45 °C, tự hạ chất lượng khi ≥ 42 °C.
 
 ### Thông tin cần nhập vào app Xem (Phase 4)
 

@@ -15,14 +15,16 @@ enum class NetworkType { WIFI, CELLULAR, ETHERNET, OTHER, NONE }
  * Trạng thái camera-node publish lên `camera/{deviceId}/status` (retain).
  * Cũng là nội dung LWT (`online = false`) để viewer biết máy mất kết nối.
  *
- * Các trường ngoài spec gốc (displayName, flashOn, quality, charging, network, protocolVersion)
+ * Các trường ngoài spec gốc (displayName, flashOn, quality, charging, network, viewers, cameraReady, protocolVersion)
  * đều có giá trị mặc định nên bản cũ/mới vẫn đọc được của nhau.
  *
  * @property displayName tên hiển thị (vd. "Sân nhà"); [deviceId] chỉ dùng ký tự ASCII.
  * @property streamUrl địa chỉ MJPEG khi đang STREAMING, null khi tắt.
  * @property temperatureC nhiệt độ PIN (°C) đọc từ BatteryManager, không phải nhiệt độ CPU.
  * @property lastSeen thời điểm cập nhật trạng thái, giây kể từ 1970-01-01 UTC.
- * @property error mô tả lỗi khi [cameraState] = ERROR.
+ * @property error mã lỗi ([CameraCodes]) khi [cameraState] = ERROR hoặc khi lần bật gần nhất thất bại.
+ * @property viewers số người đang xem luồng MJPEG.
+ * @property cameraReady false nếu camera-node chưa được phép mở camera từ xa (cần mở app một lần).
  */
 @Serializable
 data class DeviceStatus(
@@ -40,6 +42,8 @@ data class DeviceStatus(
     val network: NetworkType? = null,
     val lastSeen: Long,
     val error: String? = null,
+    val viewers: Int = 0,
+    val cameraReady: Boolean? = null,
     val protocolVersion: Int = OnCam.PROTOCOL_VERSION,
 ) {
     companion object {

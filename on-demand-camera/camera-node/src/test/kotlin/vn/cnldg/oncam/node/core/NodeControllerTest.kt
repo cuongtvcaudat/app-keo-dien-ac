@@ -32,6 +32,9 @@ import vn.cnldg.oncam.shared.protocol.RejectReason
 import vn.cnldg.oncam.shared.protocol.Topics
 import vn.cnldg.oncam.shared.security.BrokerCredentials
 import vn.cnldg.oncam.shared.security.CommandSigner
+import vn.cnldg.oncam.shared.protocol.CameraState
+import vn.cnldg.oncam.shared.protocol.StreamPaths
+import vn.cnldg.oncam.shared.security.StreamAuth
 
 /**
  * Test đầu-cuối của camera node trên JVM: broker Moquette nhúng thật + client MQTT thật,
@@ -172,6 +175,66 @@ class NodeControllerTest {
         }
         val result = controller.selfTest()
         assertIs<SelfTestResult.Passed>(result)
+    }
+
+    @Test
+    fun `viewer bat camera qua MQTT xem snapshot roi tat camera`() = runBlocking<Unit> {
+        val httpPort = ServerSocket(0).use { it.localPort }
+        val streamAuth = StreamAuth(SECRET, DEVICE)
+        val camScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val streams = StreamManager(
+            camera = FakeCameraPort(camScope),
+            auth = streamAuth,
+            scope = camScope,
+            addressProvider = { address },
+            cameraAllowed = { true },
+            deviceInfo = device,
+            settings = StreamManager.Settings(httpPort = httpPort, checkIntervalMs = 50),
+        )
+        val node = NodeController(
+            config = config,
+            scope = scope,
+            deviceInfo = device,
+            addressProvider = { address },
+            broker = EmbeddedBroker(createTempDirectory("moquette").toFile()),
+            timing = NodeController.Timing(addressCheckMs = 200, keepAliveSec = 5, maxReconnectDelayMs = 1_000),
+            camera = streams,
+        )
+        try {
+            node.start()
+            withTimeout(TIMEOUT_MS) { node.state.first { it.mqtt == MqttConnectionState.Connected } }
+            val viewer = viewer("127.0.0.1", BrokerCredentials.password(SECRET))
+            viewer.awaitConnected()
+            viewer.subscribe(Topics.status(DEVICE), 1)
+            viewer.subscribe(Topics.event(DEVICE), 1)
+            assertEquals(CameraState.OFF, viewer.nextStatus().cameraState)
+
+            val signer = CommandSigner(SECRET)
+            viewer.sendCommand(ProtocolJson.encodeCommand(signer.sign(DEVICE, Action.START_STREAM)))
+
+            val url = "http://127.0.0.1:$httpPort${StreamPaths.STREAM}"
+            val streaming = withTimeout(TIMEOUT_MS) {
+                var s: DeviceStatus
+                do { s = viewer.nextStatus() } while (s.cameraState != CameraState.STREAMING)
+                s
+            }
+            assertEquals(url, streaming.streamUrl)
+            assertEquals(true, streaming.cameraReady)
+
+            delay(150)
+            val snap = httpGet("http://127.0.0.1:$httpPort${StreamPaths.SNAPSHOT}", streamAuth.headerValue())
+            assertEquals(200, snap.code)
+
+            viewer.sendCommand(ProtocolJson.encodeCommand(signer.sign(DEVICE, Action.STOP_STREAM)))
+            withTimeout(TIMEOUT_MS) {
+                var s: DeviceStatus
+                do { s = viewer.nextStatus() } while (s.cameraState != CameraState.OFF)
+            }
+            assertEquals(CameraState.OFF, node.state.value.camera.state)
+        } finally {
+            node.stop()
+            camScope.cancel()
+        }
     }
 
     // --- tiện ích ---

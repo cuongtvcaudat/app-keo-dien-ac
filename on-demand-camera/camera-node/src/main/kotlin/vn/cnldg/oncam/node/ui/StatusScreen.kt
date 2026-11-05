@@ -52,6 +52,9 @@ fun StatusScreen(
     onSelfTest: () -> Unit,
     onOpenGuide: () -> Unit,
     onEditConfig: () -> Unit,
+    onStartCamera: () -> Unit,
+    onStopCamera: () -> Unit,
+    latestFrame: () -> ByteArray?,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -106,6 +109,15 @@ fun StatusScreen(
                 InfoRow(stringResource(R.string.status_disconnects), state.disconnects.toString())
                 state.startedAtSec?.let { InfoRow(stringResource(R.string.status_uptime), uptimeText(nowSec - it)) }
             }
+
+            CameraSection(
+                camera = state.camera,
+                connected = state.mqtt == MqttConnectionState.Connected,
+                cameraAccess = cameraAccess,
+                onStartCamera = onStartCamera,
+                onStopCamera = onStopCamera,
+                latestFrame = latestFrame,
+            )
 
             SectionCard(title = stringResource(R.string.status_section_viewer)) {
                 Text(stringResource(R.string.status_viewer_hint), style = MaterialTheme.typography.bodySmall)

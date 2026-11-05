@@ -20,6 +20,7 @@ import vn.cnldg.oncam.node.R
 import vn.cnldg.oncam.node.core.BrokerState
 import vn.cnldg.oncam.node.core.NodeState
 import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
+import vn.cnldg.oncam.shared.protocol.CameraState
 
 /**
  * Notification thường trực của Foreground Service (bắt buộc từ Android 8) + nút "Dừng" khẩn cấp.
@@ -50,6 +51,9 @@ class NotificationHelper @Inject constructor(
         if (state == null || !state.running) return context.getString(R.string.notif_starting)
         val mqtt = state.mqtt
         return when {
+            state.camera.state == CameraState.STREAMING ->
+                context.getString(R.string.notif_streaming, state.camera.clients)
+            state.camera.state == CameraState.STARTING -> context.getString(R.string.notif_camera_starting)
             state.broker is BrokerState.WaitingForAddress -> context.getString(R.string.notif_waiting_tailscale)
             state.broker is BrokerState.Failed -> context.getString(R.string.notif_broker_failed)
             mqtt == MqttConnectionState.Connected -> context.getString(R.string.notif_listening)
@@ -61,8 +65,8 @@ class NotificationHelper @Inject constructor(
         }
     }
 
-    /** Notification của Foreground Service. */
-    fun buildOngoing(text: String): Notification {
+    /** Notification của Foreground Service; [cameraOn] = thêm nút "Tắt camera" (spec mục 4.1.3). */
+    fun buildOngoing(text: String, cameraOn: Boolean): Notification {
         val openApp = PendingIntent.getActivity(
             context,
             REQUEST_OPEN,
@@ -75,7 +79,7 @@ class NotificationHelper @Inject constructor(
             CameraForegroundService.stopIntent(context),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        return NotificationCompat.Builder(context, CHANNEL_STATUS)
+        val builder = NotificationCompat.Builder(context, CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_stat_node)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(text)
@@ -85,12 +89,20 @@ class NotificationHelper @Inject constructor(
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(openApp)
-            .addAction(0, context.getString(R.string.notif_action_stop), stop)
-            .build()
+        if (cameraOn) {
+            val stopCamera = PendingIntent.getService(
+                context,
+                REQUEST_STOP_CAMERA,
+                CameraForegroundService.stopCameraIntent(context),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            builder.addAction(0, context.getString(R.string.notif_action_stop_camera), stopCamera)
+        }
+        return builder.addAction(0, context.getString(R.string.notif_action_stop), stop).build()
     }
 
     /** Cập nhật nội dung notification thường trực. */
-    fun updateOngoing(text: String) = notifyIfAllowed(NOTIFICATION_ID, buildOngoing(text))
+    fun updateOngoing(text: String, cameraOn: Boolean) = notifyIfAllowed(NOTIFICATION_ID, buildOngoing(text, cameraOn))
 
     /** Báo người dùng service không tự chạy lại được (vd. hệ thống chặn khởi động từ nền). */
     fun showCannotStart() {
@@ -127,5 +139,6 @@ class NotificationHelper @Inject constructor(
         private const val CHANNEL_ALERT = "oncam_node_alert"
         private const val REQUEST_OPEN = 1
         private const val REQUEST_STOP = 2
+        private const val REQUEST_STOP_CAMERA = 3
     }
 }

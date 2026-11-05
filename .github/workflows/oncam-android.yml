@@ -3,7 +3,7 @@
 # - Job "build": build cả 3 module bằng `./gradlew build` (biên dịch, unit test, lint),
 #   xuất 2 file APK debug làm artifact để tải về cài thử lên điện thoại.
 # - Job "emulator": chạy test của camera-node trên emulator Android 13 (API 33, gần Oppo Reno 5)
-#   để kiểm chứng broker MQTT nhúng chạy được trên Android thật.
+#   (camera sau giả lập) để kiểm chứng broker MQTT nhúng + CameraX + MJPEG chạy được trên Android.
 name: OnCam Android build
 
 on:
@@ -102,7 +102,7 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -camera-front none
           working-directory: on-demand-camera
           script: ./gradlew :camera-node:connectedDebugAndroidTest --stacktrace --console=plain
 

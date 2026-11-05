@@ -51,7 +51,7 @@
     <string name="status_open_guide">Hướng dẫn chống tắt app</string>
     <string name="status_edit_config">Sửa cấu hình</string>
     <string name="status_section_node">Camera node</string>
-    <string name="status_running">Đang chạy, chờ lệnh (camera đang tắt)</string>
+    <string name="status_running">Đang chạy, chờ lệnh</string>
     <string name="status_stopped">Đã dừng</string>
     <string name="status_start">Khởi động camera node</string>
     <string name="status_stop">Dừng</string>
@@ -130,4 +130,45 @@
     <string name="guide_step4_body">Lặp lại bước 1–3 cho app Tailscale. Thêm: Cài đặt → Kết nối khác → VPN → Tailscale → bật “VPN luôn bật”. Thiếu bước này, khởi động lại máy là camera mất kết nối.</string>
     <string name="guide_step5_title">5. Nguồn điện và nhiệt</string>
     <string name="guide_step5_body">Cắm sạc liên tục, đặt máy nơi thoáng và tránh nắng trực tiếp. Cắm sạc lâu ngày làm pin chai/phồng; kiểm tra pin định kỳ.</string>
+
+    <!-- Camera (Phase 3) -->
+    <string name="camera_section">Camera</string>
+    <string name="camera_state">Trạng thái</string>
+    <string name="camera_state_off">Đang tắt</string>
+    <string name="camera_state_starting">Đang mở…</string>
+    <string name="camera_state_streaming">Đang phát video</string>
+    <string name="camera_state_error">Lỗi</string>
+    <string name="camera_viewers">Người đang xem</string>
+    <string name="camera_facing">Camera</string>
+    <string name="camera_front">Trước</string>
+    <string name="camera_back">Sau</string>
+    <string name="camera_quality">Chất lượng</string>
+    <string name="camera_flash">Đèn flash</string>
+    <string name="camera_stop">Tắt camera</string>
+    <string name="camera_start_test">Bật camera thử</string>
+    <string name="camera_start_test_hint">Camera tự tắt sau 60 giây nếu không có ai xem từ app OnCam Xem.</string>
+    <string name="camera_needs_app_open">Đang chờ quyền mở camera — đóng rồi mở lại app này.</string>
+    <string name="camera_preview_desc">Ảnh xem thử từ camera</string>
+    <string name="quality_low">Thấp (640×480, 10 hình/giây)</string>
+    <string name="quality_medium">Vừa (1280×720, 15 hình/giây)</string>
+    <string name="quality_high">Cao (1280×720, 30 hình/giây)</string>
+    <string name="code_needs_app_open">Cần mở app OnCam Quay trên máy camera một lần (máy vừa khởi động lại hoặc app bị hệ thống tắt).</string>
+    <string name="code_no_permission">Chưa cấp quyền Camera cho app.</string>
+    <string name="code_no_camera">Máy không có camera này.</string>
+    <string name="code_no_tailscale">Tailscale chưa kết nối nên không mở được luồng video.</string>
+    <string name="code_http_bind_failed">Không mở được cổng video 8080.</string>
+    <string name="code_open_failed">Không mở được camera.</string>
+    <string name="code_address_changed">IP Tailscale vừa đổi nên đã tắt camera; bật lại để xem tiếp.</string>
+    <string name="code_camera_error">Camera báo lỗi: %1$s</string>
+
+    <string name="setup_section_orientation">Hướng đặt máy</string>
+    <string name="setup_orientation_hint">Chọn đúng hướng để ảnh không bị nghiêng. Bấm “Bật camera thử” để kiểm tra.</string>
+    <string name="orientation_up">Dựng đứng, đầu máy hướng lên</string>
+    <string name="orientation_left">Nằm ngang, đầu máy hướng sang trái</string>
+    <string name="orientation_right">Nằm ngang, đầu máy hướng sang phải</string>
+    <string name="orientation_down">Lộn ngược, đầu máy hướng xuống</string>
+
+    <string name="notif_streaming">Đang phát video • %1$d người xem</string>
+    <string name="notif_camera_starting">Đang mở camera…</string>
+    <string name="notif_action_stop_camera">Tắt camera</string>
 </resources>
