@@ -189,7 +189,8 @@ class StreamManagerTest {
 
         temperature = 45.5
         withTimeout(3_000) { manager.status.first { it.state == CameraState.OFF } }
-        val stopped = synchronized(events) { events.last { it.event == EventType.THERMAL_THROTTLE } }
+        // Sự kiện được thu gom bất đồng bộ: chờ đúng sự kiện STOPPED, không lấy "sự kiện cuối" (có thể vẫn là LOWERED).
+        val stopped = awaitEvent(EventType.THERMAL_THROTTLE) { it.message?.startsWith(CameraCodes.THERMAL_STOPPED) == true }
         assertEquals("${CameraCodes.THERMAL_STOPPED}:45.5", stopped.message)
         assertNull(fake.opened)
     }
@@ -227,10 +228,10 @@ class StreamManagerTest {
     private fun cmd(action: Action, params: CommandParams = CommandParams()) =
         Command(id = "11111111-2222-3333-4444-555555555555", action = action, params = params, token = "t", timestamp = 0)
 
-    private suspend fun awaitEvent(type: EventType): DeviceEvent = withTimeout(3_000) {
+    private suspend fun awaitEvent(type: EventType, match: (DeviceEvent) -> Boolean = { true }): DeviceEvent = withTimeout(3_000) {
         var found: DeviceEvent? = null
         while (found == null) {
-            found = synchronized(events) { events.lastOrNull { it.event == type } }
+            found = synchronized(events) { events.lastOrNull { it.event == type && match(it) } }
             if (found == null) delay(20)
         }
         found
