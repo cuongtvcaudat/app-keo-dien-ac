@@ -1,6 +1,6 @@
 # Hướng dẫn sử dụng OnCam
 
-> Bản đầy đủ viết ở **Phase 6**. Hiện có phần máy camera (Phase 2–3).
+> Bản đầy đủ viết ở **Phase 6**. Hiện có phần máy camera (Phase 2–3) và app Xem (Phase 4).
 
 ## Máy camera (app OnCam Quay) — từ Phase 2
 
@@ -50,3 +50,34 @@ Sau khi máy camera **khởi động lại** hoặc app bị hệ thống tắt 
 
 - Máy camera cắm sạc liên tục sẽ làm chai/phồng pin theo thời gian. Phần mềm không khắc phục được; nên dùng ổ cắm hẹn giờ hoặc bộ sạc có giới hạn mức sạc nếu máy hỗ trợ, và kiểm tra pin định kỳ.
 - Đặt máy camera nơi thoáng, tránh nắng trực tiếp: điện thoại cũ chạy camera rất nhanh nóng.
+
+## Máy xem (app OnCam Xem) — từ Phase 4
+
+### Thêm camera
+
+1. Cài Tailscale trên máy xem, đăng nhập **cùng tài khoản** với máy camera ([SETUP_TAILSCALE.md](SETUP_TAILSCALE.md)).
+2. Cài `viewer-debug.apk`, mở **OnCam Xem** → **Thêm camera**.
+3. Trên máy camera, mục *Nhập vào app OnCam Xem*: bấm **Sao chép địa chỉ** → gửi sang máy xem (vd. Zalo "Cloud của tôi") → bấm **Dán** ở ô *Địa chỉ broker*.
+   Làm tương tự với **token** (bấm **Sao chép token**). Mã camera gõ tay (vd. `san-nha`).
+   ⚠️ Token là chìa khoá điều khiển camera: chỉ gửi qua kênh riêng tư của bạn, xoá tin nhắn sau khi dán.
+4. **Lưu** → thẻ camera hiện **● Online** trong vài giây.
+
+### Điều khiển
+
+| Nút | Tác dụng |
+|---|---|
+| Bật camera / Tắt camera | Mở/nhả camera trên máy camera. Camera tự tắt sau thời gian chờ (Cài đặt, mặc định 3 phút) nếu không có ai xem video |
+| Đổi camera | Chuyển camera trước ↔ sau |
+| Bật/Tắt flash | Đèn chiếu sáng (chỉ camera sau có đèn) |
+| Chụp ảnh | Lưu ảnh vào Thư viện › Pictures/OnCam, hiện ảnh nhỏ trên thẻ |
+| Thấp / Vừa / Cao | Chất lượng: 640×480@10 · 1280×720@15 · 1280×720@30 hình/giây |
+
+Thoát hoặc ẩn app Xem → camera do app bật sẽ tự tắt (có thể tắt tính năng này trong Cài đặt).
+
+### Khi camera hiện Offline
+
+| Thông báo | Cách xử lý |
+|---|---|
+| Không kết nối được… Kiểm tra Tailscale | Tailscale trên máy xem hoặc máy camera chưa *Connected* |
+| Sai token bí mật | Token nhập ở app Xem không khớp máy camera → Sửa → dán lại token |
+| Máy camera báo đã dừng | Có người bấm Dừng trên máy camera, hoặc app bị hệ thống tắt |

@@ -22,6 +22,18 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        getByName("debug") {
+            // Khoá ký debug dùng chung, mật khẩu là giá trị mặc định công khai "android" (không phải bí mật):
+            // để APK debug build ở các lần CI khác nhau cài đè lên nhau được, không phải gỡ app.
+            // Bản release dùng khoá riêng lưu ngoài repo (Phase 6).
+            storeFile = rootProject.file("keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             // Phase 6 sẽ bật ký APK + R8; hiện build release chỉ để kiểm tra biên dịch.

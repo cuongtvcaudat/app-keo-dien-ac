@@ -2,7 +2,7 @@
 # - Chạy khi có thay đổi trong on-demand-camera/ hoặc chính file này.
 # - Job "build": build cả 3 module bằng `./gradlew build` (biên dịch, unit test, lint),
 #   xuất 2 file APK debug làm artifact để tải về cài thử lên điện thoại.
-# - Job "emulator": chạy test của camera-node trên emulator Android 13 (API 33, gần Oppo Reno 5)
+# - Job "emulator": chạy test của camera-node và viewer trên emulator Android 13 (API 33, gần Oppo Reno 5)
 #   (camera sau giả lập) để kiểm chứng broker MQTT nhúng + CameraX + MJPEG chạy được trên Android.
 name: OnCam Android build
 
@@ -104,7 +104,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -camera-front none
           working-directory: on-demand-camera
-          script: ./gradlew :camera-node:connectedDebugAndroidTest --stacktrace --console=plain
+          script: ./gradlew :camera-node:connectedDebugAndroidTest :viewer:connectedDebugAndroidTest --stacktrace --console=plain
 
       - name: Tải lên kết quả test emulator
         if: always()
@@ -112,7 +112,7 @@ jobs:
         with:
           name: oncam-emulator-test-results
           path: |
-            on-demand-camera/camera-node/build/reports/androidTests/
-            on-demand-camera/camera-node/build/outputs/androidTest-results/
+            on-demand-camera/*/build/reports/androidTests/
+            on-demand-camera/*/build/outputs/androidTest-results/
           if-no-files-found: ignore
           retention-days: 7

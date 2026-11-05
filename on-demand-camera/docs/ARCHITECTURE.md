@@ -25,9 +25,9 @@
 
 | Module | Loại | Trách nhiệm |
 |---|---|---|
-| `shared` | Kotlin/JVM thuần | Data class lệnh/trạng thái/sự kiện (`protocol/`), ký/kiểm HMAC (`security/`), wrapper MQTT Paho mqttv3 (`mqtt/`). Không phụ thuộc Android → unit test chạy trên JVM, có test tích hợp với broker thật (Moquette) |
+| `shared` | Kotlin/JVM thuần | Data class lệnh/trạng thái/sự kiện (`protocol/`), ký/kiểm HMAC (`security/`), wrapper MQTT Paho mqttv3 (`mqtt/`), **client giao thức cho viewer** (`client/CameraClient`). Không phụ thuộc Android → unit test chạy trên JVM, có test tích hợp với broker thật (Moquette) |
 | `camera-node` | Android app | Foreground Service, broker MQTT nhúng (Moquette), xử lý lệnh, đọc pin/nhiệt, CameraX + MJPEG (NanoHTTPD). Phần lõi `core/`, `mqtt/`, `broker/`, `camera/FrameHub`, `camera/MjpegStreamer` không dùng API Android → test trên JVM |
-| `viewer` | Android app | Gửi lệnh, hiển thị trạng thái, xem live, lưu snapshot vào MediaStore |
+| `viewer` | Android app | Danh sách camera (lưu mã hoá), kết nối khi app hiển thị, gửi lệnh, hiển thị trạng thái, lưu snapshot vào MediaStore; xem live (Phase 5) |
 
 ## 3. Kênh MQTT
 
@@ -84,6 +84,10 @@ STOP / idle / quá nhiệt / lỗi camera ──► đóng HTTP server + gỡ Ca
 | D18 | Tự tắt khi 0 người xem liên tục `idleTimeoutSec` (mặc định 180s); nhiệt độ pin ≥ 42°C → hạ 1 mức chất lượng (tối đa 1 lần/phút), ≥ 45°C → tắt camera; IP Tailscale đổi → tắt | Spec mục 4.2. Ngưỡng là nhiệt độ PIN (BatteryManager), sẽ chỉnh theo đo thực tế trên Reno 5 |
 | D19 | Thêm cấu hình **Hướng đặt máy** (đứng / ngang trái / ngang phải / ngược) để xoay ảnh trước khi mã hoá | Camera đặt cố định có thể nằm ngang; ảnh và snapshot luôn đứng đúng chiều |
 | D20 | Nút **Bật camera thử** trên máy camera gửi lệnh START_STREAM đã ký qua broker (đi đúng đường của app Xem) và có xem thử ngay trên máy | Test được Phase 3 khi chưa có app Xem |
+| D21 | `CameraClient` (phía viewer của giao thức) đặt trong module `shared` | Test đầu-cuối được viewer ↔ camera-node thật trên JVM (5 kịch bản theo tiêu chí nghiệm thu) |
+| D22 | App Xem chỉ kết nối MQTT khi đang hiển thị; rời app → tắt camera do chính app bật (cài đặt, mặc định bật) rồi ngắt; keepalive 10 s | Spec mục 7.3; tiết kiệm pin máy Xem; phát hiện offline ≤ ~20 s |
+| D23 | Khoá ký **debug** dùng chung commit trong `keystore/` (mật khẩu mặc định công khai "android") | APK debug từ các lần CI khác nhau cài đè được, không mất cấu hình. Không phải bí mật; bản release dùng khoá riêng (Phase 6) |
+| D24 | App Xem bật `cleartextTrafficPermitted` (network_security_config) | Android không cho khai báo theo dải IP 100.64.0.0/10; đường truyền đã được Tailscale mã hoá và request video/ảnh bắt buộc header HMAC |
 | D12 | Thêm sự kiện `COMMAND_RESULT` (kèm `commandId`, `success`) và các trường trạng thái `displayName`, `flashOn`, `quality`, `charging`, `network`, `protocolVersion` | Cần để trả lời PING, báo lỗi lệnh, hiển thị đúng nút flash/chất lượng và tình trạng mạng (mục 2.1.4 spec). Đều có giá trị mặc định nên tương thích ngược |
 
 ## 6. Ràng buộc Android cần nhớ

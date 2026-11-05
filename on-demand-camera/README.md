@@ -18,7 +18,7 @@ Kiến trúc chi tiết: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 1 | `shared`: Commands/Status/Topics, ký HMAC, wrapper MQTT, 38 test (gồm test với broker thật) | ✅ |
 | 2 | camera-node: Foreground Service, broker MQTT nhúng, trả lời `PING`, tự kiểm tra, chống tắt app | ✅ |
 | 3 | camera-node: CameraX + MJPEG (NanoHTTPD), flash, đổi camera, chất lượng, snapshot, idle timeout, chống quá nhiệt | ✅ |
-| 4 | viewer: MQTT + UI điều khiển | ⏳ |
+| 4 | viewer: danh sách camera, trạng thái online/offline, bật/tắt, đổi camera, flash, chất lượng, chụp ảnh lưu Thư viện | ✅ |
 | 5 | viewer: xem live MJPEG | ⏳ |
 | 6 | Đóng gói APK + tài liệu hướng dẫn | ⏳ |
 | 7 | (tùy chọn) WebRTC | ⏳ |
@@ -46,6 +46,8 @@ Tải APK về điện thoại:
 1. Vào repo trên GitHub → tab **Actions** → chọn lần chạy mới nhất của **OnCam Android build** (dấu ✅ xanh).
 2. Kéo xuống mục **Artifacts** → tải `oncam-debug-apk` (file .zip).
 3. Giải nén: `camera-node-debug.apk` cài lên máy cũ, `viewer-debug.apk` cài lên máy chính.
+   Từ bản 0.4 các APK debug ký bằng khoá chung trong `keystore/` (quyết định D23) → **cài đè được, không phải gỡ app**.
+   Riêng lần đầu chuyển từ bản ≤ 0.3 lên phải gỡ bản cũ một lần.
 4. Lần đầu cài, Android sẽ hỏi cho phép "Cài ứng dụng không rõ nguồn gốc" → cho phép với trình duyệt / trình quản lý file đang dùng.
 
 ### Cách 2 — Máy tính cá nhân

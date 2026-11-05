@@ -1,6 +1,122 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">OnCam Xem</string>
-    <string name="skeleton_description">Ứng dụng xem (viewer). Phase 0: khung dự án đã build được. Kết nối MQTT và nút điều khiển có từ Phase 4, xem video trực tiếp có từ Phase 5.</string>
-    <string name="protocol_version">Giao thức: v%1$d</string>
+
+    <!-- Chung -->
+    <string name="action_save">Lưu</string>
+    <string name="action_cancel">Huỷ</string>
+    <string name="action_back">Quay lại</string>
+    <string name="action_edit">Sửa</string>
+    <string name="action_delete">Xoá</string>
+    <string name="action_paste">Dán</string>
+    <string name="action_add_camera">Thêm camera</string>
+    <string name="action_settings">Cài đặt</string>
+    <string name="value_none">—</string>
+    <string name="value_celsius">%1$.1f °C</string>
+    <string name="seconds_ago">%1$d giây trước</string>
+    <string name="minutes">%1$d phút</string>
+
+    <!-- Màn hình chính -->
+    <string name="empty_title">Chưa có camera nào</string>
+    <string name="empty_hint">Mở app OnCam Quay trên máy camera, mục “Nhập vào app OnCam Xem” có đủ 3 thông tin cần nhập.</string>
+    <string name="online">● Online</string>
+    <string name="offline">● Offline</string>
+    <string name="camera_reports_offline">Máy camera báo đã dừng.</string>
+    <string name="camera_state">Camera</string>
+    <string name="cam_off">Đang tắt</string>
+    <string name="cam_starting">Đang mở…</string>
+    <string name="cam_streaming">Đang phát • %1$d người xem</string>
+    <string name="cam_error">Lỗi</string>
+    <string name="camera_lens">Ống kính</string>
+    <string name="lens_front">Trước</string>
+    <string name="lens_back">Sau</string>
+    <string name="battery">Pin</string>
+    <string name="battery_value">%1$d%%</string>
+    <string name="battery_charging">%1$d%% (đang sạc)</string>
+    <string name="temperature">Nhiệt độ pin</string>
+    <string name="network">Mạng</string>
+    <string name="network_wifi">Wi-Fi</string>
+    <string name="network_cellular">Di động</string>
+    <string name="network_ethernet">Cáp mạng</string>
+    <string name="network_other">Khác (VPN)</string>
+    <string name="network_none">Không có mạng</string>
+    <string name="updated">Cập nhật</string>
+    <string name="quality">Chất lượng</string>
+    <string name="quality_low">Thấp</string>
+    <string name="quality_medium">Vừa</string>
+    <string name="quality_high">Cao</string>
+    <string name="action_camera_on">Bật camera</string>
+    <string name="action_camera_off">Tắt camera</string>
+    <string name="action_switch_camera">Đổi camera</string>
+    <string name="action_flash_on">Bật flash</string>
+    <string name="action_flash_off">Tắt flash</string>
+    <string name="action_snapshot">Chụp ảnh</string>
+    <string name="live_view_coming">Xem video trực tiếp sẽ có ở bản sau. Camera tự tắt nếu không có ai xem.</string>
+    <string name="last_snapshot">Ảnh chụp gần nhất</string>
+    <string name="delete_title">Xoá camera?</string>
+    <string name="delete_message">Xoá “%1$s” khỏi app này. Máy camera không bị ảnh hưởng.</string>
+
+    <!-- Kết nối -->
+    <string name="conn_idle">Chưa kết nối</string>
+    <string name="conn_connecting">Đang kết nối…</string>
+    <string name="conn_connected">Đã kết nối</string>
+    <string name="conn_disconnected">Không kết nối được, thử lại sau %1$d giây. Kiểm tra Tailscale trên cả 2 máy.</string>
+    <string name="conn_bad_credentials">Sai token bí mật (không khớp với máy camera).</string>
+
+    <!-- Kết quả lệnh / mã lỗi -->
+    <string name="result_ok">Đã thực hiện</string>
+    <string name="result_not_connected">Chưa kết nối được camera.</string>
+    <string name="result_publish_failed">Không gửi được lệnh.</string>
+    <string name="result_timeout">Camera không trả lời sau 10 giây.</string>
+    <string name="code_unknown">Lỗi không rõ.</string>
+    <string name="code_needs_app_open">Cần mở app OnCam Quay trên máy camera một lần (máy vừa khởi động lại hoặc app bị hệ thống tắt).</string>
+    <string name="code_no_permission">Máy camera chưa cấp quyền Camera cho app.</string>
+    <string name="code_no_camera">Máy camera không có camera này.</string>
+    <string name="code_no_tailscale">Máy camera chưa kết nối Tailscale.</string>
+    <string name="code_http_bind_failed">Máy camera không mở được cổng video 8080.</string>
+    <string name="code_open_failed">Máy camera không mở được camera.</string>
+    <string name="code_camera_off">Camera đang tắt, hãy bật camera trước.</string>
+    <string name="code_no_flash">Camera này không có đèn flash (thường là camera trước).</string>
+    <string name="code_no_frame">Camera chưa có hình, thử lại sau 1–2 giây.</string>
+    <string name="code_address_changed">IP Tailscale của máy camera vừa đổi nên camera đã tắt; bật lại để xem tiếp.</string>
+    <string name="code_bad_signature">Sai token bí mật.</string>
+    <string name="code_expired">Lệnh bị từ chối vì đồng hồ 2 máy lệch quá 1 phút. Bật giờ tự động trên cả 2 máy.</string>
+    <string name="code_unsupported">Máy camera chưa hỗ trợ lệnh này (cần cập nhật app OnCam Quay).</string>
+    <string name="code_camera_error">Camera báo lỗi: %1$s</string>
+
+    <!-- Sự kiện -->
+    <string name="event_idle_timeout">%1$s: camera tự tắt vì không có ai xem.</string>
+    <string name="event_thermal_lowered">%1$s nóng, đã hạ chất lượng xuống %2$s.</string>
+    <string name="event_thermal_stopped">%1$s quá nóng (%2$s °C), đã tắt camera.</string>
+    <string name="event_error">%1$s: %2$s</string>
+
+    <!-- Ảnh chụp -->
+    <string name="snapshot_saved">Đã lưu ảnh vào Thư viện (Pictures/OnCam).</string>
+    <string name="snapshot_failed">Không tải hoặc lưu được ảnh.</string>
+
+    <!-- Thêm camera -->
+    <string name="add_title">Thêm camera</string>
+    <string name="edit_title">Sửa camera</string>
+    <string name="add_intro">Lấy 3 thông tin ở mục “Nhập vào app OnCam Xem” trên máy camera. Dùng nút Sao chép bên đó, rồi Dán ở đây.</string>
+    <string name="field_broker_uri">Địa chỉ broker</string>
+    <string name="field_broker_uri_placeholder">tcp://100.x.y.z:1883</string>
+    <string name="field_device_id">Mã camera</string>
+    <string name="field_device_id_placeholder">san-nha</string>
+    <string name="field_secret">Token bí mật</string>
+    <string name="field_label">Tên hiển thị (không bắt buộc)</string>
+    <string name="field_label_hint">Để trống thì dùng tên đặt trên máy camera.</string>
+    <string name="field_external_broker">Máy camera dùng broker riêng (có tên đăng nhập/mật khẩu)</string>
+    <string name="field_broker_user">Tên đăng nhập broker</string>
+    <string name="field_broker_pass">Mật khẩu broker</string>
+    <string name="problem_device_id">Mã camera không hợp lệ: chỉ dùng a-z, 0-9, - và _, tối đa 32 ký tự.</string>
+    <string name="problem_broker_uri">Địa chỉ broker phải dạng tcp://100.x.y.z:1883 (hoặc ssl://...).</string>
+    <string name="problem_secret">Token phải dài ít nhất 16 ký tự.</string>
+
+    <!-- Cài đặt -->
+    <string name="settings_title">Cài đặt</string>
+    <string name="settings_idle">Tự tắt camera khi không ai xem sau</string>
+    <string name="settings_idle_hint">Gửi kèm mỗi lần bật camera. Ngắn hơn thì máy camera đỡ nóng và đỡ hao pin.</string>
+    <string name="settings_stop_on_leave">Tắt camera khi rời app</string>
+    <string name="settings_stop_on_leave_hint">Khi thoát hoặc ẩn app này, tự tắt camera mà app đã bật.</string>
+    <string name="settings_version">Phiên bản %1$s</string>
 </resources>
