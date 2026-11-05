@@ -7,9 +7,8 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import java.net.HttpURLConnection
 import java.net.ServerSocket
-import java.net.URI
+import java.net.Socket
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -121,7 +120,7 @@ class CameraOnDeviceTest {
             val jpeg = withTimeout(20_000) {
                 var body: ByteArray? = null
                 while (body == null) {
-                    body = fetch("http://127.0.0.1:$port${StreamPaths.SNAPSHOT}", auth.headerValue())
+                    body = fetch(port, StreamPaths.SNAPSHOT, auth.headerValue())
                     if (body == null) delay(200)
                 }
                 body
@@ -139,15 +138,26 @@ class CameraOnDeviceTest {
     private fun command(action: Action, params: CommandParams = CommandParams()) =
         Command(id = "11111111-2222-3333-4444-555555555555", action = action, params = params, token = "t", timestamp = 0)
 
-    private fun fetch(url: String, auth: String): ByteArray? {
-        val conn = URI(url).toURL().openConnection() as HttpURLConnection
-        conn.setRequestProperty(StreamAuth.HEADER, auth)
-        return try {
-            if (conn.responseCode == 200) conn.inputStream.use { it.readBytes() } else null
-        } finally {
-            conn.disconnect()
+    /**
+     * GET qua socket thô: HttpURLConnection trong tiến trình app bị chính sách mạng của Android chặn
+     * HTTP không mã hoá (cleartext). App camera-node chỉ làm server nên không cần mở chính sách đó.
+     */
+    private fun fetch(port: Int, path: String, auth: String): ByteArray? =
+        Socket("127.0.0.1", port).use { socket ->
+            socket.soTimeout = 5_000
+            val request = "GET $path HTTP/1.1\r\nHost: 127.0.0.1\r\n${StreamAuth.HEADER}: $auth\r\nConnection: close\r\n\r\n"
+            socket.getOutputStream().apply {
+                write(request.toByteArray(Charsets.US_ASCII))
+                flush()
+            }
+            val all = socket.getInputStream().readBytes()
+            val split = String(all, Charsets.ISO_8859_1).indexOf("\r\n\r\n")
+            if (split < 0 || !String(all, 0, split, Charsets.ISO_8859_1).startsWith("HTTP/1.1 200")) {
+                null
+            } else {
+                all.copyOfRange(split + 4, all.size)
+            }
         }
-    }
 
     /** LifecycleOwner tối giản thay cho Service trong test. */
     private class TestLifecycleOwner : LifecycleOwner {

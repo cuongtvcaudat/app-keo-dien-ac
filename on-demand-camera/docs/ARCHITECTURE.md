@@ -91,6 +91,7 @@ STOP / idle / quá nhiệt / lỗi camera ──► đóng HTTP server + gỡ Ca
 - **Quyền camera là quyền "khi đang dùng" (while-in-use).** Service type `camera` phải được khởi động lúc app đang hiển thị (người dùng mở app). Nếu service bị kill rồi tự khởi động lại từ nền (`START_STICKY`, boot), service chỉ nghe lệnh được; mở camera sẽ bị chặn → node báo `cameraState: ERROR` + thông điệp "cần mở app trên máy camera". Phương án khắc phục sẽ chốt ở Phase 3.
 - Android 15 chặn khởi động foreground service type `camera` từ `BOOT_COMPLETED`.
 - Nhiệt độ đọc được từ `BatteryManager` là **nhiệt độ pin** (đơn vị 0,1°C), không phải CPU. Từ Android 10 có thêm `PowerManager.getCurrentThermalStatus()`.
+- Từ Android 9, `HttpURLConnection`/OkHttp **chặn HTTP không mã hoá (cleartext)** mặc định (đã gặp trong test emulator). App **viewer** tải `http://100.x.y.z:8080` nên phải có `network_security_config` cho phép cleartext — chấp nhận được vì đường truyền đã được Tailscale (WireGuard) mã hoá. App camera-node chỉ làm server nên không cần.
 - Camera trước thường không có đèn flash → `SET_FLASH` khi đang dùng camera trước trả lỗi.
 - Máy Xiaomi/Oppo/Samsung có cơ chế diệt app riêng → cần tắt tối ưu pin + cho phép tự khởi chạy (màn hình hướng dẫn trong app).
 
