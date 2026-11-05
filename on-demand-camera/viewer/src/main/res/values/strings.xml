@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OnCam Xem</string>
+    <string name="skeleton_description">Ứng dụng xem (viewer). Phase 0: khung dự án đã build được. Kết nối MQTT và nút điều khiển có từ Phase 4, xem video trực tiếp có từ Phase 5.</string>
+    <string name="protocol_version">Giao thức: v%1$d</string>
+</resources>

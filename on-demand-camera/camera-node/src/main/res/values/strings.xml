@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OnCam Quay</string>
+    <string name="skeleton_description">Máy quay (camera node). Phase 0: khung dự án đã build được. Chức năng nghe lệnh MQTT có từ Phase 2, camera và stream có từ Phase 3.</string>
+    <string name="protocol_version">Giao thức: v%1$d</string>
+</resources>

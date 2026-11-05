@@ -1,0 +1,67 @@
+# Build Android cho dự án on-demand-camera (OnCam).
+# - Chạy khi có thay đổi trong on-demand-camera/ hoặc chính file này.
+# - Build cả 3 module (shared + camera-node + viewer) bằng `./gradlew build` (biên dịch, unit test, lint).
+# - Xuất 2 file APK debug làm artifact để tải về cài thử lên điện thoại.
+name: OnCam Android build
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/android-security-camera-*"
+    paths:
+      - "on-demand-camera/**"
+      - ".github/workflows/oncam-android.yml"
+  pull_request:
+    paths:
+      - "on-demand-camera/**"
+      - ".github/workflows/oncam-android.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oncam-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: on-demand-camera
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cài Gradle (cache + kiểm tra wrapper)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build + unit test + lint
+        run: ./gradlew build --stacktrace --console=plain
+
+      - name: Tải lên APK debug
+        uses: actions/upload-artifact@v4
+        with:
+          name: oncam-debug-apk
+          path: |
+            on-demand-camera/camera-node/build/outputs/apk/debug/*.apk
+            on-demand-camera/viewer/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Tải lên báo cáo (lint/test) khi lỗi
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oncam-reports
+          path: on-demand-camera/**/build/reports/
+          retention-days: 7

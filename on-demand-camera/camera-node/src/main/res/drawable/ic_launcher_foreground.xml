@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Biểu tượng máy quay, nằm trong vùng an toàn 66dp của adaptive icon 108dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M44,34h20l4,6h6a4,4 0,0 1,4 4v26a4,4 0,0 1,-4 4h-40a4,4 0,0 1,-4 -4v-26a4,4 0,0 1,4 -4h6z M44,57a10,10 0,1 0,20 0a10,10 0,1 0,-20 0z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,57a4,4 0,1 0,8 0a4,4 0,1 0,-8 0z" />
+</vector>
