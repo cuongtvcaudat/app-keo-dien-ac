@@ -24,6 +24,15 @@ composeBom = "2025.08.00"
 # Tiện ích
 timber = "5.0.1"
 
+# Giao thức + MQTT (module shared)
+coroutines = "1.10.2"
+serializationJson = "1.9.0"
+paho = "1.2.5"
+
+# Test
+junit = "4.13.2"
+moquette = "0.17"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
@@ -41,10 +50,21 @@ hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", v
 
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
+# Chỉ dùng bản lõi mqttv3; KHÔNG dùng org.eclipse.paho.android.service (crash trên Android 12+).
+paho-mqttv3 = { group = "org.eclipse.paho", name = "org.eclipse.paho.client.mqttv3", version.ref = "paho" }
+
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+kotlin-test-junit = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version.ref = "kotlin" }
+# Broker MQTT nhúng, chỉ dùng trong test của module shared.
+moquette-broker = { group = "io.moquette", name = "moquette-broker", version.ref = "moquette" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

@@ -15,7 +15,7 @@ Kiến trúc chi tiết: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Phase | Nội dung | Trạng thái |
 |---|---|---|
 | 0 | Khung dự án 3 module, CI build | ✅ |
-| 1 | `shared`: Commands/Status/Topics, wrapper MQTT, unit test JSON | ⏳ |
+| 1 | `shared`: Commands/Status/Topics, ký HMAC, wrapper MQTT, 38 test (gồm test với broker thật) | ✅ |
 | 2 | camera-node: Foreground Service + MQTT, trả lời `PING` | ⏳ |
 | 3 | camera-node: CameraX + MJPEG (NanoHTTPD), idle timeout | ⏳ |
 | 4 | viewer: MQTT + UI điều khiển | ⏳ |
@@ -52,6 +52,7 @@ Yêu cầu: JDK 17+, Android SDK (cài qua Android Studio), platform API 36.
 ```bash
 cd on-demand-camera
 ./gradlew build                 # biên dịch + test + lint
+./gradlew :shared:test          # chỉ chạy test module shared (~30 giây)
 ./gradlew :camera-node:installDebug   # cài thẳng qua USB (bật USB debugging)
 ./gradlew :viewer:installDebug
 ```
@@ -65,6 +66,9 @@ cd on-demand-camera
 | Kotlin / KSP | 2.2.10 / 2.2.10-2.0.2 |
 | Hilt | 2.57.1 |
 | Compose BOM | 2025.08.00 |
+| Paho MQTT (mqttv3) | 1.2.5 |
+| kotlinx-serialization-json / coroutines | 1.9.0 / 1.10.2 |
+| Moquette (chỉ dùng trong test) | 0.17 |
 
 Toàn bộ phiên bản khai báo tập trung ở [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
 
