@@ -42,6 +42,15 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
+        // Annotation trên tham số constructor (vd. @ApplicationContext của Hilt) áp dụng cho cả param và field
+        // — hành vi mặc định tương lai của Kotlin (KT-73255), bật sớm để hết cảnh báo.
+        freeCompilerArgs.add("-Xannotation-default-target=param-property")
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("passed", "skipped", "failed")
     }
 }
 
