@@ -50,6 +50,14 @@ class StreamAuthTest {
     }
 
     @Test
+    fun `mat khau broker nhung suy ra on dinh tu token`() {
+        // hmac.new(b"test-secret-0123456789", b"oncam-mqtt-password-v1", sha256).hexdigest()[:32]
+        assertEquals("97ae1415661345d2a24116ec19d63627", BrokerCredentials.password(secret))
+        assertNotEquals(BrokerCredentials.password(secret), BrokerCredentials.password("token-khac-0123456789"))
+        assertEquals("oncam", BrokerCredentials.USERNAME)
+    }
+
+    @Test
     fun `token sinh ngau nhien du dai va khong trung`() {
         val a = SharedSecret.generate()
         val b = SharedSecret.generate()

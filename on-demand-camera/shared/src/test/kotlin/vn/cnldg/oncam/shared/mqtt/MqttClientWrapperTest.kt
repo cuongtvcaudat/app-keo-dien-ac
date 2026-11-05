@@ -50,7 +50,7 @@ class MqttClientWrapperTest {
     }
 
     @Test
-    fun `ket noi va nhan duoc lenh QoS 1`() = runBlocking {
+    fun `ket noi va nhan duoc lenh QoS 1`() = runBlocking<Unit> {
         val node = client("node")
         val viewer = client("viewer")
         node.awaitConnected()
@@ -66,7 +66,7 @@ class MqttClientWrapperTest {
     }
 
     @Test
-    fun `viewer vao sau van nhan trang thai retain`() = runBlocking {
+    fun `viewer vao sau van nhan trang thai retain`() = runBlocking<Unit> {
         val node = client("node")
         node.awaitConnected()
         val status = ProtocolJson.encodeStatus(DeviceStatus(deviceId = DEVICE, online = true, lastSeen = 1))
@@ -82,7 +82,7 @@ class MqttClientWrapperTest {
     }
 
     @Test
-    fun `mat mang dot ngot thi broker phat LWT offline`() = runBlocking {
+    fun `mat mang dot ngot thi broker phat LWT offline`() = runBlocking<Unit> {
         val viewer = client("viewer")
         viewer.awaitConnected()
         viewer.subscribe(Topics.status(DEVICE), 1)
@@ -98,7 +98,7 @@ class MqttClientWrapperTest {
     }
 
     @Test
-    fun `stop em thi khong phat LWT`() = runBlocking {
+    fun `stop em thi khong phat LWT`() = runBlocking<Unit> {
         val viewer = client("viewer")
         viewer.awaitConnected()
         viewer.subscribe(Topics.status(DEVICE), 1)
@@ -112,7 +112,7 @@ class MqttClientWrapperTest {
     }
 
     @Test
-    fun `broker khoi dong lai thi tu ket noi lai va subscribe lai`() = runBlocking {
+    fun `broker khoi dong lai thi tu ket noi lai va subscribe lai`() = runBlocking<Unit> {
         val node = client("node")
         node.awaitConnected()
         node.subscribe(Topics.command(DEVICE), Topics.QOS_COMMAND)
@@ -137,7 +137,7 @@ class MqttClientWrapperTest {
     }
 
     @Test
-    fun `broker co mat khau thi tu choi sai mat khau va nhan dung mat khau`() = runBlocking {
+    fun `broker co mat khau thi tu choi sai mat khau va nhan dung mat khau`() = runBlocking<Unit> {
         broker?.stopServer()
         broker = startBroker(
             authenticator = { _, user, pass -> user == "oncam" && pass != null && String(pass, Charsets.UTF_8) == "mat-khau-dung" },

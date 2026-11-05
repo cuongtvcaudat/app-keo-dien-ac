@@ -1,9 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Phase 0: chỉ có khung app.
-  Quyền CAMERA, FOREGROUND_SERVICE_*, POST_NOTIFICATIONS... được thêm ở Phase 2-3 cùng code xin quyền runtime.
--->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Mạng: MQTT + broker nhúng trên IP Tailscale. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Foreground service: loại camera (mở camera khi có lệnh, Phase 3) + specialUse (Android 14+,
+         dùng khi service bị hệ thống khởi động lại từ nền — lúc đó Android cấm loại camera). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Giữ CPU thức để ping MQTT đúng giờ khi màn hình tắt (máy camera luôn cắm sạc). -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Tự chạy lại sau khi khởi động máy (ColorOS cần bật thêm "Cho phép tự khởi chạy"). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Mở hộp thoại "bỏ tối ưu pin" trực tiếp. App cài APK riêng, không lên Google Play. -->
+    <uses-permission
+        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        tools:ignore="BatteryLife" />
+
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
 
     <application
         android:name=".CameraNodeApp"
@@ -16,12 +38,32 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".service.CameraForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="camera|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Camera giám sát theo yêu cầu: luôn chờ lệnh MQTT, chỉ mở camera khi người dùng yêu cầu từ xa" />
+        </service>
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

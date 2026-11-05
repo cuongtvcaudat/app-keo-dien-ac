@@ -1,6 +1,8 @@
-# Dựng MQTT broker (Mosquitto) cho OnCam
+# MQTT broker cho OnCam
 
-> Hướng dẫn đầy đủ (Docker Compose, file cấu hình, tạo user/mật khẩu) sẽ viết ở **Phase 6**; cấu hình tối thiểu để test sẽ có từ **Phase 2**.
+**Mặc định không cần làm gì**: app camera-node có sẵn broker nhúng (Moquette), tự mở trên IP Tailscale của máy camera, tự tạo mật khẩu từ token bí mật (quyết định D13).
+
+Phần dưới chỉ dành cho trường hợp muốn dùng **broker riêng** (chọn "Broker riêng" trong màn hình cấu hình). Hướng dẫn chi tiết Mosquitto/Docker sẽ viết ở **Phase 6** nếu cần.
 
 Yêu cầu đã biết:
 

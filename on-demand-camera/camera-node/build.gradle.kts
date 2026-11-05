@@ -17,8 +17,9 @@ android {
         applicationId = "vn.cnldg.oncam.node"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.0.1"
+        versionCode = 2
+        versionName = "0.2.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -37,6 +38,21 @@ android {
         compose = true
         buildConfig = true
     }
+
+    packaging {
+        resources {
+            // Netty/H2 (thư viện của broker Moquette) có các file META-INF trùng tên hoặc chỉ dùng cho JVM.
+            excludes += setOf(
+                "META-INF/io.netty.versions.properties",
+                "META-INF/INDEX.LIST",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/native-image/**",
+                "META-INF/versions/**",
+            )
+        }
+    }
 }
 
 kotlin {
@@ -50,7 +66,11 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.service)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.security.crypto)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -60,7 +80,30 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     implementation(libs.hilt.android)
+    implementation(libs.androidx.hilt.navigation.compose)
     ksp(libs.hilt.compiler)
 
     implementation(libs.timber)
+
+    // Broker MQTT nhúng (đề xuất P1). Bỏ các thư viện chỉ dùng khi bật tính năng tương ứng của Moquette:
+    // bugsnag (gửi báo lỗi ra dịch vụ ngoài), metrics/librato, HikariCP/commons-codec (xác thực bằng DB/file),
+    // epoll (native Linux), reload4j (log4j). Đã kiểm tra mã Moquette 0.17: các lớp này chỉ được gọi khi bật cấu hình.
+    implementation(libs.moquette.broker) {
+        exclude(group = "com.bugsnag")
+        exclude(group = "com.librato.metrics")
+        exclude(group = "io.dropwizard.metrics")
+        exclude(group = "com.zaxxer")
+        exclude(group = "com.fasterxml.jackson.core")
+        exclude(group = "commons-codec")
+        exclude(group = "io.netty", module = "netty-transport-native-epoll")
+        exclude(group = "org.slf4j", module = "slf4j-reload4j")
+        exclude(group = "ch.qos.reload4j")
+    }
+
+    testImplementation(libs.kotlin.test.junit)
+    testImplementation(libs.junit)
+
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.kotlin.test.junit)
 }
