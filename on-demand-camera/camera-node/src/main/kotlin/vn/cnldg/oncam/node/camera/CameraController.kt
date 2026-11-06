@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import vn.cnldg.oncam.node.core.CameraPort
+import vn.cnldg.oncam.node.core.YuvToNv21
 import vn.cnldg.oncam.node.core.MountOrientation
 import vn.cnldg.oncam.node.core.OpenResult
 import vn.cnldg.oncam.shared.LogSink
@@ -63,6 +64,13 @@ class CameraController(
      */
     @Volatile
     var rawFrameSink: ((ByteArray, Int, Int, Long) -> Unit)? = null
+
+    /**
+     * Có cần JPEG đủ số hình/giây không (đang có người xem MJPEG, hoặc không có phiên WebRTC nào).
+     * false → chỉ nén JPEG 1 khung/giây (đủ cho chụp ảnh và xem thử trên máy), đỡ tốn CPU khi chỉ xem WebRTC.
+     */
+    @Volatile
+    var fullRateJpeg: () -> Boolean = { true }
 
         private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
     override val errors: Flow<String> = _errors.asSharedFlow()
@@ -103,7 +111,7 @@ class CameraController(
                 .setOutputImageRotationEnabled(true)
                 .setTargetRotation(surfaceRotation(orientation))
                 .build()
-            analysis.setAnalyzer(analysisExecutor, FrameEncoder(quality, sink) { rawFrameSink })
+            analysis.setAnalyzer(analysisExecutor, FrameEncoder(quality, sink, { rawFrameSink }, { fullRateJpeg() }))
 
             try {
                 detachObserver()
@@ -182,30 +190,43 @@ class CameraController(
     }
 
     /**
-     * Giới hạn FPS, chuyển NV21 một lần rồi mã hoá JPEG (MJPEG/ảnh chụp) và đưa sang WebRTC nếu có phiên;
-     * luôn đóng ImageProxy để CameraX gửi khung tiếp.
+     * Giới hạn FPS, chuyển NV21 một lần rồi: nén JPEG (MJPEG/ảnh chụp) — đủ FPS hoặc 1 khung/giây tuỳ [fullJpeg] —
+     * và đưa sang WebRTC nếu có phiên; luôn đóng ImageProxy để CameraX gửi khung tiếp.
      */
     private class FrameEncoder(
         private val quality: StreamQuality,
         private val sink: (ByteArray) -> Unit,
         private val raw: () -> ((ByteArray, Int, Int, Long) -> Unit)?,
+        private val fullJpeg: () -> Boolean,
     ) : ImageAnalysis.Analyzer {
         private val intervalNs = 1_000_000_000L / quality.fps
+        private val converter = YuvToNv21()
         private var lastNs = 0L
+        private var lastJpegNs = 0L
 
         override fun analyze(image: ImageProxy) {
             try {
                 val now = System.nanoTime()
                 if (now - lastNs < intervalNs) return
                 lastNs = now
-                val frame = YuvJpeg.nv21(image)
-                sink(YuvJpeg.encode(frame, quality.jpegQuality))
-                raw()?.invoke(frame.data, frame.width, frame.height, now)
+                val rtc = raw()
+                val jpeg = fullJpeg() || now - lastJpegNs >= SLOW_JPEG_INTERVAL_NS
+                if (!jpeg && rtc == null) return
+                val frame = YuvJpeg.nv21(image, converter)
+                if (jpeg) {
+                    sink(YuvJpeg.encode(frame, quality.jpegQuality))
+                    lastJpegNs = now
+                }
+                rtc?.invoke(frame.data, frame.width, frame.height, now)
             } catch (_: Exception) {
                 // Bỏ khung lỗi (hiếm), không làm dừng camera.
             } finally {
                 image.close()
             }
+        }
+
+        private companion object {
+            const val SLOW_JPEG_INTERVAL_NS = 1_000_000_000L
         }
     }
 }

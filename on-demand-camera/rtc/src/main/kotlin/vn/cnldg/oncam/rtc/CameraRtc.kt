@@ -24,6 +24,7 @@ import org.webrtc.VideoSource
 import org.webrtc.VideoTrack
 import vn.cnldg.oncam.shared.LogSink
 import vn.cnldg.oncam.shared.protocol.StreamQuality
+import vn.cnldg.oncam.shared.rtc.CodecPreference
 import vn.cnldg.oncam.shared.rtc.SdpCandidates
 
 /** Kết quả trả lời một SDP offer. */
@@ -169,6 +170,7 @@ class CameraRtc(
                 MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO -> {
                     t.sender.setTrack(videoTrack, false)
                     t.setDirection(RtpTransceiver.RtpTransceiverDirection.SEND_ONLY)
+                    preferHardwareCodec(t)
                 }
                 MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO -> {
                     if (withAudio) {
@@ -182,6 +184,23 @@ class CameraRtc(
                 null -> Unit
             }
         }
+    }
+
+    /**
+     * Đặt chuẩn nén có phần cứng lên đầu (H.264 → VP8 …): answer theo thứ tự này nên camera nén bằng chip riêng,
+     * đỡ nóng hơn nén bằng CPU. Chỉ dùng codec có ở cả 2 chiều gửi/nhận (WebRTC từ chối danh sách khác).
+     * Lỗi thì giữ thứ tự mặc định — không bao giờ làm hỏng phiên.
+     */
+    private fun preferHardwareCodec(t: RtpTransceiver) {
+        runCatching {
+            val video = MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO
+            val sendNames = engine.factory.getRtpSenderCapabilities(video).codecs.map { it.name.uppercase() }.toSet()
+            val caps = engine.factory.getRtpReceiverCapabilities(video).codecs
+                .filter { it.name.uppercase() in sendNames || CodecPreference.isAuxiliary(it.name) }
+            if (caps.isEmpty()) return
+            val order = CodecPreference.order(caps.map { it.name }, engine.hardwareVideoEncoders)
+            t.setCodecPreferences(order.map { caps[it] })
+        }.onFailure { log.log(LogSink.Level.WARN, "Không đặt được thứ tự chuẩn nén, dùng mặc định", it) }
     }
 
     @Synchronized

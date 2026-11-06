@@ -118,6 +118,9 @@ class StreamManager(
 
     override fun latestFrame(): ByteArray? = hub?.latest()
 
+    /** Số người đang xem luồng MJPEG (không tính WebRTC). */
+    fun mjpegClients(): Int = server?.clientCount ?: 0
+
     override suspend fun perform(command: Command): ActionOutcome = mutex.withLock {
         val p = command.params
         when (command.action) {

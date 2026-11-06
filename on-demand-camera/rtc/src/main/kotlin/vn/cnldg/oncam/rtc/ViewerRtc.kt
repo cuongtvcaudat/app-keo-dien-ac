@@ -1,26 +1,32 @@
 package vn.cnldg.oncam.rtc
 
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
 import org.webrtc.MediaConstraints
 import org.webrtc.MediaStreamTrack
 import org.webrtc.PeerConnection
+import org.webrtc.RTCStatsCollectorCallback
 import org.webrtc.RtpTransceiver
 import org.webrtc.SessionDescription
 import org.webrtc.VideoFrame
 import org.webrtc.VideoSink
 import org.webrtc.VideoTrack
 import vn.cnldg.oncam.shared.LogSink
+import vn.cnldg.oncam.shared.rtc.RtcStatsSummary
 import vn.cnldg.oncam.shared.rtc.SdpCandidates
 
 /** Giai đoạn của một phiên xem WebRTC. */
@@ -43,6 +49,7 @@ class ViewerRtc(
     private val audioRouting: AudioRouting? = null,
     private val log: LogSink = LogSink.NONE,
     private val connectTimeoutMs: Long = 15_000,
+    private val statsIntervalMs: Long = 2_000,
 ) {
     private val watcher = PeerWatcher()
     private var pc: PeerConnection? = null
@@ -61,6 +68,13 @@ class ViewerRtc(
 
     /** Hình từ camera (giao diện gắn SurfaceViewRenderer vào), null khi chưa kết nối. */
     val video: StateFlow<VideoTrack?> = _video.asStateFlow()
+
+    private val _stats = MutableStateFlow(RtcStatsSummary())
+
+    /** Chuẩn nén, độ phân giải, kbit/s đang nhận (đo mỗi [statsIntervalMs]). */
+    val stats: StateFlow<RtcStatsSummary> = _stats.asStateFlow()
+
+    private var statsJob: Job? = null
 
     private val _fps = MutableStateFlow(0)
 
@@ -146,6 +160,7 @@ class ViewerRtc(
                 routed = true
             }
             watchJob = scope.launch { watch() }
+            statsJob = scope.launch { pollStats(peer) }
             true
         } catch (_: TimeoutCancellationException) {
             fail("Quá thời gian chờ kết nối")
@@ -180,6 +195,8 @@ class ViewerRtc(
         _phase.value = RtcPhase.CLOSED
         watchJob?.cancel()
         watchJob = null
+        statsJob?.cancel()
+        statsJob = null
         _video.value?.let { v -> runCatching { v.removeSink(fpsCounter) } }
         _video.value = null
         if (routed) {
@@ -233,6 +250,23 @@ class ViewerRtc(
         }
     }
 
+    private suspend fun pollStats(peer: PeerConnection) {
+        var last: RtcStatsSummary? = null
+        var lastMs = System.currentTimeMillis()
+        while (true) {
+            delay(statsIntervalMs)
+            val report = withTimeoutOrNull(STATS_TIMEOUT_MS) {
+                suspendCancellableCoroutine { cont -> peer.getStats(RTCStatsCollectorCallback { r -> cont.resume(r) }) }
+            } ?: continue
+            val now = System.currentTimeMillis()
+            val flat = report.statsMap.mapValues { (_, st) -> st.type to st.members }
+            val summary = RtcStatsSummary.from(flat, last, now - lastMs)
+            _stats.value = summary
+            last = summary
+            lastMs = now
+        }
+    }
+
     private fun fail(reason: String): Boolean {
         log.log(LogSink.Level.WARN, "WebRTC không dùng được: $reason", null)
         _phase.value = RtcPhase.FAILED
@@ -241,5 +275,6 @@ class ViewerRtc(
 
     private companion object {
         const val MIC_TRACK_ID = "oncam-viewer-mic"
+        const val STATS_TIMEOUT_MS = 1_500L
     }
 }

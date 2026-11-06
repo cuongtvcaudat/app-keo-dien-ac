@@ -72,6 +72,11 @@ class RtcLoopbackTest {
         track.removeSink(counter)
         assertTrue(viewer.fps.value > 0, "đếm được số hình/giây")
 
+        // Thống kê thật của WebRTC: biết chuẩn nén đang dùng và lượng dữ liệu (hiện trên màn hình xem).
+        val stats = withTimeout(10_000) { viewer.stats.first { it.codec != null && (it.kbps ?: 0) > 0 } }
+        android.util.Log.i("OnCamBench", "WebRTC loopback: codec=${stats.codec} ${stats.width}x${stats.height} ${stats.kbps} kbit/s, " +
+            "bộ nén phần cứng=${cameraEngine.hardwareVideoEncoders}")
+
         assertTrue(camera.hangup(SESSION))
         assertEquals(0, camera.sessionCount.value)
         feeding.cancel()

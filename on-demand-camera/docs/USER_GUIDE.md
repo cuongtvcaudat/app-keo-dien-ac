@@ -117,7 +117,8 @@ kênh riêng tư của bạn, dán vào app Xem. Ô *Địa chỉ broker* chỉ 
 ### Xem trực tiếp
 
 - Từ bản 0.7, nếu **cả 2 app ≥ 0.7** thì video đi bằng **WebRTC** (nén như video gọi điện, có tiếng). Dòng trên cùng
-  hiện **WebRTC • số hình/giây • số người xem**. Camera bản cũ hoặc WebRTC lỗi thì app tự xem bằng **MJPEG**
+  hiện vd. **WebRTC H264 1280×720 • 15 hình/giây • 820 kbit/s • 1 người xem**: *H264* là chuẩn nén (máy camera ưu tiên
+  chuẩn có chip nén riêng cho đỡ nóng), *kbit/s* là dữ liệu **thật** đang tốn (1 000 kbit/s ≈ 450 MB/giờ). Camera bản cũ hoặc WebRTC lỗi thì app tự xem bằng **MJPEG**
   (như bản 0.6, không có tiếng) và ghi lý do ở cuối màn hình.
 - Xem bằng MJPEG: dòng trên cùng hiện **số hình/giây • độ trễ • số người xem**; app tự đo lệch đồng hồ 2 máy nên
   độ trễ hiện đúng.

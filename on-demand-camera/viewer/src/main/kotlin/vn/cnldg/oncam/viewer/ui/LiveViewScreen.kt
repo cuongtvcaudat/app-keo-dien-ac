@@ -148,7 +148,7 @@ fun LiveViewScreen(
                         if (playing) {
                             Text(
                                 if (webrtc) {
-                                    stringResource(R.string.live_info_rtc, rtc.fps, status?.viewers ?: 0)
+                                    rtcInfo(rtc, status?.viewers ?: 0)
                                 } else {
                                     streamInfo(stream, status?.viewers ?: 0)
                                 },
@@ -277,6 +277,19 @@ private fun TalkButton(talking: Boolean, onTalk: (Boolean) -> Unit) {
             color = if (talking) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary,
         )
     }
+}
+
+/** "WebRTC H264 1280×720 • 15 hình/giây • 820 kbit/s • 1 người xem" (chuẩn nén/kbit/s có sau ~2 giây). */
+@Composable
+private fun rtcInfo(rtc: LiveRtcState, viewers: Int): String {
+    val st = rtc.stats
+    val parts = buildList {
+        add(listOfNotNull("WebRTC", st.codec, st.width?.let { w -> st.height?.let { h -> "$w×$h" } }).joinToString(" "))
+        add(stringResource(R.string.live_fps, rtc.fps))
+        st.kbps?.let { add(stringResource(R.string.live_kbps, it)) }
+        add(stringResource(R.string.live_viewers, viewers))
+    }
+    return parts.joinToString(" • ")
 }
 
 @Composable

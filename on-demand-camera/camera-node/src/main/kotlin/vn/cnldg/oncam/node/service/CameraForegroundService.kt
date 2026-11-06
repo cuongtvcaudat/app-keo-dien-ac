@@ -222,6 +222,8 @@ class CameraForegroundService : LifecycleService() {
                 log = TimberLogSink,
                 rtc = cameraRtc?.let { NodeRtc(it, micAllowed) },
             )
+            // Chỉ xem WebRTC → không cần nén JPEG đủ số hình/giây (giữ 1 khung/giây cho chụp ảnh): máy đỡ nóng.
+            cam.fullRateJpeg = { streams.mjpegClients() > 0 || (cameraRtc?.sessionCount?.value ?: 0) == 0 }
             val c = NodeController(
                 config = config,
                 scope = work,

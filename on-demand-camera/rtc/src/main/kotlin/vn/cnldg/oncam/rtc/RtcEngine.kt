@@ -4,6 +4,7 @@ import android.content.Context
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.DefaultVideoEncoderFactory
 import org.webrtc.EglBase
+import org.webrtc.HardwareVideoEncoderFactory
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.audio.JavaAudioDeviceModule
@@ -20,6 +21,8 @@ class RtcEngine private constructor(
     /** Ngữ cảnh OpenGL dùng chung để giải mã phần cứng và vẽ video (chỉ có ở máy xem). */
     val eglBase: EglBase?,
     private val audio: JavaAudioDeviceModule,
+    /** Chuẩn nén video có bộ nén phần cứng trên máy này (vd. {"H264", "VP8"}) — để ưu tiên khi trả lời offer. */
+    val hardwareVideoEncoders: Set<String>,
 ) {
     /** Tắt/mở micro ở tầng thiết bị (vẫn giữ phiên). */
     fun setMicrophoneMute(mute: Boolean) = audio.setMicrophoneMute(mute)
@@ -63,7 +66,11 @@ class RtcEngine private constructor(
                 .setVideoEncoderFactory(DefaultVideoEncoderFactory(egl?.eglBaseContext, true, true))
                 .setVideoDecoderFactory(DefaultVideoDecoderFactory(egl?.eglBaseContext))
                 .createPeerConnectionFactory()
-            RtcEngine(factory, egl, audio)
+            val hwEncoders = runCatching {
+                HardwareVideoEncoderFactory(egl?.eglBaseContext, true, true).supportedCodecs.map { it.name.uppercase() }.toSet()
+            }.getOrDefault(emptySet())
+            log.log(LogSink.Level.INFO, "WebRTC: bộ nén video phần cứng = ${hwEncoders.ifEmpty { setOf("không có") }}", null)
+            RtcEngine(factory, egl, audio, hwEncoders)
         } catch (e: UnsatisfiedLinkError) {
             log.log(LogSink.Level.WARN, "Không nạp được thư viện WebRTC, dùng MJPEG", e)
             null

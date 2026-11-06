@@ -126,7 +126,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -camera-front none
           working-directory: on-demand-camera
-          script: ./gradlew :rtc:connectedDebugAndroidTest :camera-node:connectedDebugAndroidTest :viewer:connectedDebugAndroidTest :camera-node:assembleRelease :viewer:assembleRelease -Poncam.releaseAbis=x86_64 --stacktrace --console=plain && ci/smoke-release.sh
+          script: adb logcat -G 16M; ./gradlew :rtc:connectedDebugAndroidTest :camera-node:connectedDebugAndroidTest :viewer:connectedDebugAndroidTest :camera-node:assembleRelease :viewer:assembleRelease -Poncam.releaseAbis=x86_64 --stacktrace --console=plain && (adb logcat -d -s OnCamBench:I || true) && ci/smoke-release.sh
 
       - name: Tải lên kết quả test emulator
         if: always()

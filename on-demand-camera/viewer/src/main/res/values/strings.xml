@@ -67,7 +67,9 @@
     <string name="live_no_audio">Đang xem MJPEG: không có tiếng (cập nhật OnCam Quay lên 0.7 để có tiếng). Chạm vào video để ẩn/hiện nút.</string>
     <string name="live_mjpeg_fallback">Đang xem MJPEG (không có tiếng) vì WebRTC không dùng được: %1$s</string>
     <string name="live_connecting_rtc">Đang mở camera và kết nối WebRTC…</string>
-    <string name="live_info_rtc">WebRTC • %1$d hình/giây • %2$d người xem</string>
+    <string name="live_fps">%1$d hình/giây</string>
+    <string name="live_kbps">%1$d kbit/s</string>
+    <string name="live_viewers">%1$d người xem</string>
     <string name="live_no_camera_mic">Máy camera chưa cho dùng micro: không nghe được tiếng sân (nói ra loa vẫn được).</string>
     <string name="action_listen_on">Nghe tiếng sân</string>
     <string name="action_listen_off">Tắt tiếng sân</string>

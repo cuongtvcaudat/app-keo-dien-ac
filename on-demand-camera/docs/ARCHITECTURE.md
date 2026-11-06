@@ -127,6 +127,10 @@ STOP / idle / quá nhiệt / lỗi camera ──► đóng HTTP server + gỡ Ca
 | D42 | Máy camera trong phiên có tiếng: chế độ đàm thoại + loa ngoài + âm lượng đàm thoại tối đa, trả lại như cũ khi hết phiên (`AudioRouting`). Foreground service thêm loại `microphone`, cùng quy tắc "khi đang dùng" như camera | Người ở sân phải nghe rõ. Android 11+ chỉ cho dùng micro từ service khi service được nâng loại lúc app đang hiển thị |
 | D43 | Giới hạn bitrate WebRTC: Thấp 300 kbit/s, Vừa 900 kbit/s, Cao 1,8 Mbit/s; bật `enableCpuOveruseDetection` | Ít hơn MJPEG ~5–18 lần dữ liệu (tuỳ mức); máy cũ quá tải thì WebRTC tự hạ độ phân giải |
 | D44 | Thư viện native WebRTC: release chỉ ARM (`arm64-v8a`, `armeabi-v7a`), debug thêm `x86_64` cho emulator; nén thư viện trong APK (`useLegacyPackaging`) | Mỗi kiến trúc ~11 MB chưa nén. Điện thoại thật đều là ARM |
+| D45 | **Tối ưu hiệu năng máy camera:** chỉ có người xem WebRTC (không ai xem MJPEG) → nén JPEG **1 khung/giây** (đủ cho chụp ảnh và xem thử) thay vì mọi khung | Nén JPEG 720p mỗi khung tốn CPU đáng kể mà không ai dùng → máy cũ nóng, hao pin |
+| D46 | Ưu tiên chuẩn nén có **bộ nén phần cứng** trên máy camera (H.264 → VP8 → …, phần mềm thì VP8) bằng `setCodecPreferences` khi trả lời offer; WebRTC trên Android 10+ nhận diện phần cứng qua `MediaCodecInfo.isHardwareAccelerated()` (đã kiểm trong mã thư viện) | Nén bằng chip riêng thay vì CPU. Máy xem không giải mã được H.264 thì offer không có H.264 → tự dùng VP8 |
+| D47 | Chuyển YUV→NV21 bằng cách chép cả hàng (`YuvToNv21`) thay vì đọc từng byte; có test so từng byte với cách cũ (I420/NV12/NV21, hàng có đệm) và đo trên ART trong CI | Đo trên JVM máy tính: không nhanh hơn (HotSpot tối ưu sẵn); số đo trên Android ở log CI (thẻ `OnCamBench`) |
+| D48 | Màn hình xem hiện **chuẩn nén, độ phân giải, kbit/s** đọc từ `getStats` mỗi 2 giây | Biết ngay có chạy bộ nén phần cứng và tốn bao nhiêu dữ liệu thật, không phải ước tính |
 
 ## 6. Ràng buộc Android cần nhớ
 

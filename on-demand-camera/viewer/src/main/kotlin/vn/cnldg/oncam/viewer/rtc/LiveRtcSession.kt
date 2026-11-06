@@ -17,6 +17,7 @@ import vn.cnldg.oncam.shared.LogSink
 import vn.cnldg.oncam.shared.client.CameraClient
 import vn.cnldg.oncam.shared.client.CommandResult
 import vn.cnldg.oncam.shared.client.RtcAnswerResult
+import vn.cnldg.oncam.shared.rtc.RtcStatsSummary
 import vn.cnldg.oncam.shared.rtc.TailscaleAddress
 
 /** Đường truyền đang dùng ở màn hình xem trực tiếp. */
@@ -28,6 +29,7 @@ enum class LiveTransport { NONE, CONNECTING, WEBRTC, MJPEG }
  * @property hasAudio camera có gửi tiếng (micro máy camera dùng được).
  * @property talkEnabled phiên đang mở có kèm micro máy xem (bấm "Bật nói chuyện").
  * @property fallbackCode lý do đang xem bằng MJPEG (mã lỗi / CommandResult), null nếu không lỗi.
+ * @property stats chuẩn nén, độ phân giải, kbit/s của phiên WebRTC (để biết có chạy phần cứng, tốn bao nhiêu dữ liệu).
  */
 data class LiveRtcState(
     val transport: LiveTransport = LiveTransport.NONE,
@@ -38,6 +40,7 @@ data class LiveRtcState(
     val talkEnabled: Boolean = false,
     val talking: Boolean = false,
     val fallbackCode: String? = null,
+    val stats: RtcStatsSummary = RtcStatsSummary(),
 )
 
 /**
@@ -101,6 +104,7 @@ class LiveRtcSession(
             it.copy(transport = LiveTransport.WEBRTC, video = v.video.value, hasAudio = v.hasRemoteAudio, talking = false)
         }
         jobs += scope.launch { v.fps.collect { f -> _state.update { it.copy(fps = f) } } }
+        jobs += scope.launch { v.stats.collect { st -> _state.update { it.copy(stats = st) } } }
         jobs += scope.launch {
             v.phase.first { it == RtcPhase.FAILED }
             log.log(LogSink.Level.WARN, "Phiên WebRTC bị đứt", null)
@@ -120,7 +124,9 @@ class LiveRtcSession(
         rtc = null
         client = null
         sessionId = null
-        _state.update { it.copy(transport = LiveTransport.NONE, video = null, fps = 0, talking = false) }
+        _state.update {
+            it.copy(transport = LiveTransport.NONE, video = null, fps = 0, talking = false, stats = RtcStatsSummary())
+        }
         v?.close()
         if (c != null && id != null) scope.launch { c.rtcHangup(id) }
     }
