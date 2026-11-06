@@ -177,6 +177,16 @@ jobs:
           } > notes.md
           # Xoá release + tag cũ rồi tạo lại ở commit này: link tải giữ nguyên
           # https://github.com/<repo>/releases/download/oncam-latest/OnCam-Quay.apk
-          gh release delete "$TAG" --yes --cleanup-tag || true
-          gh release create "$TAG" dist/OnCam-Quay.apk dist/OnCam-Xem.apk dist/SHA256SUMS.txt \
-            --target "$GITHUB_SHA" --title "OnCam $version (mới nhất)" --notes-file notes.md --latest
+          # GitHub API đôi khi trả 502/5xx tạm thời → thử lại tối đa 4 lần (đã gặp ở CI #17).
+          for i in 1 2 3 4; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release delete "$TAG" --yes --cleanup-tag || { sleep $((i * 10)); continue; }
+            fi
+            if gh release create "$TAG" dist/OnCam-Quay.apk dist/OnCam-Xem.apk dist/SHA256SUMS.txt \
+              --target "$GITHUB_SHA" --title "OnCam $version (mới nhất)" --notes-file notes.md --latest; then
+              exit 0
+            fi
+            sleep $((i * 10))
+          done
+          echo "::error::Không đăng được release sau 4 lần thử"
+          exit 1
