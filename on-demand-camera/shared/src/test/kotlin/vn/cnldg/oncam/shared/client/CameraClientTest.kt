@@ -38,6 +38,7 @@ import vn.cnldg.oncam.shared.security.BrokerCredentials
 import vn.cnldg.oncam.shared.security.CommandCheck
 import vn.cnldg.oncam.shared.security.CommandVerifier
 import vn.cnldg.oncam.shared.security.EpochClock
+import vn.cnldg.oncam.shared.security.RtcAuth
 
 /**
  * CameraClient với broker thật (Moquette, có mật khẩu như broker nhúng) và một "camera giả" tối giản
@@ -177,14 +178,59 @@ class CameraClientTest {
         assertNull(client.clockSync.value)
     }
 
+    @Test
+    fun `mo phien WebRTC nhan answer da ky`() = runBlocking<Unit> {
+        startFakeNode()
+        val client = client(endpoint)
+        withTimeout(TIMEOUT_MS) { client.view.first { it.online } }
+        // SDP thật dài ~6 KB: vượt giới hạn mặc định 8 092 byte của Moquette khi tính cả JSON.
+        val bigOffer = "v=0\r\n" + "a=x-pad:${"0".repeat(9_000)}\r\n"
+
+        val result = client.rtcOffer(SESSION, bigOffer)
+
+        assertEquals(RtcAnswerResult.Answer("answer:$SESSION:${bigOffer.length}"), result)
+        assertEquals(CommandResult.Ok(null), client.rtcHangup(SESSION))
+    }
+
+    @Test
+    fun `answer gia mao bi bo`() = runBlocking<Unit> {
+        // Kẻ đọc/ghi được broker nhưng không có token: ký answer bằng khoá khác.
+        startFakeNode(answerSecret = "token-gia-mao-0123456789")
+        val client = client(endpoint)
+        withTimeout(TIMEOUT_MS) { client.view.first { it.online } }
+
+        assertEquals(
+            RtcAnswerResult.Failed(CommandResult.Rejected(CameraClient.BAD_ANSWER_SIGNATURE)),
+            client.rtcOffer(SESSION, "v=0\r\n"),
+        )
+    }
+
+    @Test
+    fun `camera ban cu khong hieu RTC_OFFER thi het gio, app Xem dua vao co rtc de khoi gui`() = runBlocking<Unit> {
+        startFakeNode(supportsRtc = false)
+        val client = client(endpoint)
+        val view = withTimeout(TIMEOUT_MS) { client.view.first { it.online } }
+
+        assertFalse(view.status!!.rtc, "camera 0.6 không gửi cờ rtc")
+        assertEquals(RtcAnswerResult.Failed(CommandResult.Timeout), client.rtcOffer(SESSION, "v=0\r\n", timeoutMs = 500))
+    }
+
     // --- camera giả + tiện ích ---
 
     /**
      * Camera giả: publish trạng thái online, kiểm chữ ký lệnh, trả COMMAND_RESULT.
      * @param cameraOffsetMs đồng hồ camera nhanh hơn máy chạy test bao nhiêu ms.
      * @param sendMs false = giả lập camera bản cũ (không gửi timestampMs).
+     * @param answerSecret token dùng ký SDP answer (khác [SECRET] = giả mạo).
+     * @param supportsRtc false = camera bản 0.6: không đọc được lệnh RTC (enum lạ) → MALFORMED.
      */
-    private suspend fun startFakeNode(cameraOffsetMs: Long = 0, sendMs: Boolean = true) {
+    private suspend fun startFakeNode(
+        cameraOffsetMs: Long = 0,
+        sendMs: Boolean = true,
+        answerSecret: String = SECRET,
+        supportsRtc: Boolean = true,
+    ) {
+        val rtcAuth = RtcAuth(answerSecret, DEVICE)
         val cameraNowMs = { System.currentTimeMillis() + cameraOffsetMs }
         val verifier = CommandVerifier(SECRET, DEVICE, EpochClock { cameraNowMs() / 1000 })
         val wrapper = MqttClientWrapper(
@@ -216,11 +262,25 @@ class CameraClientTest {
         )
         scope.launch {
             wrapper.messages.collect { msg ->
-                val cmd = ProtocolJson.decodeCommand(msg.payload) ?: return@collect
+                val cmd = ProtocolJson.decodeCommand(msg.payload)?.takeIf { supportsRtc || !it.action.name.startsWith("RTC_") }
+                if (cmd == null) {
+                    // Như camera 0.6 thật: không đọc được lệnh → MALFORMED không kèm mã lệnh.
+                    val ev = DeviceEvent(EventType.COMMAND_RESULT, RejectReason.MALFORMED.name, 1, null, false)
+                    wrapper.publish(OutgoingMessage(Topics.event(DEVICE), ProtocolJson.encodeEvent(ev), 0, false))
+                    return@collect
+                }
                 val result = when (val check = verifier.verify(cmd)) {
                     is CommandCheck.Rejected -> DeviceEvent(EventType.COMMAND_RESULT, check.reason.name, 1, cmd.id, false)
                     CommandCheck.Accepted -> when (cmd.action) {
                         Action.PING -> DeviceEvent(EventType.COMMAND_RESULT, "PONG", 1, cmd.id, true)
+                        Action.RTC_OFFER -> {
+                            val answer = "answer:${cmd.params.sessionId}:${cmd.params.sdp?.length}"
+                            DeviceEvent(
+                                EventType.COMMAND_RESULT, answer, 1, cmd.id, true,
+                                signature = rtcAuth.signAnswer(cmd.id, answer),
+                            )
+                        }
+                        Action.RTC_HANGUP -> DeviceEvent(EventType.COMMAND_RESULT, null, 1, cmd.id, true)
                         Action.START_STREAM -> {
                             streaming = true
                             wrapper.publish(status())
@@ -252,6 +312,7 @@ class CameraClientTest {
             setProperty(IConfig.WEB_SOCKET_PORT_PROPERTY_NAME, "disabled")
             setProperty(IConfig.PERSISTENCE_ENABLED_PROPERTY_NAME, "false")
             setProperty(IConfig.ENABLE_TELEMETRY_NAME, "false") // Moquette mặc định gửi telemetry ra ngoài
+            setProperty(IConfig.NETTY_MAX_BYTES_PROPERTY_NAME, "65536") // như broker nhúng: SDP > 8 KB
             setProperty(IConfig.ALLOW_ANONYMOUS_PROPERTY_NAME, "false")
         }
         val expected = BrokerCredentials.password(SECRET)
@@ -263,6 +324,7 @@ class CameraClientTest {
 
     private companion object {
         const val DEVICE = "san-nha"
+        const val SESSION = "8f2c1d4e-0000-4000-8000-000000000001"
         const val SECRET = "test-secret-0123456789"
         const val TIMEOUT_MS = 10_000L
     }

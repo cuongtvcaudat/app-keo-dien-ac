@@ -79,6 +79,9 @@
     <string name="status_network">Mạng</string>
     <string name="status_camera_access">Mở camera từ xa</string>
     <string name="status_camera_access_no">Chưa — mở app này một lần</string>
+    <string name="status_mic_access">Micro (nghe/nói từ xa)</string>
+    <string name="status_mic_no_permission">Chưa cấp quyền</string>
+    <string name="status_mic_allow">Cho phép micro</string>
     <string name="status_section_test">Kiểm tra</string>
     <string name="status_self_test">Tự kiểm tra (PING)</string>
     <string name="status_self_testing">Đang kiểm tra…</string>

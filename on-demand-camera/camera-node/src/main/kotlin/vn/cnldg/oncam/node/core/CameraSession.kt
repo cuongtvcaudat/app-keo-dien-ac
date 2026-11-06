@@ -29,7 +29,7 @@ enum class MountOrientation(val degrees: Int) {
  * Trạng thái camera/stream hiện tại.
  *
  * @property error mã lỗi [vn.cnldg.oncam.shared.protocol.CameraCodes] của lần bật/chạy gần nhất.
- * @property clients số người đang xem luồng MJPEG.
+ * @property clients số người đang xem (luồng MJPEG + phiên WebRTC).
  */
 data class CameraStatus(
     val state: CameraState = CameraState.OFF,
@@ -52,6 +52,12 @@ interface CameraSession {
 
     /** Có được phép mở camera ngay lúc này không (quyền + loại foreground service). */
     fun cameraReady(): Boolean
+
+    /** Có xem qua WebRTC được không (Phase 7). */
+    fun rtcAvailable(): Boolean = false
+
+    /** Micro dùng được cho WebRTC (quyền + loại foreground service microphone). */
+    fun micReady(): Boolean = false
 
     /** Thực hiện một lệnh camera đã qua kiểm tra chữ ký và tham số. */
     suspend fun perform(command: Command): ActionOutcome

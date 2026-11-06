@@ -42,6 +42,9 @@ class NodeViewModel @Inject constructor(
     /** Có quyền mở camera khi app ở nền không. */
     val cameraAccess: StateFlow<Boolean> = runtime.cameraAccess
 
+    /** Service được dùng micro (nghe/nói qua WebRTC). */
+    val micAccess: StateFlow<Boolean> = runtime.micAccess
+
     /** Node có đang chạy không. */
     val running: StateFlow<Boolean> = runtime.controller
         .map { it != null }

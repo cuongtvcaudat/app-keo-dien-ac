@@ -24,11 +24,11 @@ internal class Hmac(secret: String) {
             signatureHex.lowercase().toByteArray(Charsets.US_ASCII),
         )
 
-    private companion object {
-        const val ALGORITHM = "HmacSHA256"
-        val HEX = "0123456789abcdef".toCharArray()
+    companion object {
+        private const val ALGORITHM = "HmacSHA256"
+        private val HEX = "0123456789abcdef".toCharArray()
 
-        fun toHex(bytes: ByteArray): String {
+        internal fun toHex(bytes: ByteArray): String {
             val out = CharArray(bytes.size * 2)
             bytes.forEachIndexed { i, b ->
                 val v = b.toInt() and 0xFF
@@ -39,3 +39,7 @@ internal class Hmac(secret: String) {
         }
     }
 }
+
+/** SHA-256 dạng hex (để ký nội dung dài như SDP mà không đưa cả chuỗi vào chuỗi ký). */
+internal fun sha256Hex(text: String): String =
+    Hmac.toHex(MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)))

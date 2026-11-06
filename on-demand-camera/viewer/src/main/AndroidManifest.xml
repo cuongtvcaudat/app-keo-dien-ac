@@ -9,6 +9,11 @@
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- Phase 7: nói ra loa máy camera. Chỉ xin khi bấm "Bật nói chuyện"; micro chỉ mở trong phiên có bật nói. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
     <!-- Chỉ dùng khi bấm "Quét mã QR" (thư viện quét tự hỏi quyền lúc đó). Máy không có camera vẫn cài được. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature

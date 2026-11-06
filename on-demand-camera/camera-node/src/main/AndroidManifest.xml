@@ -13,6 +13,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Phase 7 (WebRTC): gửi tiếng sân cho app Xem, phát tiếng app Xem nói ra loa. Micro chỉ mở khi có
+         phiên xem trực tiếp; loại foreground "microphone" giống loại camera: chỉ có khi app được mở trên màn hình. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <!-- Giữ CPU thức để ping MQTT đúng giờ khi màn hình tắt (máy camera luôn cắm sạc). -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -25,6 +29,9 @@
 
     <uses-feature
         android:name="android.hardware.camera.any"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
         android:required="false" />
 
     <application
@@ -49,7 +56,7 @@
         <service
             android:name=".service.CameraForegroundService"
             android:exported="false"
-            android:foregroundServiceType="camera|specialUse">
+            android:foregroundServiceType="camera|microphone|specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Camera giám sát theo yêu cầu: luôn chờ lệnh MQTT, chỉ mở camera khi người dùng yêu cầu từ xa" />

@@ -18,8 +18,8 @@ android {
         applicationId = "vn.cnldg.oncam.viewer"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 6
-        versionName = "0.6.0"
+        versionCode = 7
+        versionName = "0.7.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -37,7 +37,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Thư viện native WebRTC (~11 MB mỗi kiến trúc CPU): debug thêm x86_64 để chạy test trên emulator.
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
+        }
         release {
+            // Điện thoại thật đều là ARM; bỏ x86/x86_64 cho APK nhẹ hơn.
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
             // Bản dùng thật: không debuggable, không ghi log (Timber chỉ bật ở debug).
             signingConfig = signingConfigs.getByName("debug")
             // Chưa bật R8 (thu gọn mã): broker Moquette/Netty nạp lớp bằng reflection, thu gọn sai sẽ lỗi lúc chạy
@@ -54,6 +60,11 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // Nén thư viện native trong APK (tải về nhẹ hơn ~60%; Android giải nén khi cài).
+    packaging {
+        jniLibs { useLegacyPackaging = true }
     }
 }
 
@@ -74,6 +85,7 @@ tasks.withType<Test>().configureEach {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":rtc"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

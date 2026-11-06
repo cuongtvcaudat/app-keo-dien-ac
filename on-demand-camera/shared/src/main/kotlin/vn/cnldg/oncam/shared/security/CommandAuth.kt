@@ -30,8 +30,8 @@ internal object CommandCanonical {
 
     fun isValidId(id: String): Boolean = ID_PATTERN.matches(id)
 
-    fun of(deviceId: String, id: String, action: Action, params: CommandParams, timestamp: Long): String =
-        listOf(
+    fun of(deviceId: String, id: String, action: Action, params: CommandParams, timestamp: Long): String {
+        val fields = mutableListOf(
             PREFIX,
             deviceId,
             id,
@@ -41,7 +41,14 @@ internal object CommandCanonical {
             params.flash?.toString().orEmpty(),
             params.quality?.name.orEmpty(),
             params.idleTimeoutSec?.toString().orEmpty(),
-        ).joinToString("|")
+        )
+        // Trường của Phase 7 chỉ thêm vào khi có → lệnh cũ ký giống hệt bản 0.6 (2 app khác phiên bản vẫn hiểu nhau).
+        if (params.sdp != null || params.sessionId != null) {
+            fields += params.sessionId.orEmpty()
+            fields += params.sdp?.let(::sha256Hex).orEmpty()
+        }
+        return fields.joinToString("|")
+    }
 }
 
 /**

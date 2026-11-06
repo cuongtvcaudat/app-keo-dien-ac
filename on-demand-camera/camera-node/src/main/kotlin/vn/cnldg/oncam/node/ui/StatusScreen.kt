@@ -47,6 +47,7 @@ fun StatusScreen(
     running: Boolean,
     state: NodeState,
     cameraAccess: Boolean,
+    micAccess: Boolean,
     selfTesting: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
@@ -56,12 +57,15 @@ fun StatusScreen(
     onStartCamera: () -> Unit,
     onStopCamera: () -> Unit,
     latestFrame: () -> ByteArray?,
+    onRequestMic: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     var batteryIgnored by remember { mutableStateOf(BatteryOptimization.isIgnoring(context)) }
+    var micGranted by remember { mutableStateOf(micPermission(context)) }
     LifecycleResumeEffect(Unit) {
         batteryIgnored = BatteryOptimization.isIgnoring(context)
+        micGranted = micPermission(context)
         onPauseOrDispose { }
     }
     var showQr by remember { mutableStateOf(false) }
@@ -169,6 +173,19 @@ fun StatusScreen(
                     stringResource(R.string.status_camera_access),
                     stringResource(if (cameraAccess) R.string.value_yes else R.string.status_camera_access_no),
                 )
+                InfoRow(
+                    stringResource(R.string.status_mic_access),
+                    stringResource(
+                        when {
+                            micAccess -> R.string.value_yes
+                            !micGranted -> R.string.status_mic_no_permission
+                            else -> R.string.status_camera_access_no
+                        },
+                    ),
+                )
+                if (!micGranted) {
+                    OutlinedButton(onClick = onRequestMic) { Text(stringResource(R.string.status_mic_allow)) }
+                }
             }
 
             SectionCard(title = stringResource(R.string.status_section_test)) {
@@ -245,5 +262,9 @@ private fun selfTestText(result: SelfTestResult): String = when (result) {
         },
     )
 }
+
+private fun micPermission(context: android.content.Context) =
+    androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) ==
+        android.content.pm.PackageManager.PERMISSION_GRANTED
 
 private const val TICK_MS = 30_000L

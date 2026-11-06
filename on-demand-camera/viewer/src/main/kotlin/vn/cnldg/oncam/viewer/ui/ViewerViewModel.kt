@@ -33,6 +33,9 @@ import vn.cnldg.oncam.viewer.data.ViewerSettings
 import vn.cnldg.oncam.viewer.mqtt.CameraEntry
 import vn.cnldg.oncam.viewer.mqtt.CommandSender
 import vn.cnldg.oncam.viewer.log.TimberLogSink
+import vn.cnldg.oncam.viewer.rtc.LiveRtcSession
+import vn.cnldg.oncam.viewer.rtc.LiveRtcState
+import vn.cnldg.oncam.viewer.rtc.RtcProvider
 import vn.cnldg.oncam.viewer.stream.SnapshotSaver
 import vn.cnldg.oncam.viewer.stream.StreamClient
 import vn.cnldg.oncam.viewer.stream.StreamSource
@@ -65,6 +68,7 @@ class ViewerViewModel @Inject constructor(
     private val sender: CommandSender,
     private val settings: ViewerSettings,
     private val snapshots: SnapshotSaver,
+    rtcProvider: RtcProvider,
 ) : ViewModel() {
 
     /** Danh sách camera kèm trạng thái; null khi đang đọc. */
@@ -92,7 +96,19 @@ class ViewerViewModel @Inject constructor(
     /** Luồng xem trực tiếp. */
     val streamState: StateFlow<StreamState> = stream.state
 
+    private val live = LiveRtcSession(rtcProvider, viewModelScope, TimberLogSink)
+
+    /** Phần WebRTC của màn hình xem (đường truyền, hình, nghe/nói). */
+    val liveRtc: StateFlow<LiveRtcState> = live.state
+
+    /** Ngữ cảnh OpenGL để vẽ video WebRTC. */
+    val rtcEglContext: org.webrtc.EglBase.Context? get() = live.eglContext
+
     private var clockJob: Job? = null
+    private var liveJob: Job? = null
+
+    /** Số lần phiên WebRTC bị đứt trong lần xem này; ≥ [MAX_RTC_FAILURES] thì xem bằng MJPEG cho tới khi rời màn hình. */
+    private var rtcFailures = 0
 
     private val _liveDeviceId = MutableStateFlow<String?>(null)
 
@@ -168,11 +184,17 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
-    /** Mở màn hình xem trực tiếp: bật camera nếu đang tắt rồi kết nối luồng MJPEG khi camera sẵn sàng. */
+    /**
+     * Mở màn hình xem trực tiếp. Camera hỗ trợ WebRTC (bản ≥ 0.7): lệnh RTC_OFFER tự bật camera.
+     * Camera bản cũ: bật camera bằng START_STREAM rồi xem MJPEG.
+     */
     fun openLive(entry: CameraEntry) {
         _liveDeviceId.value = entry.saved.deviceId
-        val state = entry.view.status?.cameraState
-        if (entry.view.online && state != CameraState.STREAMING && state != CameraState.STARTING) {
+        rtcFailures = 0
+        val status = entry.view.status
+        val state = status?.cameraState
+        val useRtc = status?.rtc == true && live.available
+        if (!useRtc && entry.view.online && state != CameraState.STREAMING && state != CameraState.STARTING) {
             command(entry, Action.START_STREAM, CommandParams(idleTimeoutSec = settings.idleTimeoutSec.value))
         }
         playLive(entry.saved.deviceId)
@@ -180,14 +202,33 @@ class ViewerViewModel @Inject constructor(
 
     /** Rời màn hình xem trực tiếp. Camera tự tắt sau thời gian chờ nếu không còn ai xem. */
     fun closeLive() {
-        clockJob?.cancel()
-        stream.stop()
+        stopLive()
         _liveDeviceId.value = null
     }
 
-    /** App bị ẩn: ngắt luồng video (đỡ tốn dữ liệu), giữ nguyên màn hình đang xem. */
-    fun pauseLive() {
+    /** App bị ẩn: ngắt video + tiếng (đỡ tốn dữ liệu, tắt micro), giữ nguyên màn hình đang xem. */
+    fun pauseLive() = stopLive()
+
+    /** Bật/tắt nghe tiếng sân (WebRTC). */
+    fun setListening(on: Boolean) = live.setListening(on)
+
+    /**
+     * Bật/tắt chế độ nói chuyện: kết nối lại phiên WebRTC có kèm micro máy xem (giao diện đã xin quyền micro).
+     * Tắt thì kết nối lại không micro → máy xem không còn mở micro.
+     */
+    fun setTalkEnabled(on: Boolean) {
+        live.setTalkEnabled(on)
+        _liveDeviceId.value?.let { playLive(it) }
+    }
+
+    /** Đang giữ nút "Giữ để nói". */
+    fun setTalking(on: Boolean) = live.setTalking(on)
+
+    private fun stopLive() {
         clockJob?.cancel()
+        liveJob?.cancel()
+        liveJob = null
+        live.stop()
         stream.stop()
     }
 
@@ -210,8 +251,39 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
+    /** Thử WebRTC (nếu camera hỗ trợ), không được thì xem MJPEG. */
     private fun playLive(deviceId: String) {
+        liveJob?.cancel()
+        live.stop()
+        stream.stop()
         syncClock(deviceId)
+        liveJob = viewModelScope.launch {
+            val client = withTimeoutOrNull(CLOCK_WAIT_MS) {
+                sender.awaitClient(deviceId).also { c -> c.view.first { it.online } }
+            }
+            val rtcCapable = client?.view?.value?.status?.rtc == true && live.available
+            if (client != null && rtcCapable && rtcFailures < MAX_RTC_FAILURES) {
+                val ok = live.connect(client, settings.idleTimeoutSec.value) {
+                    // Đứt giữa chừng (đổi mạng, camera tắt…): thử lại, quá số lần thì chuyển MJPEG.
+                    rtcFailures++
+                    if (_liveDeviceId.value == deviceId) playLive(deviceId)
+                }
+                if (ok) return@launch
+                rtcFailures++
+            }
+            live.markMjpeg(live.state.value.fallbackCode.takeIf { rtcCapable })
+            // RTC_OFFER thất bại trước khi kịp bật camera → bật bằng lệnh cũ để xem MJPEG.
+            val status = client?.view?.value?.status
+            if (client != null && status?.cameraState != CameraState.STREAMING && status?.cameraState != CameraState.STARTING) {
+                cameras.value?.firstOrNull { it.saved.deviceId == deviceId }?.let {
+                    command(it, Action.START_STREAM, CommandParams(idleTimeoutSec = settings.idleTimeoutSec.value))
+                }
+            }
+            playMjpeg(deviceId)
+        }
+    }
+
+    private fun playMjpeg(deviceId: String) {
         stream.play {
             val client = sender.client(deviceId) ?: return@play null
             val status = client.view.value.status ?: return@play null
@@ -240,6 +312,7 @@ class ViewerViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        live.stop()
         stream.stop()
     }
 
@@ -288,5 +361,6 @@ class ViewerViewModel @Inject constructor(
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L
         const val CLOCK_WAIT_MS = 30_000L
+        const val MAX_RTC_FAILURES = 2
     }
 }

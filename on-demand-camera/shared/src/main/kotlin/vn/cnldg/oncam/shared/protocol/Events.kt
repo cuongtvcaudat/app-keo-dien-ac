@@ -36,6 +36,8 @@ enum class RejectReason {
  * @property commandId id lệnh liên quan (chỉ với COMMAND_RESULT).
  * @property success lệnh thành công hay không (chỉ với COMMAND_RESULT).
  * @property timestampMs giờ máy camera tính bằng mili-giây (để viewer đo độ lệch đồng hồ 2 máy).
+ * @property signature chữ ký HMAC của camera cho SDP answer (kết quả RTC_OFFER), xem
+ *   [vn.cnldg.oncam.shared.security.RtcAuth]: app Xem chỉ dùng answer có chữ ký đúng.
  */
 @Serializable
 data class DeviceEvent(
@@ -45,4 +47,5 @@ data class DeviceEvent(
     val commandId: String? = null,
     val success: Boolean? = null,
     val timestampMs: Long? = null,
+    val signature: String? = null,
 )

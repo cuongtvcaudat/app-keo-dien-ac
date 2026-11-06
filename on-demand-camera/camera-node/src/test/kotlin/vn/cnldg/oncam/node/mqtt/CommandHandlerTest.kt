@@ -12,6 +12,7 @@ import vn.cnldg.oncam.shared.protocol.RejectReason
 import vn.cnldg.oncam.shared.security.CommandSigner
 import vn.cnldg.oncam.shared.security.CommandVerifier
 import vn.cnldg.oncam.shared.security.EpochClock
+import vn.cnldg.oncam.shared.security.RtcAuth
 
 class CommandHandlerTest {
 
@@ -49,6 +50,28 @@ class CommandHandlerTest {
         assertEquals(1_700_000_000_123L, malformed.event.timestampMs)
         assertEquals(RejectReason.EXPIRED.name, expired.event.message)
         assertEquals(42L, expired.event.timestampMs)
+    }
+
+    @Test
+    fun `answer WebRTC duoc ky de app Xem xac thuc`() = runBlocking<Unit> {
+        val rtc = RtcAuth(secret, "san-nha")
+        val h = CommandHandler(CommandVerifier(secret, "san-nha", clock), clock, rtcAuth = rtc) { ActionOutcome.Done("answer-sdp") }
+        val offer = signer.sign("san-nha", Action.RTC_OFFER, CommandParams(sdp = "v=0", sessionId = "8f2c1d4e-0000-4000-8000-000000000001"))
+
+        val ev = h.handle(ProtocolJson.encodeCommand(offer)).event
+
+        assertEquals("answer-sdp", ev.message)
+        assertEquals(true, rtc.verifyAnswer(offer.id, "answer-sdp", ev.signature))
+        // Kết quả lệnh khác không cần chữ ký.
+        assertNull(h.handle(json(Action.START_STREAM)).event.signature)
+    }
+
+    @Test
+    fun `lenh moi chua biet tra MALFORMED kem ma lenh de app Xem khoi cho`() = runBlocking<Unit> {
+        val handled = handler.handle("{\"id\":\"abcdef12-3456\",\"action\":\"LENH_TUONG_LAI\",\"token\":\"x\",\"timestamp\":1}")
+
+        assertEquals(RejectReason.MALFORMED.name, handled.event.message)
+        assertEquals("abcdef12-3456", handled.event.commandId)
     }
 
     @Test

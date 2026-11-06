@@ -35,9 +35,14 @@ import vn.cnldg.oncam.node.core.NodeController
 import vn.cnldg.oncam.node.core.StreamManager
 import vn.cnldg.oncam.node.core.TailscaleIp
 import vn.cnldg.oncam.node.log.TimberLogSink
+import vn.cnldg.oncam.node.rtc.NodeRtc
 import vn.cnldg.oncam.node.system.DeviceInfoReader
 import vn.cnldg.oncam.node.system.NetworkMonitor
+import vn.cnldg.oncam.rtc.AudioRouting
+import vn.cnldg.oncam.rtc.CameraRtc
+import vn.cnldg.oncam.rtc.RtcEngine
 import vn.cnldg.oncam.shared.protocol.CameraState
+import vn.cnldg.oncam.shared.rtc.TailscaleAddress
 import vn.cnldg.oncam.shared.security.StreamAuth
 
 /**
@@ -67,6 +72,8 @@ class CameraForegroundService : LifecycleService() {
     private val work = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var controller: NodeController? = null
     private var cameraController: CameraController? = null
+    private var rtcEngine: RtcEngine? = null
+    private var cameraRtc: CameraRtc? = null
     private var starting = false
     private var observers: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -110,6 +117,7 @@ class CameraForegroundService : LifecycleService() {
             runBlocking { withTimeoutOrNull(STOP_TIMEOUT_MS) { c.stop() } }
         }
         work.cancel()
+        releaseRtc()
         cameraController?.release()
         cameraController = null
         releaseWakeLock()
@@ -119,40 +127,54 @@ class CameraForegroundService : LifecycleService() {
     private fun enterForeground(fromUi: Boolean): Boolean {
         val state = controller?.state?.value
         val notification = notifications.buildOngoing(notifications.statusText(state), state?.camera?.state?.isOn() == true)
-        val cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
-            PackageManager.PERMISSION_GRANTED
-        // Android 11+: quyền camera "khi đang dùng" chỉ có khi service được (khởi động lại) lúc app đang hiển thị.
-        val cameraUsable = cameraGranted && (fromUi || Build.VERSION.SDK_INT < Build.VERSION_CODES.R)
+        // Android 11+: quyền camera/micro "khi đang dùng" chỉ có khi service được (khởi động lại) lúc app đang hiển thị.
+        val whileInUse = fromUi || Build.VERSION.SDK_INT < Build.VERSION_CODES.R
+        val cameraUsable = granted(Manifest.permission.CAMERA) && whileInUse
+        val micUsable = granted(Manifest.permission.RECORD_AUDIO) && whileInUse
 
-        if (tryStartForeground(notification, withCamera = cameraUsable)) {
-            runtime.setCameraAccess(cameraUsable)
-            return true
+        // Thử từ đủ quyền nhất tới ít nhất: camera + micro → chỉ camera → chỉ nghe lệnh.
+        val attempts = buildList {
+            if (cameraUsable && micUsable) add(true to true)
+            if (cameraUsable) add(true to false)
+            add(false to false)
         }
-        if (cameraUsable && tryStartForeground(notification, withCamera = false)) {
-            runtime.setCameraAccess(false)
-            return true
+        for ((withCamera, withMic) in attempts) {
+            if (tryStartForeground(notification, withCamera, withMic)) {
+                runtime.setCameraAccess(withCamera)
+                runtime.setMicAccess(withMic)
+                return true
+            }
         }
         notifications.showCannotStart()
         return false
     }
 
-    private fun tryStartForeground(notification: android.app.Notification, withCamera: Boolean): Boolean =
+    private fun granted(permission: String) =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+    private fun tryStartForeground(notification: android.app.Notification, withCamera: Boolean, withMic: Boolean): Boolean =
         try {
-            ServiceCompat.startForeground(this, NotificationHelper.NOTIFICATION_ID, notification, foregroundTypes(withCamera))
+            ServiceCompat.startForeground(
+                this,
+                NotificationHelper.NOTIFICATION_ID,
+                notification,
+                foregroundTypes(withCamera, withMic),
+            )
             true
         } catch (e: Exception) {
-            // SecurityException (thiếu quyền cho loại camera) hoặc ForegroundServiceStartNotAllowedException.
-            Timber.w(e, "startForeground thất bại (camera=%s)", withCamera)
+            // SecurityException (thiếu quyền cho loại camera/micro) hoặc ForegroundServiceStartNotAllowedException.
+            Timber.w(e, "startForeground thất bại (camera=%s, micro=%s)", withCamera, withMic)
             false
         }
 
-    private fun foregroundTypes(withCamera: Boolean): Int {
+    private fun foregroundTypes(withCamera: Boolean, withMic: Boolean): Int {
         var types = 0
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         }
-        if (withCamera && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (withCamera) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+            if (withMic) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
         }
         return types
     }
@@ -176,6 +198,20 @@ class CameraForegroundService : LifecycleService() {
                 null
             }
             val cam = CameraController(applicationContext, this@CameraForegroundService, config.orientation, TimberLogSink)
+            // WebRTC (Phase 7): máy không nạp được thư viện thì vẫn chạy MJPEG như bản 0.6.
+            val micAllowed = { runtime.micAccess.value && granted(Manifest.permission.RECORD_AUDIO) }
+            val engine = RtcEngine.create(applicationContext, TimberLogSink, forViewer = false)
+            val cameraRtc = engine?.let {
+                CameraRtc(
+                    engine = it,
+                    scope = work,
+                    keepCandidate = TailscaleAddress::isTailscale,
+                    micAllowed = micAllowed,
+                    audioRouting = AudioRouting(applicationContext, maxVolume = true),
+                    log = TimberLogSink,
+                )
+            }
+            cameraRtc?.let { r -> cam.rawFrameSink = r::onFrame }
             val streams = StreamManager(
                 camera = cam,
                 auth = StreamAuth(config.secret, config.deviceId),
@@ -184,6 +220,7 @@ class CameraForegroundService : LifecycleService() {
                 cameraAllowed = { runtime.cameraAccess.value },
                 deviceInfo = deviceInfo,
                 log = TimberLogSink,
+                rtc = cameraRtc?.let { NodeRtc(it, micAllowed) },
             )
             val c = NodeController(
                 config = config,
@@ -197,6 +234,8 @@ class CameraForegroundService : LifecycleService() {
             withContext(Dispatchers.Main) {
                 controller = c
                 cameraController = cam
+                rtcEngine = engine
+                this@CameraForegroundService.cameraRtc = cameraRtc
                 starting = false
                 runtime.attach(c)
                 acquireWakeLock()
@@ -224,11 +263,20 @@ class CameraForegroundService : LifecycleService() {
         work.launch {
             c?.stop()
             withContext(Dispatchers.Main) {
+                releaseRtc()
                 releaseWakeLock()
                 ServiceCompat.stopForeground(this@CameraForegroundService, ServiceCompat.STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
         }
+    }
+
+    private fun releaseRtc() {
+        cameraController?.rawFrameSink = null
+        cameraRtc?.dispose()
+        cameraRtc = null
+        rtcEngine?.dispose()
+        rtcEngine = null
     }
 
     // Không đặt thời hạn: máy camera cắm sạc 24/7 và cần CPU thức để ping MQTT đúng giờ.

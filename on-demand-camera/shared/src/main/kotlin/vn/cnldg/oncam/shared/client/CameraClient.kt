@@ -31,6 +31,7 @@ import vn.cnldg.oncam.shared.protocol.Topics
 import vn.cnldg.oncam.shared.security.BrokerCredentials
 import vn.cnldg.oncam.shared.security.CommandSigner
 import vn.cnldg.oncam.shared.security.EpochClock
+import vn.cnldg.oncam.shared.security.RtcAuth
 import vn.cnldg.oncam.shared.security.StreamAuth
 
 /** Thông tin để viewer kết nối một camera (nhập ở màn hình "Thêm camera"). */
@@ -71,6 +72,15 @@ sealed interface CommandResult {
  */
 data class ClockSync(val offsetMs: Long, val roundTripMs: Long)
 
+/** Kết quả gửi SDP offer cho camera (Phase 7). */
+sealed interface RtcAnswerResult {
+    /** Camera đồng ý; [sdp] là answer đã kiểm chữ ký. */
+    data class Answer(val sdp: String) : RtcAnswerResult
+
+    /** Không có answer dùng được: camera từ chối / bản cũ không hỗ trợ / sai chữ ký / hết giờ. */
+    data class Failed(val result: CommandResult) : RtcAnswerResult
+}
+
 /** Trạng thái một camera nhìn từ viewer. */
 data class CameraView(
     val connection: MqttConnectionState = MqttConnectionState.Idle,
@@ -101,6 +111,7 @@ class CameraClient(
 ) {
     private val signer = CommandSigner(endpoint.secret, clock)
     private val streamAuth = StreamAuth(endpoint.secret, endpoint.deviceId, clock)
+    private val rtcAuth = RtcAuth(endpoint.secret, endpoint.deviceId)
     private val statusTopic = Topics.status(endpoint.deviceId)
     private val eventTopic = Topics.event(endpoint.deviceId)
 
@@ -189,8 +200,39 @@ class CameraClient(
         return best
     }
 
+    /**
+     * Gửi SDP offer (đã gom đủ ứng viên ICE) mở phiên WebRTC [sessionId]; camera tự bật nếu đang tắt.
+     * Chỉ nhận answer có chữ ký đúng của camera ([RtcAuth]) — answer giả mạo bị coi như camera từ chối.
+     */
+    suspend fun rtcOffer(
+        sessionId: String,
+        offerSdp: String,
+        idleTimeoutSec: Int? = null,
+        timeoutMs: Long = 15_000,
+    ): RtcAnswerResult {
+        val params = CommandParams(sdp = offerSdp, sessionId = sessionId, idleTimeoutSec = idleTimeoutSec)
+        return when (val r = exchange(Action.RTC_OFFER, params, timeoutMs)) {
+            is Exchange.Failed -> RtcAnswerResult.Failed(r.result)
+            is Exchange.Replied -> {
+                val answer = r.event.message
+                when {
+                    r.event.success != true -> RtcAnswerResult.Failed(CommandResult.Rejected(answer))
+                    answer.isNullOrBlank() || !rtcAuth.verifyAnswer(r.commandId, answer, r.event.signature) -> {
+                        log.log(LogSink.Level.WARN, "Bỏ SDP answer sai chữ ký từ ${endpoint.deviceId}", null)
+                        RtcAnswerResult.Failed(CommandResult.Rejected(BAD_ANSWER_SIGNATURE))
+                    }
+                    else -> RtcAnswerResult.Answer(answer)
+                }
+            }
+        }
+    }
+
+    /** Báo camera đóng phiên WebRTC [sessionId] (rời màn hình xem). */
+    suspend fun rtcHangup(sessionId: String, timeoutMs: Long = 5_000): CommandResult =
+        send(Action.RTC_HANGUP, CommandParams(sessionId = sessionId), timeoutMs)
+
     private sealed interface Exchange {
-        data class Replied(val event: DeviceEvent) : Exchange
+        data class Replied(val commandId: String, val event: DeviceEvent) : Exchange
         data class Failed(val result: CommandResult) : Exchange
     }
 
@@ -210,10 +252,15 @@ class CameraClient(
             )
             if (!sent) return Exchange.Failed(CommandResult.PublishFailed)
             val event = withTimeoutOrNull(timeoutMs) { waiter.await() } ?: return Exchange.Failed(CommandResult.Timeout)
-            return Exchange.Replied(event)
+            return Exchange.Replied(command.id, event)
         } finally {
             pending.remove(command.id)
         }
+    }
+
+    /** Mã lỗi khi answer không có chữ ký đúng (dùng trong [CommandResult.Rejected]). */
+    companion object {
+        const val BAD_ANSWER_SIGNATURE: String = "BAD_ANSWER_SIGNATURE"
     }
 
     /** URL ảnh chụp (khi camera đang phát), suy từ streamUrl trong trạng thái. */

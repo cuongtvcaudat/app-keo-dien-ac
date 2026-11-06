@@ -61,13 +61,15 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         // Service đang chạy nhưng bị khởi động lại từ nền (mất quyền camera) → app đang hiển thị,
         // gửi lại lệnh start để service nâng lên loại "camera".
-        if (runtime.controller.value != null && !runtime.cameraAccess.value && hasCameraPermission()) {
+        val missingCamera = !runtime.cameraAccess.value && granted(Manifest.permission.CAMERA)
+        val missingMic = !runtime.micAccess.value && granted(Manifest.permission.RECORD_AUDIO)
+        if (runtime.controller.value != null && (missingCamera || missingMic)) {
             CameraForegroundService.start(this, fromUi = true)
         }
     }
 
-    private fun hasCameraPermission() =
-        ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    private fun granted(permission: String) =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 }
 
 private enum class Screen { STATUS, SETUP, GUIDE }
@@ -80,16 +82,23 @@ private fun NodeApp(modifier: Modifier = Modifier, vm: NodeViewModel = hiltViewM
     val running by vm.running.collectAsStateWithLifecycle()
     val nodeState by vm.nodeState.collectAsStateWithLifecycle()
     val cameraAccess by vm.cameraAccess.collectAsStateWithLifecycle()
+    val micAccess by vm.micAccess.collectAsStateWithLifecycle()
     val selfTesting by vm.selfTesting.collectAsStateWithLifecycle()
     var screen by rememberSaveable { mutableStateOf(Screen.STATUS) }
 
-    // Xin quyền Camera + Thông báo (spec mục 7.1 bước 3) rồi mới khởi động service.
+    // Xin quyền Camera + Micro + Thông báo (spec mục 7.1 bước 3) rồi mới khởi động service.
+    // Micro (Phase 7) không bắt buộc: từ chối thì vẫn xem hình, chỉ không nghe/nói được.
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         CameraForegroundService.start(context, fromUi = true)
     }
-    val startNode: () -> Unit = {
+    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        // Đang chạy → nâng service lên loại "microphone" ngay.
+        if (ok && running) CameraForegroundService.start(context, fromUi = true)
+    }
+        val startNode: () -> Unit = {
         val needed = buildList {
             add(Manifest.permission.CAMERA)
+            add(Manifest.permission.RECORD_AUDIO)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
         }.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
         if (needed.isEmpty()) {
@@ -128,6 +137,8 @@ private fun NodeApp(modifier: Modifier = Modifier, vm: NodeViewModel = hiltViewM
                 running = running,
                 state = nodeState,
                 cameraAccess = cameraAccess,
+                micAccess = micAccess,
+                onRequestMic = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) },
                 selfTesting = selfTesting,
                 onStart = startNode,
                 onStop = { CameraForegroundService.stop(context) },

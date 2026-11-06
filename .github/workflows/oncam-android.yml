@@ -2,8 +2,8 @@
 # - Chạy khi có thay đổi trong on-demand-camera/ hoặc chính file này.
 # - Job "build": build cả 3 module bằng `./gradlew build` (biên dịch, unit test, lint, APK debug + release),
 #   kiểm tra chữ ký/phiên bản APK release, xuất artifact.
-# - Job "emulator": chạy test của camera-node và viewer trên emulator Android 13 (API 33)
-#   (camera sau giả lập) để kiểm chứng broker MQTT nhúng + CameraX + MJPEG chạy được trên Android,
+# - Job "emulator": chạy test của rtc, camera-node và viewer trên emulator Android 13 (API 33)
+#   (camera sau giả lập) để kiểm chứng broker MQTT nhúng + CameraX + MJPEG + WebRTC chạy được trên Android,
 #   rồi mở thử 2 APK release xem có crash không.
 # - Job "release": khi 2 job trên đạt (chỉ với push), đăng 2 APK release lên GitHub Release `oncam-latest`
 #   → link tải cố định, tải thẳng file .apk trên điện thoại (không phải giải nén zip).
@@ -126,7 +126,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -camera-front none
           working-directory: on-demand-camera
-          script: ./gradlew :camera-node:connectedDebugAndroidTest :viewer:connectedDebugAndroidTest :camera-node:assembleRelease :viewer:assembleRelease --stacktrace --console=plain && ci/smoke-release.sh
+          script: ./gradlew :rtc:connectedDebugAndroidTest :camera-node:connectedDebugAndroidTest :viewer:connectedDebugAndroidTest :camera-node:assembleRelease :viewer:assembleRelease --stacktrace --console=plain && ci/smoke-release.sh
 
       - name: Tải lên kết quả test emulator
         if: always()

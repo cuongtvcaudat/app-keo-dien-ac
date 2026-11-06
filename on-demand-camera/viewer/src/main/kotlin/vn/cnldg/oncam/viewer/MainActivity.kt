@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,6 +32,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 import vn.cnldg.oncam.shared.protocol.StreamQuality
 import vn.cnldg.oncam.viewer.mqtt.CameraEntry
 import vn.cnldg.oncam.viewer.mqtt.CommandSender
@@ -98,6 +100,7 @@ private fun ViewerApp(vm: ViewerViewModel) {
     val stopOnLeave by vm.stopOnLeave.collectAsStateWithLifecycle()
     val streamState by vm.streamState.collectAsStateWithLifecycle()
     val liveDeviceId by vm.liveDeviceId.collectAsStateWithLifecycle()
+    val liveRtc by vm.liveRtc.collectAsStateWithLifecycle()
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var screenName by rememberSaveable { mutableStateOf(HOME) }
     val live = liveDeviceId
@@ -141,6 +144,21 @@ private fun ViewerApp(vm: ViewerViewModel) {
         }
     }
 
+    val scope = rememberCoroutineScope()
+    // Nói ra loa máy camera (Phase 7): xin quyền micro lúc bấm "Bật nói chuyện".
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            vm.setTalkEnabled(true)
+        } else {
+            scope.launch { snackbar.showSnackbar(context.getString(R.string.talk_needs_mic)) }
+        }
+    }
+    val enableTalk: (Boolean) -> Unit = { on ->
+        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!on || granted) vm.setTalkEnabled(on) else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
     val actions = remember(vm) {
         object : CameraActions {
             override fun toggleCamera(entry: CameraEntry) = vm.toggleCamera(entry)
@@ -178,6 +196,11 @@ private fun ViewerApp(vm: ViewerViewModel) {
                 onToggleFlash = { entry?.let(vm::toggleFlash) },
                 onQuality = { q -> entry?.let { vm.setQuality(it, q) } },
                 onSnapshot = { entry?.let { e -> withStoragePermission { vm.snapshotFromLive(e) } } },
+                rtc = liveRtc,
+                egl = vm.rtcEglContext,
+                onListen = vm::setListening,
+                onTalkEnable = enableTalk,
+                onTalk = vm::setTalking,
             )
             SnackbarHost(snackbar, modifier = Modifier.align(Alignment.Center))
         }

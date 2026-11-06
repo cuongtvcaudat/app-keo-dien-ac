@@ -57,7 +57,14 @@ class CameraController(
     private var camera: Camera? = null
     private var stateObserver: Observer<XCameraState>? = null
 
-    private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    /**
+     * Nhận khung NV21 (đã xoay đúng chiều, đã giới hạn FPS) cho WebRTC (Phase 7): (dữ liệu, rộng, cao, thời điểm ns).
+     * Gọi trên luồng camera; null = không ai cần.
+     */
+    @Volatile
+    var rawFrameSink: ((ByteArray, Int, Int, Long) -> Unit)? = null
+
+        private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
     override val errors: Flow<String> = _errors.asSharedFlow()
 
     override suspend fun hasCamera(facing: CameraFacing): Boolean = withContext(Dispatchers.Main) {
@@ -96,7 +103,7 @@ class CameraController(
                 .setOutputImageRotationEnabled(true)
                 .setTargetRotation(surfaceRotation(orientation))
                 .build()
-            analysis.setAnalyzer(analysisExecutor, FrameEncoder(quality, sink))
+            analysis.setAnalyzer(analysisExecutor, FrameEncoder(quality, sink) { rawFrameSink })
 
             try {
                 detachObserver()
@@ -174,10 +181,14 @@ class CameraController(
         else -> code.toString()
     }
 
-    /** Giới hạn FPS rồi mã hoá JPEG; luôn đóng ImageProxy để CameraX gửi khung tiếp. */
+    /**
+     * Giới hạn FPS, chuyển NV21 một lần rồi mã hoá JPEG (MJPEG/ảnh chụp) và đưa sang WebRTC nếu có phiên;
+     * luôn đóng ImageProxy để CameraX gửi khung tiếp.
+     */
     private class FrameEncoder(
         private val quality: StreamQuality,
         private val sink: (ByteArray) -> Unit,
+        private val raw: () -> ((ByteArray, Int, Int, Long) -> Unit)?,
     ) : ImageAnalysis.Analyzer {
         private val intervalNs = 1_000_000_000L / quality.fps
         private var lastNs = 0L
@@ -187,7 +198,9 @@ class CameraController(
                 val now = System.nanoTime()
                 if (now - lastNs < intervalNs) return
                 lastNs = now
-                sink(YuvJpeg.encode(image, quality.jpegQuality))
+                val frame = YuvJpeg.nv21(image)
+                sink(YuvJpeg.encode(frame, quality.jpegQuality))
+                raw()?.invoke(frame.data, frame.width, frame.height, now)
             } catch (_: Exception) {
                 // Bỏ khung lỗi (hiếm), không làm dừng camera.
             } finally {

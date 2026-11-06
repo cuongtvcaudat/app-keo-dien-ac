@@ -23,5 +23,6 @@ dependencyResolutionManagement {
 rootProject.name = "on-demand-camera"
 
 include(":shared")
+include(":rtc")
 include(":camera-node")
 include(":viewer")

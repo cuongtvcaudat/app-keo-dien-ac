@@ -35,6 +35,18 @@ object ProtocolJson {
     /** JSON → sự kiện, null nếu không đọc được. */
     fun decodeEvent(text: String): DeviceEvent? = decode { json.decodeFromString(DeviceEvent.serializer(), text) }
 
+    /**
+     * Mã lệnh trong một payload không đọc được thành [Command] (vd. lệnh mới mà bản này chưa biết):
+     * để trả MALFORMED kèm đúng mã, app Xem khỏi chờ tới hết giờ.
+     */
+    fun commandIdOf(text: String): String? = decode {
+        (json.parseToJsonElement(text) as? kotlinx.serialization.json.JsonObject)
+            ?.get("id")
+            ?.let { it as? kotlinx.serialization.json.JsonPrimitive }
+            ?.takeIf { it.isString }
+            ?.content
+    }
+
     private inline fun <T> decode(block: () -> T): T? =
         try {
             block()

@@ -44,6 +44,7 @@ import vn.cnldg.oncam.shared.security.BrokerCredentials
 import vn.cnldg.oncam.shared.security.CommandSigner
 import vn.cnldg.oncam.shared.security.CommandVerifier
 import vn.cnldg.oncam.shared.security.EpochClock
+import vn.cnldg.oncam.shared.security.RtcAuth
 
 /**
  * Bộ điều phối của camera node: luôn nghe lệnh MQTT, giao lệnh camera cho [CameraSession].
@@ -87,7 +88,11 @@ class NodeController(
 
     private val embedded = config.brokerMode == BrokerMode.EMBEDDED
     private val cmdTopic = Topics.command(config.deviceId)
-    private val handler = CommandHandler(CommandVerifier(config.secret, config.deviceId, clock), clock) { cmd ->
+    private val handler = CommandHandler(
+        verifier = CommandVerifier(config.secret, config.deviceId, clock),
+        clock = clock,
+        rtcAuth = RtcAuth(config.secret, config.deviceId),
+    ) { cmd ->
         camera?.perform(cmd) ?: ActionOutcome.Unsupported
     }
     private val signer = CommandSigner(config.secret, clock)
@@ -377,6 +382,8 @@ class NodeController(
                 error = cam.error,
                 viewers = cam.clients,
                 cameraReady = camera?.cameraReady(),
+                rtc = camera?.rtcAvailable() == true,
+                micReady = camera?.micReady(),
                 batteryPercent = d.batteryPercent,
                 charging = d.charging,
                 temperatureC = d.temperatureC,

@@ -26,6 +26,15 @@ class NodeRuntime @Inject constructor() {
      */
     val cameraAccess: StateFlow<Boolean> = _cameraAccess.asStateFlow()
 
+    private val _micAccess = MutableStateFlow(false)
+
+    /** Service được dùng micro (quyền RECORD_AUDIO + loại foreground "microphone") để gửi tiếng sân qua WebRTC. */
+    val micAccess: StateFlow<Boolean> = _micAccess.asStateFlow()
+
+    internal fun setMicAccess(allowed: Boolean) {
+        _micAccess.value = allowed
+    }
+
     internal fun attach(controller: NodeController) {
         _controller.value = controller
     }

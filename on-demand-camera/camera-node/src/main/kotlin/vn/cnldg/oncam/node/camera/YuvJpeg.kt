@@ -12,15 +12,25 @@ import java.io.ByteArrayOutputStream
  */
 internal object YuvJpeg {
 
+    /** Khung NV21 (kích thước chẵn) — dùng chung cho JPEG (MJPEG) và WebRTC. */
+    class Nv21(val data: ByteArray, val width: Int, val height: Int)
+
     /** Mã hoá [image] thành JPEG chất lượng [quality] (0-100). */
-    fun encode(image: ImageProxy, quality: Int): ByteArray {
-        val width = image.width and 1.inv() // YuvImage cần kích thước chẵn
-        val height = image.height and 1.inv()
-        val nv21 = toNv21(image, width, height)
-        val out = ByteArrayOutputStream(width * height / 8)
-        YuvImage(nv21, ImageFormat.NV21, width, height, null)
-            .compressToJpeg(Rect(0, 0, width, height), quality, out)
+    fun encode(image: ImageProxy, quality: Int): ByteArray = encode(nv21(image), quality)
+
+    /** Mã hoá khung NV21 thành JPEG chất lượng [quality] (0-100). */
+    fun encode(frame: Nv21, quality: Int): ByteArray {
+        val out = ByteArrayOutputStream(frame.width * frame.height / 8)
+        YuvImage(frame.data, ImageFormat.NV21, frame.width, frame.height, null)
+            .compressToJpeg(Rect(0, 0, frame.width, frame.height), quality, out)
         return out.toByteArray()
+    }
+
+    /** Chép [image] sang mảng NV21 mới (mỗi khung một mảng: WebRTC giữ mảng tới khi mã hoá xong). */
+    fun nv21(image: ImageProxy): Nv21 {
+        val width = image.width and 1.inv() // YuvImage và WebRTC cần kích thước chẵn
+        val height = image.height and 1.inv()
+        return Nv21(toNv21(image, width, height), width, height)
     }
 
     private fun toNv21(image: ImageProxy, width: Int, height: Int): ByteArray {

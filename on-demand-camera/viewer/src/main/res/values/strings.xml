@@ -64,7 +64,18 @@
     <string name="live_offline">Camera đang offline.</string>
     <string name="live_info">%1$d hình/giây • %2$d người xem</string>
     <string name="live_info_latency">%1$d hình/giây • trễ %2$s giây • %3$d người xem</string>
-    <string name="live_no_audio">Chưa có âm thanh (sẽ có khi nâng cấp WebRTC). Chạm vào video để ẩn/hiện nút.</string>
+    <string name="live_no_audio">Đang xem MJPEG: không có tiếng (cập nhật OnCam Quay lên 0.7 để có tiếng). Chạm vào video để ẩn/hiện nút.</string>
+    <string name="live_mjpeg_fallback">Đang xem MJPEG (không có tiếng) vì WebRTC không dùng được: %1$s</string>
+    <string name="live_connecting_rtc">Đang mở camera và kết nối WebRTC…</string>
+    <string name="live_info_rtc">WebRTC • %1$d hình/giây • %2$d người xem</string>
+    <string name="live_no_camera_mic">Máy camera chưa cho dùng micro: không nghe được tiếng sân (nói ra loa vẫn được).</string>
+    <string name="action_listen_on">Nghe tiếng sân</string>
+    <string name="action_listen_off">Tắt tiếng sân</string>
+    <string name="action_talk_enable">Bật nói chuyện</string>
+    <string name="action_talk_disable">Tắt nói</string>
+    <string name="action_hold_to_talk">Giữ để nói</string>
+    <string name="action_talking">Đang nói… thả ra để nghe</string>
+    <string name="talk_needs_mic">Cần cho phép micro để nói ra loa máy camera.</string>
 
     <!-- Kết nối -->
     <string name="conn_idle">Chưa kết nối</string>

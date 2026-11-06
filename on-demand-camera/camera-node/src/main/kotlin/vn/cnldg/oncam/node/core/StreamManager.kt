@@ -46,9 +46,13 @@ import vn.cnldg.oncam.shared.security.StreamAuth
  * - Nhiệt độ pin ≥ [Settings.lowerQualityAtC] → hạ 1 mức chất lượng; ≥ [Settings.stopAtC] → tắt (THERMAL_THROTTLE).
  * - IP Tailscale đổi khi đang phát → tắt (server đang bind IP cũ).
  *
+ * - RTC_OFFER (Phase 7): bật camera nếu đang tắt rồi mở phiên WebRTC qua [rtc]; phiên WebRTC được tính là
+ *   người xem. Camera tắt → đóng mọi phiên. MJPEG vẫn chạy song song (ảnh chụp, máy xem bản cũ).
+ *
  * Các lệnh được xử lý tuần tự (Mutex), kể cả khi vòng giám sát tự tắt camera cùng lúc.
  *
  * @param cameraAllowed false nếu service không có loại foreground "camera" (bị khởi động lại từ nền).
+ * @param rtc phiên WebRTC; null nếu máy không chạy được WebRTC → RTC_OFFER trả UNSUPPORTED.
  */
 class StreamManager(
     private val camera: CameraPort,
@@ -60,6 +64,7 @@ class StreamManager(
     private val clock: EpochClock = EpochClock.SYSTEM,
     private val log: LogSink = LogSink.NONE,
     private val settings: Settings = Settings(),
+    private val rtc: RtcPort? = null,
 ) : CameraSession {
 
     /**
@@ -107,6 +112,10 @@ class StreamManager(
 
     override fun cameraReady(): Boolean = cameraAllowed()
 
+    override fun rtcAvailable(): Boolean = rtc != null
+
+    override fun micReady(): Boolean = rtc?.micReady() == true
+
     override fun latestFrame(): ByteArray? = hub?.latest()
 
     override suspend fun perform(command: Command): ActionOutcome = mutex.withLock {
@@ -128,6 +137,11 @@ class StreamManager(
                 else -> ActionOutcome.Done(StreamPaths.SNAPSHOT)
             }
             Action.PING -> ActionOutcome.Done() // CommandHandler đã trả lời PING trước khi tới đây
+            Action.RTC_OFFER -> rtcOfferLocked(p)
+            Action.RTC_HANGUP -> {
+                rtc?.hangup(checkNotNull(p.sessionId))
+                ActionOutcome.Done()
+            }
         }
     }
 
@@ -191,6 +205,19 @@ class StreamManager(
         return ActionOutcome.Done(url)
     }
 
+    private suspend fun rtcOfferLocked(p: CommandParams): ActionOutcome {
+        val port = rtc ?: return ActionOutcome.Unsupported
+        if (_status.value.state != CameraState.STREAMING) {
+            val started = startLocked(p.copy(sdp = null, sessionId = null))
+            if (started is ActionOutcome.Failed) return started
+        }
+        idleReset = true
+        return when (val a = port.answer(checkNotNull(p.sessionId), checkNotNull(p.sdp), _status.value.quality)) {
+            is RtcAnswer.Ok -> ActionOutcome.Done(a.sdp)
+            is RtcAnswer.Failed -> ActionOutcome.Failed(a.code)
+        }
+    }
+
     private fun failStart(code: String, state: CameraState = CameraState.OFF): ActionOutcome {
         _status.update { it.copy(state = state, error = code, streamUrl = null, flashOn = false) }
         emit(EventType.ERROR, code)
@@ -211,6 +238,7 @@ class StreamManager(
         hub = null
         host = null
         withContext(NonCancellable) {
+            rtc?.closeAll()
             srv?.let { withContext(Dispatchers.IO) { it.stopServer() } }
             camera.close()
         }
@@ -230,6 +258,7 @@ class StreamManager(
 
     private suspend fun qualityLocked(quality: StreamQuality): ActionOutcome {
         _status.update { it.copy(quality = quality) }
+        rtc?.setQuality(quality)
         if (_status.value.state == CameraState.STREAMING) reopenLocked()?.let { return it }
         return ActionOutcome.Done(quality.name)
     }
@@ -276,7 +305,7 @@ class StreamManager(
         while (currentCoroutineContext().isActive) {
             delay(settings.checkIntervalMs)
             val nowMs = System.nanoTime() / 1_000_000
-            val clients = server?.clientCount ?: 0
+            val clients = (server?.clientCount ?: 0) + (rtc?.sessions?.value ?: 0)
             _status.update { if (it.clients != clients) it.copy(clients = clients) else it }
 
             if (idleReset || clients > 0) {
@@ -308,6 +337,7 @@ class StreamManager(
                         mutex.withLock {
                             if (_status.value.state == CameraState.STREAMING) {
                                 _status.update { it.copy(quality = lowered) }
+                                rtc?.setQuality(lowered)
                                 reopenLocked()
                                 emit(EventType.THERMAL_THROTTLE, "${CameraCodes.THERMAL_LOWERED}:${lowered.name}:${format(temp)}")
                             }

@@ -25,6 +25,8 @@ enum class NetworkType { WIFI, CELLULAR, ETHERNET, OTHER, NONE }
  * @property error mã lỗi ([CameraCodes]) khi [cameraState] = ERROR hoặc khi lần bật gần nhất thất bại.
  * @property viewers số người đang xem luồng MJPEG.
  * @property cameraReady false nếu camera-node chưa được phép mở camera từ xa (cần mở app một lần).
+ * @property rtc camera hỗ trợ xem qua WebRTC (Phase 7, lệnh RTC_OFFER). Bản cũ không gửi → false → app Xem dùng MJPEG.
+ * @property micReady micro máy camera dùng được (đã cấp quyền + service có loại microphone) → nghe/nói được.
  */
 @Serializable
 data class DeviceStatus(
@@ -45,6 +47,8 @@ data class DeviceStatus(
     val viewers: Int = 0,
     val cameraReady: Boolean? = null,
     val protocolVersion: Int = OnCam.PROTOCOL_VERSION,
+    val rtc: Boolean = false,
+    val micReady: Boolean? = null,
 ) {
     companion object {
         /** Trạng thái "offline" dùng làm LWT khi camera-node kết nối broker. */

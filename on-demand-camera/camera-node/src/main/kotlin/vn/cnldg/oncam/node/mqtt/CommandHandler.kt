@@ -10,6 +10,7 @@ import vn.cnldg.oncam.shared.protocol.paramProblem
 import vn.cnldg.oncam.shared.security.CommandCheck
 import vn.cnldg.oncam.shared.security.CommandVerifier
 import vn.cnldg.oncam.shared.security.EpochClock
+import vn.cnldg.oncam.shared.security.RtcAuth
 
 /** Kết quả thực hiện một lệnh camera (Phase 3 sẽ cài đặt các lệnh camera). */
 sealed interface ActionOutcome {
@@ -32,17 +33,19 @@ data class HandledCommand(val command: Command?, val event: DeviceEvent)
  * Thứ tự: đọc JSON → kiểm chữ ký/thời gian/replay → kiểm tham số → thực hiện.
  * PING xử lý ngay tại đây; các lệnh khác giao cho [perform].
  * Mọi COMMAND_RESULT (kể cả khi từ chối) kèm giờ máy camera tính bằng ms để viewer đo độ lệch đồng hồ.
+ * Kết quả thành công của RTC_OFFER (SDP answer) được ký bằng [rtcAuth] để viewer xác thực.
  */
 class CommandHandler(
     private val verifier: CommandVerifier,
     private val clock: EpochClock = EpochClock.SYSTEM,
     private val nowMs: () -> Long = System::currentTimeMillis,
+    private val rtcAuth: RtcAuth? = null,
     private val perform: suspend (Command) -> ActionOutcome = { ActionOutcome.Unsupported },
 ) {
     /** Xử lý một payload lệnh. */
     suspend fun handle(payload: String): HandledCommand {
         val command = ProtocolJson.decodeCommand(payload)
-            ?: return HandledCommand(null, result(null, false, RejectReason.MALFORMED.name))
+            ?: return HandledCommand(null, result(ProtocolJson.commandIdOf(payload), false, RejectReason.MALFORMED.name))
 
         when (val check = verifier.verify(command)) {
             is CommandCheck.Rejected -> return HandledCommand(command, result(command.id, false, check.reason.name))
@@ -59,7 +62,14 @@ class CommandHandler(
             perform(command)
         }
         val event = when (outcome) {
-            is ActionOutcome.Done -> result(command.id, true, outcome.message)
+            is ActionOutcome.Done -> result(command.id, true, outcome.message).let { ev ->
+                val answer = outcome.message
+                if (command.action == Action.RTC_OFFER && answer != null && rtcAuth != null) {
+                    ev.copy(signature = rtcAuth.signAnswer(command.id, answer))
+                } else {
+                    ev
+                }
+            }
             is ActionOutcome.Failed -> result(command.id, false, outcome.message)
             ActionOutcome.Unsupported -> result(command.id, false, RejectReason.UNSUPPORTED.name)
         }

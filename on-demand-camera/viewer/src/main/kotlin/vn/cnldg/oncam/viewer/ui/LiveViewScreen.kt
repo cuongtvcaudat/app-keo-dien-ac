@@ -2,8 +2,10 @@ package vn.cnldg.oncam.viewer.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -23,27 +26,34 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import java.util.Locale
+import org.webrtc.EglBase
 import vn.cnldg.oncam.shared.protocol.CameraState
 import vn.cnldg.oncam.shared.protocol.StreamQuality
 import vn.cnldg.oncam.viewer.R
 import vn.cnldg.oncam.viewer.mqtt.CameraEntry
+import vn.cnldg.oncam.viewer.rtc.LiveRtcState
+import vn.cnldg.oncam.viewer.rtc.LiveTransport
+import vn.cnldg.oncam.viewer.rtc.RtcVideoView
 import vn.cnldg.oncam.viewer.stream.MjpegView
 import vn.cnldg.oncam.viewer.stream.StreamPhase
 import vn.cnldg.oncam.viewer.stream.StreamState
 
 /**
- * Xem trực tiếp toàn màn hình (spec Phase 5): video MJPEG + nút điều khiển đè lên video.
- * Chạm vào video để ẩn/hiện nút. Giữ màn hình sáng trong lúc xem.
+ * Xem trực tiếp toàn màn hình: video (WebRTC nếu camera hỗ trợ, không thì MJPEG) + nút điều khiển đè lên video.
+ * WebRTC có thêm nghe tiếng sân và "Giữ để nói". Chạm vào video để ẩn/hiện nút. Giữ màn hình sáng trong lúc xem.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -58,6 +68,11 @@ fun LiveViewScreen(
     onToggleFlash: () -> Unit,
     onQuality: (StreamQuality) -> Unit,
     onSnapshot: () -> Unit,
+    rtc: LiveRtcState,
+    egl: EglBase.Context?,
+    onListen: (Boolean) -> Unit,
+    onTalkEnable: (Boolean) -> Unit,
+    onTalk: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -71,16 +86,24 @@ fun LiveViewScreen(
     val online = entry?.view?.online == true
     val camState = if (online) status?.cameraState ?: CameraState.OFF else CameraState.OFF
     val streaming = camState == CameraState.STREAMING
-    val playing = stream.phase == StreamPhase.PLAYING
+    val rtcVideo = rtc.video.takeIf { rtc.transport == LiveTransport.WEBRTC }
+    val webrtc = rtcVideo != null && egl != null
+    val playing = webrtc || stream.phase == StreamPhase.PLAYING
 
-    MjpegView(
-        state = stream,
+    Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color.Black)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                 controlsVisible = !controlsVisible
             },
+        contentAlignment = Alignment.Center,
     ) {
+        if (rtcVideo != null && egl != null) {
+            RtcVideoView(rtcVideo, egl, Modifier.fillMaxSize())
+        } else {
+            MjpegView(state = stream, modifier = Modifier.fillMaxSize())
+        }
         // Thông báo giữa màn hình khi chưa có hình.
         if (!playing) {
             Column(
@@ -88,18 +111,22 @@ fun LiveViewScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(24.dp),
             ) {
+                // WebRTC tự bật camera khi bắt tay → lúc đó camera còn báo "tắt" nhưng thực ra đang mở.
+                val connectingRtc = online && rtc.transport == LiveTransport.CONNECTING
+                val cameraOff = !connectingRtc && (camState == CameraState.OFF || camState == CameraState.ERROR)
                 val message = when {
                     !online -> stringResource(R.string.live_offline)
-                    camState == CameraState.OFF || camState == CameraState.ERROR -> stringResource(R.string.live_camera_off)
+                    connectingRtc -> stringResource(R.string.live_connecting_rtc)
+                    cameraOff -> stringResource(R.string.live_camera_off)
                     stream.phase == StreamPhase.RECONNECTING -> stringResource(R.string.live_reconnecting)
                     else -> stringResource(R.string.live_connecting)
                 }
-                if (online && camState != CameraState.OFF && camState != CameraState.ERROR) CircularProgressIndicator()
+                if (online && !cameraOff) CircularProgressIndicator()
                 Text(message, color = Color.White, style = MaterialTheme.typography.bodyLarge)
                 status?.error?.takeIf { camState != CameraState.STREAMING }?.let {
                     Text(codeText(context, it), color = Color.White, style = MaterialTheme.typography.bodySmall)
                 }
-                if (online && (camState == CameraState.OFF || camState == CameraState.ERROR)) {
+                if (online && cameraOff) {
                     Button(onClick = onToggleCamera, enabled = !busy) { Text(stringResource(R.string.action_camera_on)) }
                 }
             }
@@ -120,7 +147,11 @@ fun LiveViewScreen(
                         Text(name, color = Color.White, style = MaterialTheme.typography.titleMedium)
                         if (playing) {
                             Text(
-                                streamInfo(stream, status?.viewers ?: 0),
+                                if (webrtc) {
+                                    stringResource(R.string.live_info_rtc, rtc.fps, status?.viewers ?: 0)
+                                } else {
+                                    streamInfo(stream, status?.viewers ?: 0)
+                                },
                                 color = Color.White,
                                 style = MaterialTheme.typography.bodySmall,
                             )
@@ -174,10 +205,77 @@ fun LiveViewScreen(
                             }
                         }
                     }
-                    Text(stringResource(R.string.live_no_audio), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                    if (webrtc) {
+                        AudioControls(rtc, onListen, onTalkEnable, onTalk)
+                    } else {
+                        val note = rtc.fallbackCode?.let { stringResource(R.string.live_mjpeg_fallback, it) }
+                            ?: stringResource(R.string.live_no_audio)
+                        Text(note, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         }
+    }
+}
+
+/** Nghe tiếng sân + nói ra loa máy camera (chỉ có khi xem bằng WebRTC). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AudioControls(
+    rtc: LiveRtcState,
+    onListen: (Boolean) -> Unit,
+    onTalkEnable: (Boolean) -> Unit,
+    onTalk: (Boolean) -> Unit,
+) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (rtc.hasAudio) {
+            OutlinedButton(onClick = { onListen(!rtc.listening) }) {
+                Text(
+                    stringResource(if (rtc.listening) R.string.action_listen_off else R.string.action_listen_on),
+                    color = Color.White,
+                )
+            }
+        }
+        if (rtc.talkEnabled) {
+            TalkButton(rtc.talking, onTalk)
+            TextButton(onClick = { onTalkEnable(false) }) { Text(stringResource(R.string.action_talk_disable), color = Color.White) }
+        } else {
+            OutlinedButton(onClick = { onTalkEnable(true) }) {
+                Text(stringResource(R.string.action_talk_enable), color = Color.White)
+            }
+        }
+    }
+    if (!rtc.hasAudio) {
+        Text(stringResource(R.string.live_no_camera_mic), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** Nút kiểu bộ đàm: giữ thì nói (tiếng sân tạm tắt để không vọng), thả ra thì nghe. */
+@Composable
+private fun TalkButton(talking: Boolean, onTalk: (Boolean) -> Unit) {
+    val current by rememberUpdatedState(onTalk)
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(if (talking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        current(true)
+                        try {
+                            awaitRelease()
+                        } finally {
+                            current(false)
+                        }
+                    },
+                )
+            }
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+    ) {
+        Text(
+            stringResource(if (talking) R.string.action_talking else R.string.action_hold_to_talk),
+            color = if (talking) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary,
+        )
     }
 }
 
