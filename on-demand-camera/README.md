@@ -29,7 +29,7 @@ Kiến trúc: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 4 | viewer: danh sách camera, trạng thái online/offline, bật/tắt, đổi camera, flash, chất lượng, chụp ảnh lưu Thư viện | ✅ |
 | 5 | viewer: xem trực tiếp toàn màn hình, nút điều khiển đè lên video, hiện FPS + độ trễ + số người xem | ✅ |
 | 6 | Bản release + link tải cố định, mã QR ghép đôi, tự đồng bộ giờ (độ trễ đúng), ô địa chỉ chỉ cần IP, hướng dẫn chống tắt app theo hãng (Samsung/Oppo), tài liệu đầy đủ | ✅ |
-| 7 | (tùy chọn) WebRTC + âm thanh | ⏳ |
+| 7 | WebRTC: hình nén (ít dữ liệu hơn MJPEG ~5–18 lần), nghe tiếng sân, **giữ để nói** ra loa máy camera; tự quay về MJPEG khi lỗi | 🧪 đã qua test emulator, chờ thử trên máy thật |
 
 ## Cấu trúc
 
@@ -39,6 +39,7 @@ on-demand-camera/
 ├── ci/              # Script kiểm tra APK release dùng trong GitHub Actions
 ├── keystore/        # Khoá ký dùng chung (công khai, xem README trong đó)
 ├── shared/          # Kotlin/JVM thuần: giao thức + MQTT client
+├── rtc/             # Thư viện Android: WebRTC dùng chung cho 2 app (Phase 7)
 ├── camera-node/     # App Android cho máy quay
 └── viewer/          # App Android cho máy xem
 ```
@@ -86,6 +87,7 @@ cd on-demand-camera
 | CameraX | 1.4.2 |
 | NanoHTTPD | 2.3.1 |
 | zxing core (vẽ QR, camera-node) / zxing-android-embedded (quét QR, viewer) | 3.5.3 / 4.3.0 |
+| stream-webrtc-android (WebRTC, module rtc) | 1.3.10 |
 
 Toàn bộ phiên bản khai báo tập trung ở [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
 

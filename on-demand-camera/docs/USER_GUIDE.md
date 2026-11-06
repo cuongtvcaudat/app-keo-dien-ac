@@ -1,4 +1,4 @@
-# Hướng dẫn sử dụng OnCam (bản 0.6)
+# Hướng dẫn sử dụng OnCam (bản 0.7)
 
 OnCam biến một điện thoại Android cũ thành camera đặt ở sân nhà. Máy camera **luôn chờ lệnh** nhưng **chỉ mở camera
 khi bạn gọi** từ điện thoại xem; không ai xem thì tự tắt để đỡ nóng, đỡ hao pin và đỡ tốn mạng.
@@ -116,17 +116,48 @@ kênh riêng tư của bạn, dán vào app Xem. Ô *Địa chỉ broker* chỉ 
 
 ### Xem trực tiếp
 
-- Dòng trên cùng: **số hình/giây • độ trễ • số người xem**. Từ bản 0.6 app **tự đo độ lệch đồng hồ 2 máy** khi mở
-  màn hình xem nên độ trễ hiện đúng kể cả khi giờ 2 máy lệch nhau vài giây.
-- Chạm video để ẩn/hiện nút. **Chụp ảnh** khi đang xem lưu đúng khung đang thấy.
+- Từ bản 0.7, nếu **cả 2 app ≥ 0.7** thì video đi bằng **WebRTC** (nén như video gọi điện, có tiếng). Dòng trên cùng
+  hiện **WebRTC • số hình/giây • số người xem**. Camera bản cũ hoặc WebRTC lỗi thì app tự xem bằng **MJPEG**
+  (như bản 0.6, không có tiếng) và ghi lý do ở cuối màn hình.
+- Xem bằng MJPEG: dòng trên cùng hiện **số hình/giây • độ trễ • số người xem**; app tự đo lệch đồng hồ 2 máy nên
+  độ trễ hiện đúng.
+- Chạm video để ẩn/hiện nút. **Chụp ảnh** khi đang xem lưu ảnh từ máy camera (MJPEG: lưu đúng khung đang thấy).
 - Xoay ngang để xem to; màn hình máy xem luôn sáng khi đang xem.
-- **Quay lại**: ngắt video; ẩn app: tắt luôn camera do app bật (đổi trong Cài đặt).
-- Chưa có âm thanh (dự kiến làm cùng WebRTC).
+- **Quay lại**: ngắt video; ẩn app: ngắt cả hình lẫn tiếng, tắt luôn camera do app bật (đổi trong Cài đặt).
+
+### Nghe tiếng sân và nói chuyện (từ bản 0.7, xem bằng WebRTC)
+
+| Nút | Tác dụng |
+|---|---|
+| **Tắt tiếng sân / Nghe tiếng sân** | Bật/tắt tiếng từ micro máy camera trên máy xem (mặc định bật) |
+| **Bật nói chuyện** | Lần đầu hỏi quyền **Micro** của máy xem; kết nối lại khoảng 1–2 giây để kèm micro |
+| **Giữ để nói** | Giữ nút → tiếng máy xem phát ra **loa máy camera**; thả ra để nghe người ở sân trả lời |
+| **Tắt nói** | Kết nối lại không kèm micro (máy xem không còn mở micro) |
+
+- Nói kiểu **bộ đàm**: trong lúc giữ nút, máy xem tạm tắt tiếng từ sân để không nghe lại tiếng mình vọng qua loa.
+- Máy camera phải cho phép micro: màn hình OnCam Quay → mục *Micro (nghe/nói từ xa)* phải là **Có**. Nếu là
+  *Chưa cấp quyền* → bấm **Cho phép micro**; nếu là *Chưa* → mở app OnCam Quay một lần (giống camera).
+- Trong lúc có người nghe/nói, máy camera tự chuyển loa ngoài và **âm lượng đàm thoại tối đa**, xong thì trả lại như cũ.
+- ⚠️ Pháp lý: thu tiếng ở nơi có người khác là xử lý dữ liệu cá nhân (BLDS 2015 Điều 38 về bí mật đời tư;
+  NĐ 13/2023/NĐ-CP). Chỉ hướng camera/micro vào khu vực nhà mình; nếu sân có người ngoài qua lại thường xuyên, nên
+  dán thông báo "Khu vực có camera ghi hình, ghi âm". App **không lưu** file ghi âm/ghi hình nào, chỉ phát trực tiếp.
 
 ## 7. Dung lượng dữ liệu (ước tính)
 
-Video là chuỗi ảnh JPEG (MJPEG), tốn dữ liệu hơn video nén như YouTube. Máy camera ở nhà dùng Wi-Fi thì
-**máy xem đi 4G mới là bên tốn tiền**.
+Máy camera ở nhà dùng Wi-Fi thì **máy xem đi 4G mới là bên tốn tiền**.
+
+**WebRTC (bản 0.7, cả 2 app ≥ 0.7)** — số dưới là **mức trần** app đặt cho camera; cảnh đứng yên dùng ít hơn:
+
+| Chất lượng | Video tối đa | + Tiếng sân | Dữ liệu/phút | Xem 5 phút | Xem 1 giờ |
+|---|---|---|---|---|---|
+| Thấp | 300 kbit/s | ~32 kbit/s | ≤ 2,5 MB | ≤ 12,5 MB | ≤ 0,15 GB |
+| Vừa | 900 kbit/s | ~32 kbit/s | ≤ 7,0 MB | ≤ 35 MB | ≤ 0,42 GB |
+| Cao | 1,8 Mbit/s | ~32 kbit/s | ≤ 13,7 MB | ≤ 69 MB | ≤ 0,82 GB |
+
+Cơ sở: (bitrate video + tiếng Opus ~32 kbit/s) ÷ 8 × thời gian. Giữ để nói tốn thêm ~32 kbit/s chiều lên trong lúc
+giữ nút. So với MJPEG cùng mức chất lượng: ít hơn **khoảng 5–18 lần** (Thấp ~5–9 lần, Vừa ~8–14 lần, Cao ~10–18 lần).
+
+**MJPEG (camera bản cũ, hoặc khi WebRTC lỗi)** — video là chuỗi ảnh JPEG, tốn hơn nhiều:
 
 | Chất lượng | Khung hình | Ảnh/khung (ước tính) | Dữ liệu/phút | Xem 5 phút | Xem 1 giờ |
 |---|---|---|---|---|---|
@@ -138,7 +169,7 @@ Cơ sở: dữ liệu = cỡ ảnh × số hình/giây × thời gian. Cỡ ản
 cảnh nhiều cây lá, ban đêm nhiều nhiễu thì lớn hơn. **Chưa đo trên máy thật** — xem số thật ở Cài đặt → Kết nối →
 Sử dụng dữ liệu → OnCam Xem.
 
-Khuyến nghị: đi 4G thì để **Thấp**; chỉ chuyển **Vừa/Cao** khi cần nhìn rõ chi tiết. Chụp ảnh (~100 KB/ảnh) rẻ hơn
+Khuyến nghị: đi 4G thì để **Thấp** (nhất là khi đang xem MJPEG); chỉ chuyển **Vừa/Cao** khi cần nhìn rõ chi tiết. Chụp ảnh (~100 KB/ảnh) rẻ hơn
 xem video nhiều. Khi không xem, cả 2 app chỉ trao đổi tin trạng thái nhỏ (< 1 MB/ngày).
 
 ## 8. Xử lý sự cố
@@ -157,6 +188,12 @@ xem video nhiều. Khi không xem, cả 2 app chỉ trao đổi tin trạng thá
 | Camera tự tắt, báo quá nhiệt | Pin ≥ 45 °C (≥ 42 °C thì tự hạ chất lượng) | Dời máy chỗ thoáng, tránh nắng; dùng chất lượng Thấp |
 | Cài APK báo "Ứng dụng chưa được cài đặt" | Đang có bản thử nghiệm cũ ký khoá khác | Gỡ app cũ rồi cài lại (mất cấu hình, phải quét QR lại) |
 | Video giật, hình/giây thấp | Mạng 4G yếu ở máy xem hoặc máy camera | Chọn **Thấp**; kiểm tra sóng Wi-Fi chỗ đặt máy camera |
+| Cuối màn hình xem: "Đang xem MJPEG … `RTC_NO_ADDRESS`" | WebRTC trên máy camera không thấy IP Tailscale | Kiểm tra Tailscale máy camera Connected; Dừng rồi Khởi động lại node |
+| "… `RTC_CONNECT_FAILED`" / "… `TIMEOUT`" | 2 máy không nối thẳng được qua Tailscale (mạng chặn UDP), hoặc mạng quá yếu | Vẫn xem được MJPEG. Thử đổi Wi-Fi ↔ 4G trên máy xem rồi mở lại màn hình xem |
+| "… `RTC_BUSY`" | Đã có 2 máy xem bằng WebRTC cùng lúc (giới hạn để máy camera đỡ nóng) | Máy thứ 3 tự xem bằng MJPEG |
+| "Máy camera chưa cho dùng micro" | Máy camera chưa cấp quyền micro hoặc vừa khởi động lại | Trên máy camera: **Cho phép micro** hoặc mở app một lần |
+| Giữ để nói nhưng ở sân không nghe | Âm lượng máy camera bị chặn (Không làm phiền) hoặc loa máy camera bị che | Tắt *Không làm phiền* trên máy camera; đặt máy để loa không áp vào tường |
+| Nghe tiếng mình vọng lại | Thả nút nói ra quá sớm / loa máy camera quá to sát micro | Nói xong mới thả nút; để máy camera cách tường ít nhất 10 cm |
 
 ## 9. Bảo mật
 

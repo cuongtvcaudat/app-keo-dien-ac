@@ -2,6 +2,7 @@ package vn.cnldg.oncam.rtc
 
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +50,7 @@ class ViewerRtc(
     private var micTrack: AudioTrack? = null
     private var remoteAudio: AudioTrack? = null
     private var routed = false
+    private var watchJob: Job? = null
 
     private val _phase = MutableStateFlow(RtcPhase.IDLE)
 
@@ -143,7 +145,7 @@ class ViewerRtc(
                 audioRouting?.acquire()
                 routed = true
             }
-            scope.launch { watch() }
+            watchJob = scope.launch { watch() }
             true
         } catch (_: TimeoutCancellationException) {
             fail("Quá thời gian chờ kết nối")
@@ -176,7 +178,9 @@ class ViewerRtc(
     fun close() {
         if (_phase.value == RtcPhase.CLOSED) return
         _phase.value = RtcPhase.CLOSED
-        _video.value?.removeSink(fpsCounter)
+        watchJob?.cancel()
+        watchJob = null
+        _video.value?.let { v -> runCatching { v.removeSink(fpsCounter) } }
         _video.value = null
         if (routed) {
             audioRouting?.release()

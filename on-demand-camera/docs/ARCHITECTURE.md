@@ -26,8 +26,26 @@
 | Module | Loại | Trách nhiệm |
 |---|---|---|
 | `shared` | Kotlin/JVM thuần | Data class lệnh/trạng thái/sự kiện (`protocol/`), ký/kiểm HMAC (`security/`), wrapper MQTT Paho mqttv3 (`mqtt/`), **client giao thức cho viewer** (`client/CameraClient`, đồng bộ giờ `syncClock`), đọc MJPEG (`client/MjpegReader`), mã QR ghép đôi (`client/PairingCode`), chuẩn hoá địa chỉ broker (`client/BrokerAddress`). Không phụ thuộc Android → unit test chạy trên JVM, có test tích hợp với broker thật (Moquette) |
+| `rtc` | Android library (Phase 7) | WebRTC dùng chung: `CameraRtc` (máy camera trả lời offer, gửi hình NV21 từ CameraX + tiếng micro, phát tiếng app Xem ra loa), `ViewerRtc` (app Xem gọi, nhận hình/tiếng, giữ để nói), `RtcEngine`, `AudioRouting`. Có test WebRTC thật trên emulator (2 đầu nối với nhau trong cùng máy) |
 | `camera-node` | Android app | Foreground Service, broker MQTT nhúng (Moquette), xử lý lệnh, đọc pin/nhiệt, CameraX + MJPEG (NanoHTTPD). Phần lõi `core/`, `mqtt/`, `broker/`, `camera/FrameHub`, `camera/MjpegStreamer` không dùng API Android → test trên JVM |
 | `viewer` | Android app | Danh sách camera (lưu mã hoá), kết nối khi app hiển thị, gửi lệnh, hiển thị trạng thái, lưu snapshot vào MediaStore, xem trực tiếp toàn màn hình (`stream/StreamClient`, `stream/MjpegView`, `ui/LiveViewScreen`) |
+
+## 2b. WebRTC (Phase 7)
+
+```
+App Xem                                   MQTT (đã có)                      Máy camera
+ViewerRtc: tạo offer, gom đủ ICE ─► RTC_OFFER {sdp, sessionId} ký HMAC ─► CommandVerifier ─► StreamManager
+                                                                            (tự bật camera nếu đang tắt)
+                                                                                 └► CameraRtc.answer()
+        ◄── COMMAND_RESULT {message = SDP answer, signature = HMAC(token, mã lệnh, SHA-256(SDP))} ◄──┘
+kiểm chữ ký (RtcAuth) → setRemoteDescription
+        ═══════════ SRTP/DTLS trực tiếp giữa 2 IP Tailscale (UDP) ═══════════
+        ◄── hình H.264/VP8 (CameraX → NV21 → bộ mã hoá phần cứng/phần mềm) + tiếng Opus từ micro camera
+        ──► tiếng Opus từ micro máy xem (chỉ khi bật nói, chỉ gửi khi giữ nút) → loa máy camera
+```
+
+- MJPEG vẫn chạy song song: chụp ảnh (`/snapshot.jpg`), app Xem/máy camera bản cũ, và dự phòng khi WebRTC lỗi.
+- Phiên WebRTC được tính là người xem (camera không tự tắt); camera tắt → đóng mọi phiên.
 
 ## 3. Kênh MQTT
 
@@ -100,6 +118,15 @@ STOP / idle / quá nhiệt / lỗi camera ──► đóng HTTP server + gỡ Ca
 | D33 | Ô địa chỉ broker chỉ cần IP (`client/BrokerAddress`): tự thêm `tcp://` và `:1883`; kiểm IPv4 đủ 4 số 0–255 hoặc tên miền, cổng 1–65535 | Thực tế người dùng gõ nhầm `1883` vào ô địa chỉ |
 | D34 | Hướng dẫn chống tắt app chọn theo `Build.MANUFACTURER`: Samsung (One UI), Oppo/Realme/OnePlus (ColorOS), hãng khác | Máy camera đổi từ Oppo sang Samsung A54; tên mục cài đặt mỗi hãng khác nhau |
 | D35 | CI đăng **GitHub Release `oncam-latest`** (xoá và tạo lại mỗi lần push, chỉ khi build + test emulator đạt): `OnCam-Quay.apk`, `OnCam-Xem.apk`, `SHA256SUMS.txt`. Trước khi đăng: kiểm chữ ký, không debuggable, đúng mã ứng dụng/phiên bản (`ci/check-apk.sh`), mở thử 2 APK release trên emulator (`ci/smoke-release.sh`) | Link tải cố định, tải thẳng `.apk` trên điện thoại (artifact của Actions là file zip, cần đăng nhập GitHub) |
+| D36 | **WebRTC bằng `io.getstream:stream-webrtc-android` 1.3.10** (bản đóng gói libwebrtc của Google, Apache 2.0, Maven Central) trong module mới `:rtc` | Chủ dự án chọn WebRTC + nói 2 chiều ở Phase 7. Thư viện chính thức `org.webrtc:google-webrtc` đã ngừng và không có trên Maven Central |
+| D37 | Bắt tay qua MQTT sẵn có, **không trickle ICE, không STUN/TURN**: mỗi bên gom xong ứng viên rồi gửi cả SDP; chỉ giữ ứng viên IP Tailscale (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) | 2 máy đã thấy nhau qua Tailscale; bắt tay đúng 1 lượt lệnh/kết quả. Không lộ IP Wi-Fi/4G ra phía bên kia |
+| D38 | Chữ ký RTC_OFFER bao cả SHA-256 của SDP và mã phiên; camera **ký lại SDP answer** (`RtcAuth`); trường mới chỉ thêm vào chuỗi ký khi có → lệnh cũ ký y hệt bản 0.6 | SDP chứa dấu vân tay DTLS: 2 chữ ký giúp mã hoá đầu-cuối của WebRTC xác thực đúng 2 máy kể cả khi broker bị lộ. App Xem/camera khác phiên bản vẫn điều khiển được nhau |
+| D39 | Broker nhúng nhận tin tới **64 KB** (`netty.mqtt.message_size`) | Moquette mặc định bỏ tin > 8 092 byte; SDP offer 4–10 KB + JSON vượt ngưỡng này (đã kiểm chứng trong mã Moquette 0.17) |
+| D40 | Trạng thái thêm `rtc` (camera hỗ trợ WebRTC) và `micReady`; app Xem chỉ gửi RTC_OFFER khi `rtc = true`, bị đứt/lỗi 2 lần trong một lần xem thì dùng MJPEG tới khi rời màn hình. Lệnh lạ trả MALFORMED **kèm mã lệnh** | Camera 0.6 không biết RTC_OFFER và trả MALFORMED không kèm mã → app Xem phải chờ hết giờ; có cờ `rtc` thì khỏi gửi |
+| D41 | Âm thanh: camera gửi tiếng micro suốt phiên (khi `micReady`); máy xem **chỉ mở micro khi bấm "Bật nói chuyện"** (kết nối lại phiên kèm micro), chỉ gửi tiếng khi **giữ nút**; trong lúc giữ nút, tiếng từ sân bị tắt ở máy xem (bán song công kiểu bộ đàm) | Không để micro máy xem bật ngầm cả buổi xem (Android hiện đèn báo micro). Bán song công tránh nghe lại tiếng mình vọng qua loa → micro máy camera, ổn định hơn khử vọng 2 chiều trên điện thoại cũ |
+| D42 | Máy camera trong phiên có tiếng: chế độ đàm thoại + loa ngoài + âm lượng đàm thoại tối đa, trả lại như cũ khi hết phiên (`AudioRouting`). Foreground service thêm loại `microphone`, cùng quy tắc "khi đang dùng" như camera | Người ở sân phải nghe rõ. Android 11+ chỉ cho dùng micro từ service khi service được nâng loại lúc app đang hiển thị |
+| D43 | Giới hạn bitrate WebRTC: Thấp 300 kbit/s, Vừa 900 kbit/s, Cao 1,8 Mbit/s; bật `enableCpuOveruseDetection` | Ít hơn MJPEG ~5–18 lần dữ liệu (tuỳ mức); máy cũ quá tải thì WebRTC tự hạ độ phân giải |
+| D44 | Thư viện native WebRTC: release chỉ ARM (`arm64-v8a`, `armeabi-v7a`), debug thêm `x86_64` cho emulator; nén thư viện trong APK (`useLegacyPackaging`) | Mỗi kiến trúc ~11 MB chưa nén. Điện thoại thật đều là ARM |
 
 ## 6. Ràng buộc Android cần nhớ
 
