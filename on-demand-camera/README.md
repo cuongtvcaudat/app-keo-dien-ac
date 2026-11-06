@@ -15,6 +15,10 @@ Biến điện thoại Android cũ thành camera đặt ở sân nhà. Máy cũ 
 | **OnCam Quay** | Máy làm camera | https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/download/oncam-latest/OnCam-Quay.apk |
 | **OnCam Xem** | Máy dùng để xem | https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/download/oncam-latest/OnCam-Xem.apk |
 
+Quét bằng camera điện thoại:
+
+![Mã QR tải OnCam Quay và OnCam Xem](docs/img/oncam-tai-app-qr.png)
+
 Hướng dẫn từ A–Z: [docs/USER_GUIDE.md](docs/USER_GUIDE.md) · Tailscale: [docs/SETUP_TAILSCALE.md](docs/SETUP_TAILSCALE.md) ·
 Kiến trúc: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
