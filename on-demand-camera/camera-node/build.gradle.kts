@@ -41,8 +41,11 @@ android {
             ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         }
         release {
-            // Điện thoại thật đều là ARM; bỏ x86/x86_64 cho APK nhẹ hơn.
-            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+            // Điện thoại thật đều là ARM; bỏ x86/x86_64 cho APK nhẹ hơn. CI chạy thử bản release trên emulator
+            // x86_64 thì truyền -Poncam.releaseAbis=x86_64 (APK đó chỉ để thử, không đăng).
+            val abis = (project.findProperty("oncam.releaseAbis") as String?)?.split(',')
+                ?: listOf("arm64-v8a", "armeabi-v7a")
+            ndk { abiFilters += abis }
             // Bản dùng thật: không debuggable, không ghi log (Timber chỉ bật ở debug).
             signingConfig = signingConfigs.getByName("debug")
             // Chưa bật R8 (thu gọn mã): broker Moquette/Netty nạp lớp bằng reflection, thu gọn sai sẽ lỗi lúc chạy
