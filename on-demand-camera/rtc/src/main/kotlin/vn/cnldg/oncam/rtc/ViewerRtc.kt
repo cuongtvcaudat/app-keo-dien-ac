@@ -20,6 +20,7 @@ import org.webrtc.MediaConstraints
 import org.webrtc.MediaStreamTrack
 import org.webrtc.PeerConnection
 import org.webrtc.RTCStatsCollectorCallback
+import org.webrtc.RTCStatsReport
 import org.webrtc.RtpTransceiver
 import org.webrtc.SessionDescription
 import org.webrtc.VideoFrame
@@ -256,7 +257,9 @@ class ViewerRtc(
         while (true) {
             delay(statsIntervalMs)
             val report = withTimeoutOrNull(STATS_TIMEOUT_MS) {
-                suspendCancellableCoroutine { cont -> peer.getStats(RTCStatsCollectorCallback { r -> cont.resume(r) }) }
+                suspendCancellableCoroutine<RTCStatsReport> { cont ->
+                    peer.getStats(RTCStatsCollectorCallback { r -> cont.resume(r) })
+                }
             } ?: continue
             val now = System.currentTimeMillis()
             val flat = report.statsMap.mapValues { (_, st) -> st.type to st.members }
