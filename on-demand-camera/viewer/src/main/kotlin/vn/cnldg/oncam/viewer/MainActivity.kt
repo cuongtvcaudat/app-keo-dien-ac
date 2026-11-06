@@ -116,6 +116,7 @@ private fun ViewerApp(vm: ViewerViewModel) {
                 is UiMessage.CameraEvent -> eventText(context, msg.cameraName, msg.event.event, msg.event.message)
                 UiMessage.SnapshotSaved -> context.getString(R.string.snapshot_saved)
                 UiMessage.SnapshotFailed -> context.getString(R.string.snapshot_failed)
+                is UiMessage.ClockSkew -> context.getString(R.string.clock_skew, msg.cameraName, msg.seconds)
             }
             if (text != null) snackbar.showSnackbar(text)
         }

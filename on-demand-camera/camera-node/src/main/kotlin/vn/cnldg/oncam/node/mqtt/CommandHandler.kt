@@ -31,10 +31,12 @@ data class HandledCommand(val command: Command?, val event: DeviceEvent)
  *
  * Thứ tự: đọc JSON → kiểm chữ ký/thời gian/replay → kiểm tham số → thực hiện.
  * PING xử lý ngay tại đây; các lệnh khác giao cho [perform].
+ * Mọi COMMAND_RESULT (kể cả khi từ chối) kèm giờ máy camera tính bằng ms để viewer đo độ lệch đồng hồ.
  */
 class CommandHandler(
     private val verifier: CommandVerifier,
     private val clock: EpochClock = EpochClock.SYSTEM,
+    private val nowMs: () -> Long = System::currentTimeMillis,
     private val perform: suspend (Command) -> ActionOutcome = { ActionOutcome.Unsupported },
 ) {
     /** Xử lý một payload lệnh. */
@@ -70,6 +72,7 @@ class CommandHandler(
         timestamp = clock.nowSec(),
         commandId = commandId,
         success = success,
+        timestampMs = nowMs(),
     )
 
     companion object {

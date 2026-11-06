@@ -17,9 +17,11 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -130,6 +132,9 @@ class CommandSender @Inject constructor(
 
     /** Client của một camera (để lấy URL ảnh/video và header xác thực). */
     fun client(deviceId: String): CameraClient? = connections.value[deviceId]?.client
+
+    /** Chờ tới khi có kết nối tới camera [deviceId] (khi app vừa hiện lại, kết nối được tạo lại sau một nhịp). */
+    suspend fun awaitClient(deviceId: String): CameraClient = connections.mapNotNull { it[deviceId]?.client }.first()
 
     /** Gửi lệnh tới camera [deviceId]. */
     suspend fun send(deviceId: String, action: Action, params: CommandParams = CommandParams()): CommandResult {

@@ -8,7 +8,15 @@ Biến điện thoại Android cũ thành camera đặt ở sân nhà. Máy cũ 
 | `viewer` — **OnCam Xem** | Điện thoại chính | `vn.cnldg.oncam.viewer` |
 | `shared` | (thư viện dùng chung) | `vn.cnldg.oncam.shared` |
 
-Kiến trúc chi tiết: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## Tải app (bản mới nhất)
+
+| App | Cài lên | Link tải thẳng file .apk |
+|---|---|---|
+| **OnCam Quay** | Máy làm camera | https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/download/oncam-latest/OnCam-Quay.apk |
+| **OnCam Xem** | Máy dùng để xem | https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/download/oncam-latest/OnCam-Xem.apk |
+
+Hướng dẫn từ A–Z: [docs/USER_GUIDE.md](docs/USER_GUIDE.md) · Tailscale: [docs/SETUP_TAILSCALE.md](docs/SETUP_TAILSCALE.md) ·
+Kiến trúc: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Tiến độ
 
@@ -20,14 +28,16 @@ Kiến trúc chi tiết: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 3 | camera-node: CameraX + MJPEG (NanoHTTPD), flash, đổi camera, chất lượng, snapshot, idle timeout, chống quá nhiệt | ✅ |
 | 4 | viewer: danh sách camera, trạng thái online/offline, bật/tắt, đổi camera, flash, chất lượng, chụp ảnh lưu Thư viện | ✅ |
 | 5 | viewer: xem trực tiếp toàn màn hình, nút điều khiển đè lên video, hiện FPS + độ trễ + số người xem | ✅ |
-| 6 | Đóng gói APK + tài liệu hướng dẫn | ⏳ |
-| 7 | (tùy chọn) WebRTC | ⏳ |
+| 6 | Bản release + link tải cố định, mã QR ghép đôi, tự đồng bộ giờ (độ trễ đúng), ô địa chỉ chỉ cần IP, hướng dẫn chống tắt app theo hãng (Samsung/Oppo), tài liệu đầy đủ | ✅ |
+| 7 | (tùy chọn) WebRTC + âm thanh | ⏳ |
 
 ## Cấu trúc
 
 ```
 on-demand-camera/
 ├── docs/            # Kiến trúc + hướng dẫn cài đặt
+├── ci/              # Script kiểm tra APK release dùng trong GitHub Actions
+├── keystore/        # Khoá ký dùng chung (công khai, xem README trong đó)
 ├── shared/          # Kotlin/JVM thuần: giao thức + MQTT client
 ├── camera-node/     # App Android cho máy quay
 └── viewer/          # App Android cho máy xem
@@ -37,18 +47,16 @@ on-demand-camera/
 
 ### Cách 1 — GitHub Actions (đang dùng)
 
-Mỗi lần push thay đổi trong `on-demand-camera/`, workflow [`OnCam Android build`](../.github/workflows/oncam-android.yml) chạy 2 job song song:
+Mỗi lần push thay đổi trong `on-demand-camera/`, workflow [`OnCam Android build`](../.github/workflows/oncam-android.yml) chạy 3 job:
 
-- **build**: `./gradlew build` (biên dịch, unit test, lint) và xuất APK.
-- **emulator**: chạy test của camera-node trên emulator Android 13 (API 33, camera sau giả lập) — kiểm chứng broker nhúng, CameraX và MJPEG chạy được trên Android.
+| Job | Việc |
+|---|---|
+| **build** | `./gradlew build` (biên dịch, unit test, lint, APK debug + release); kiểm APK release ký đúng khoá, không debuggable, đúng phiên bản (`ci/check-apk.sh`) |
+| **emulator** | Test của camera-node và viewer trên emulator Android 13 (API 33, camera sau giả lập); mở thử 2 APK release xem có crash không (`ci/smoke-release.sh`) |
+| **release** | Khi 2 job trên đạt: đăng `OnCam-Quay.apk`, `OnCam-Xem.apk` lên Release [`oncam-latest`](https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/tag/oncam-latest) (thay bản cũ, link giữ nguyên) |
 
-Tải APK về điện thoại:
-1. Vào repo trên GitHub → tab **Actions** → chọn lần chạy mới nhất của **OnCam Android build** (dấu ✅ xanh).
-2. Kéo xuống mục **Artifacts** → tải `oncam-debug-apk` (file .zip).
-3. Giải nén: `camera-node-debug.apk` cài lên máy cũ, `viewer-debug.apk` cài lên máy chính.
-   Từ bản 0.4 các APK debug ký bằng khoá chung trong `keystore/` (quyết định D23) → **cài đè được, không phải gỡ app**.
-   Riêng lần đầu chuyển từ bản ≤ 0.3 lên phải gỡ bản cũ một lần.
-4. Lần đầu cài, Android sẽ hỏi cho phép "Cài ứng dụng không rõ nguồn gốc" → cho phép với trình duyệt / trình quản lý file đang dùng.
+- APK release và debug đều ký bằng khoá chung trong [`keystore/`](keystore/README.md) (D23, D30) → **cài đè được, không phải gỡ app**.
+- APK debug (có log, dùng khi gỡ lỗi) vẫn có trong mục **Artifacts** của từng lần chạy: `oncam-debug-apk` (file .zip).
 
 ### Cách 2 — Máy tính cá nhân
 
@@ -77,10 +85,13 @@ cd on-demand-camera
 | security-crypto (EncryptedSharedPreferences) | 1.0.0 |
 | CameraX | 1.4.2 |
 | NanoHTTPD | 2.3.1 |
+| zxing core (vẽ QR, camera-node) / zxing-android-embedded (quét QR, viewer) | 3.5.3 / 4.3.0 |
 
 Toàn bộ phiên bản khai báo tập trung ở [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
 
 ## Bảo mật
 
-- Không commit secret: `local.properties`, `secrets.properties`, `*.jks` đã nằm trong `.gitignore`.
-- Secret (mật khẩu MQTT, token chung) nhập trong màn hình cấu hình của app và lưu bằng EncryptedSharedPreferences (Phase 2/4).
+- Không hard-code secret: token sinh ngẫu nhiên trên máy camera, lưu bằng EncryptedSharedPreferences ở cả 2 app,
+  chuyển sang máy xem bằng mã QR (tự ẩn sau 2 phút). `local.properties`, `secrets.properties`, `*.jks` nằm trong `.gitignore`.
+- Mọi lệnh ký HMAC-SHA256 bằng token (chống giả mạo, chống phát lại); broker và video chỉ mở trên IP Tailscale.
+- Khoá ký APK là khoá công khai dùng chung (không bảo vệ gì) → chỉ cài APK từ Release `oncam-latest` của repo này.

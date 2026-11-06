@@ -1,9 +1,12 @@
 # Build Android cho dự án on-demand-camera (OnCam).
 # - Chạy khi có thay đổi trong on-demand-camera/ hoặc chính file này.
-# - Job "build": build cả 3 module bằng `./gradlew build` (biên dịch, unit test, lint),
-#   xuất 2 file APK debug làm artifact để tải về cài thử lên điện thoại.
-# - Job "emulator": chạy test của camera-node và viewer trên emulator Android 13 (API 33, gần Oppo Reno 5)
-#   (camera sau giả lập) để kiểm chứng broker MQTT nhúng + CameraX + MJPEG chạy được trên Android.
+# - Job "build": build cả 3 module bằng `./gradlew build` (biên dịch, unit test, lint, APK debug + release),
+#   kiểm tra chữ ký/phiên bản APK release, xuất artifact.
+# - Job "emulator": chạy test của camera-node và viewer trên emulator Android 13 (API 33)
+#   (camera sau giả lập) để kiểm chứng broker MQTT nhúng + CameraX + MJPEG chạy được trên Android,
+#   rồi mở thử 2 APK release xem có crash không.
+# - Job "release": khi 2 job trên đạt (chỉ với push), đăng 2 APK release lên GitHub Release `oncam-latest`
+#   → link tải cố định, tải thẳng file .apk trên điện thoại (không phải giải nén zip).
 name: OnCam Android build
 
 on:
@@ -49,6 +52,25 @@ jobs:
 
       - name: Build + unit test + lint
         run: ./gradlew build --stacktrace --console=plain
+
+      - name: Kiểm tra APK release và đổi tên dễ hiểu
+        run: |
+          version="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' camera-node/build.gradle.kts)"
+          mkdir -p dist
+          cp camera-node/build/outputs/apk/release/camera-node-release.apk dist/OnCam-Quay.apk
+          cp viewer/build/outputs/apk/release/viewer-release.apk dist/OnCam-Xem.apk
+          ci/check-apk.sh dist/OnCam-Quay.apk vn.cnldg.oncam.node "$version"
+          ci/check-apk.sh dist/OnCam-Xem.apk vn.cnldg.oncam.viewer "$version"
+          (cd dist && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          echo "$version" > dist/VERSION
+
+      - name: Tải lên APK release
+        uses: actions/upload-artifact@v5
+        with:
+          name: oncam-apk
+          path: on-demand-camera/dist/
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Tải lên APK debug
         uses: actions/upload-artifact@v5
@@ -104,7 +126,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -camera-front none
           working-directory: on-demand-camera
-          script: ./gradlew :camera-node:connectedDebugAndroidTest :viewer:connectedDebugAndroidTest --stacktrace --console=plain
+          script: ./gradlew :camera-node:connectedDebugAndroidTest :viewer:connectedDebugAndroidTest :camera-node:assembleRelease :viewer:assembleRelease --stacktrace --console=plain && ci/smoke-release.sh
 
       - name: Tải lên kết quả test emulator
         if: always()
@@ -116,3 +138,45 @@ jobs:
             on-demand-camera/*/build/outputs/androidTest-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  release:
+    # Chỉ đăng khi push (không đăng từ pull request) và khi build + test emulator đều đạt.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: [build, emulator]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: oncam-latest
+    steps:
+      - name: Lấy APK release
+        uses: actions/download-artifact@v5
+        with:
+          name: oncam-apk
+          path: dist
+
+      - name: Đăng lên GitHub Release oncam-latest (thay bản cũ)
+        run: |
+          version="$(cat dist/VERSION)"
+          short="${GITHUB_SHA::7}"
+          {
+            echo "Bản mới nhất của OnCam: **$version** (commit $short, nhánh ${GITHUB_REF_NAME}, $(date -u +'%Y-%m-%d %H:%M UTC'))."
+            echo
+            echo "- **OnCam-Quay.apk** — cài lên máy làm camera."
+            echo "- **OnCam-Xem.apk** — cài lên máy dùng để xem."
+            echo
+            echo "Cài đè lên bản cũ được, không mất cấu hình. Hướng dẫn: on-demand-camera/docs/USER_GUIDE.md."
+            echo
+            echo "SHA-256:"
+            echo '```'
+            cat dist/SHA256SUMS.txt
+            echo '```'
+          } > notes.md
+          # Xoá release + tag cũ rồi tạo lại ở commit này: link tải giữ nguyên
+          # https://github.com/<repo>/releases/download/oncam-latest/OnCam-Quay.apk
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" dist/OnCam-Quay.apk dist/OnCam-Xem.apk dist/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --title "OnCam $version (mới nhất)" --notes-file notes.md --latest

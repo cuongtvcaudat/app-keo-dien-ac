@@ -29,6 +29,15 @@ class NodeConfigAndAddressTest {
             listOf(ConfigProblem.INVALID_EXTERNAL_URI),
             ok.copy(brokerMode = BrokerMode.EXTERNAL, externalUri = "http://x").problems(),
         )
+        // Màn hình cấu hình chuẩn hoá trước khi kiểm: "100.80.1.2" → "tcp://100.80.1.2:1883".
+        assertEquals(
+            emptyList(),
+            ok.copy(brokerMode = BrokerMode.EXTERNAL, externalUri = "tcp://100.80.1.2:1883").problems(),
+        )
+        assertEquals(
+            listOf(ConfigProblem.INVALID_EXTERNAL_URI),
+            ok.copy(brokerMode = BrokerMode.EXTERNAL, externalUri = "tcp://1883:1883").problems(),
+        )
     }
 
     @Test

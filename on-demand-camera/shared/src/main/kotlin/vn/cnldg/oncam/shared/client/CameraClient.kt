@@ -64,6 +64,13 @@ sealed interface CommandResult {
     data object Timeout : CommandResult
 }
 
+/**
+ * Độ lệch đồng hồ giữa máy camera và máy xem.
+ * @property offsetMs giờ camera − giờ máy xem (ms); dương = đồng hồ camera chạy nhanh hơn.
+ * @property roundTripMs thời gian khứ hồi của lần đo được chọn; sai số của [offsetMs] ≤ một nửa giá trị này.
+ */
+data class ClockSync(val offsetMs: Long, val roundTripMs: Long)
+
 /** Trạng thái một camera nhìn từ viewer. */
 data class CameraView(
     val connection: MqttConnectionState = MqttConnectionState.Idle,
@@ -120,6 +127,11 @@ class CameraClient(
     /** Sự kiện từ camera (trừ COMMAND_RESULT đã được trả về qua [send]). */
     val events: SharedFlow<DeviceEvent> = _events.asSharedFlow()
 
+    private val _clock = MutableStateFlow<ClockSync?>(null)
+
+    /** Kết quả đồng bộ giờ gần nhất (null khi chưa đo). */
+    val clockSync: StateFlow<ClockSync?> = _clock.asStateFlow()
+
     private val pending = ConcurrentHashMap<String, CompletableDeferred<DeviceEvent>>()
     private val jobs = mutableListOf<Job>()
 
@@ -149,8 +161,41 @@ class CameraClient(
     }
 
     /** Gửi lệnh [action] đã ký và chờ kết quả tối đa [timeoutMs]. */
-    suspend fun send(action: Action, params: CommandParams = CommandParams(), timeoutMs: Long = 10_000): CommandResult {
-        if (mqtt.state.value != MqttConnectionState.Connected) return CommandResult.NotConnected
+    suspend fun send(action: Action, params: CommandParams = CommandParams(), timeoutMs: Long = 10_000): CommandResult =
+        when (val r = exchange(action, params, timeoutMs)) {
+            is Exchange.Replied ->
+                if (r.event.success == true) CommandResult.Ok(r.event.message) else CommandResult.Rejected(r.event.message)
+            is Exchange.Failed -> r.result
+        }
+
+    /**
+     * Đo độ lệch đồng hồ (giờ camera − giờ máy này, ms) bằng [samples] lần PING, lấy lần khứ hồi nhanh nhất
+     * (cách tính của NTP: giờ camera lúc trả lời ≈ giữa lúc gửi và lúc nhận).
+     * Dùng được cả khi lệch quá 60 giây (PING bị từ chối EXPIRED nhưng vẫn kèm giờ camera).
+     *
+     * @return độ lệch, hoặc null khi không đo được (chưa kết nối, camera bản cũ không gửi giờ ms).
+     */
+    suspend fun syncClock(samples: Int = 3, timeoutMs: Long = 5_000): ClockSync? {
+        var best: ClockSync? = null
+        for (i in 0 until samples) {
+            val t0 = nowMs()
+            val r = exchange(Action.PING, CommandParams(), timeoutMs)
+            val t1 = nowMs()
+            val cameraMs = (r as? Exchange.Replied)?.event?.timestampMs ?: continue
+            val sample = ClockSync(offsetMs = cameraMs - (t0 + t1) / 2, roundTripMs = t1 - t0)
+            if (best == null || sample.roundTripMs < best.roundTripMs) best = sample
+        }
+        if (best != null) _clock.value = best
+        return best
+    }
+
+    private sealed interface Exchange {
+        data class Replied(val event: DeviceEvent) : Exchange
+        data class Failed(val result: CommandResult) : Exchange
+    }
+
+    private suspend fun exchange(action: Action, params: CommandParams, timeoutMs: Long): Exchange {
+        if (mqtt.state.value != MqttConnectionState.Connected) return Exchange.Failed(CommandResult.NotConnected)
         val command = signer.sign(endpoint.deviceId, action, params)
         val waiter = CompletableDeferred<DeviceEvent>()
         pending[command.id] = waiter
@@ -163,9 +208,9 @@ class CameraClient(
                     retained = false,
                 ),
             )
-            if (!sent) return CommandResult.PublishFailed
-            val result = withTimeoutOrNull(timeoutMs) { waiter.await() } ?: return CommandResult.Timeout
-            return if (result.success == true) CommandResult.Ok(result.message) else CommandResult.Rejected(result.message)
+            if (!sent) return Exchange.Failed(CommandResult.PublishFailed)
+            val event = withTimeoutOrNull(timeoutMs) { waiter.await() } ?: return Exchange.Failed(CommandResult.Timeout)
+            return Exchange.Replied(event)
         } finally {
             pending.remove(command.id)
         }

@@ -18,16 +18,17 @@ android {
         applicationId = "vn.cnldg.oncam.viewer"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 6
+        versionName = "0.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
         getByName("debug") {
-            // Khoá ký debug dùng chung, mật khẩu là giá trị mặc định công khai "android" (không phải bí mật):
-            // để APK debug build ở các lần CI khác nhau cài đè lên nhau được, không phải gỡ app.
-            // Bản release dùng khoá riêng lưu ngoài repo (Phase 6).
+            // Khoá ký dùng chung cho cả debug và release, mật khẩu là giá trị mặc định công khai "android"
+            // (không phải bí mật): APK build ở các lần CI khác nhau cài đè lên nhau được, không phải gỡ app.
+            // Đánh đổi (chủ dự án đã chọn): ai có repo cũng ký được APK cùng chữ ký → chỉ cài APK từ trang Release
+            // của repo này. Xem docs/ARCHITECTURE.md (D30).
             storeFile = rootProject.file("keystore/debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
@@ -37,7 +38,10 @@ android {
 
     buildTypes {
         release {
-            // Phase 6 sẽ bật ký APK + R8; hiện build release chỉ để kiểm tra biên dịch.
+            // Bản dùng thật: không debuggable, không ghi log (Timber chỉ bật ở debug).
+            signingConfig = signingConfigs.getByName("debug")
+            // Chưa bật R8 (thu gọn mã): broker Moquette/Netty nạp lớp bằng reflection, thu gọn sai sẽ lỗi lúc chạy
+            // trên máy thật mà test JVM không phát hiện được. Bật khi có test chạy trên bản release (D31).
             isMinifyEnabled = false
         }
     }
@@ -90,6 +94,7 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     implementation(libs.timber)
+    implementation(libs.zxing.android.embedded)
 
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

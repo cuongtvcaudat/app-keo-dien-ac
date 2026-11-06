@@ -32,6 +32,7 @@ import vn.cnldg.oncam.node.core.NodeConfig
 import vn.cnldg.oncam.node.core.NodeState
 import vn.cnldg.oncam.node.core.SelfTestFailure
 import vn.cnldg.oncam.node.core.SelfTestResult
+import vn.cnldg.oncam.node.core.pairingCode
 import vn.cnldg.oncam.node.system.BatteryOptimization
 import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
 import vn.cnldg.oncam.shared.protocol.NetworkType
@@ -63,6 +64,7 @@ fun StatusScreen(
         batteryIgnored = BatteryOptimization.isIgnoring(context)
         onPauseOrDispose { }
     }
+    var showQr by remember { mutableStateOf(false) }
     var nowSec by remember { mutableLongStateOf(System.currentTimeMillis() / 1000) }
     LaunchedEffect(running) {
         while (running) {
@@ -120,6 +122,13 @@ fun StatusScreen(
             )
 
             SectionCard(title = stringResource(R.string.status_section_viewer)) {
+                val code = config.pairingCode(state.brokerUri)
+                Button(onClick = { showQr = true }, enabled = code != null) { Text(stringResource(R.string.status_show_qr)) }
+                if (code == null) {
+                    Text(stringResource(R.string.status_qr_wait), style = MaterialTheme.typography.bodySmall)
+                } else if (showQr) {
+                    PairingQrDialog(code = code, onDismiss = { showQr = false })
+                }
                 Text(stringResource(R.string.status_viewer_hint), style = MaterialTheme.typography.bodySmall)
                 InfoRow(stringResource(R.string.status_broker_address), state.brokerUri ?: stringResource(R.string.value_none))
                 InfoRow(stringResource(R.string.status_device_id_label), config.deviceId)

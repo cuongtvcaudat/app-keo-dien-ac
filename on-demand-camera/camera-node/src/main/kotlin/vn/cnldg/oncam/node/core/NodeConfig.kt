@@ -1,6 +1,7 @@
 package vn.cnldg.oncam.node.core
 
 import vn.cnldg.oncam.shared.OnCam
+import vn.cnldg.oncam.shared.client.BrokerAddress
 import vn.cnldg.oncam.shared.protocol.DeviceIds
 import vn.cnldg.oncam.shared.security.SharedSecret
 
@@ -38,11 +39,7 @@ data class NodeConfig(
         if (displayName.isBlank()) add(ConfigProblem.EMPTY_DISPLAY_NAME)
         if (!SharedSecret.isAcceptable(secret)) add(ConfigProblem.WEAK_SECRET)
         if (brokerMode == BrokerMode.EMBEDDED && brokerPort !in 1024..65535) add(ConfigProblem.INVALID_PORT)
-        if (brokerMode == BrokerMode.EXTERNAL &&
-            !(externalUri.startsWith("tcp://") || externalUri.startsWith("ssl://"))
-        ) {
-            add(ConfigProblem.INVALID_EXTERNAL_URI)
-        }
+        if (brokerMode == BrokerMode.EXTERNAL && !BrokerAddress.isValid(externalUri)) add(ConfigProblem.INVALID_EXTERNAL_URI)
     }
 
     /** Không in token/mật khẩu ra log. */

@@ -90,6 +90,7 @@
     <string name="code_no_frame">Camera chưa có hình, thử lại sau 1–2 giây.</string>
     <string name="code_address_changed">IP Tailscale của máy camera vừa đổi nên camera đã tắt; bật lại để xem tiếp.</string>
     <string name="code_bad_signature">Sai token bí mật.</string>
+    <string name="clock_skew">Đồng hồ máy %1$s lệch %2$d giây so với máy này: camera sẽ từ chối lệnh. Bật \"Ngày và giờ tự động\" trên cả 2 máy.</string>
     <string name="code_expired">Lệnh bị từ chối vì đồng hồ 2 máy lệch quá 1 phút. Bật giờ tự động trên cả 2 máy.</string>
     <string name="code_unsupported">Máy camera chưa hỗ trợ lệnh này (cần cập nhật app OnCam Quay).</string>
     <string name="code_camera_error">Camera báo lỗi: %1$s</string>
@@ -107,9 +108,15 @@
     <!-- Thêm camera -->
     <string name="add_title">Thêm camera</string>
     <string name="edit_title">Sửa camera</string>
-    <string name="add_intro">Lấy 3 thông tin ở mục “Nhập vào app OnCam Xem” trên máy camera. Dùng nút Sao chép bên đó, rồi Dán ở đây.</string>
+    <string name="add_intro">Cách nhanh nhất: trên máy camera bấm “Hiện mã QR”, rồi bấm nút Quét bên dưới.</string>
+    <string name="action_scan_qr">Quét mã QR trên máy camera</string>
+    <string name="scan_prompt">Đưa mã QR trên máy camera vào giữa khung</string>
+    <string name="scan_ok">Đã đọc mã QR của “%1$s”. Kiểm tra rồi bấm Lưu.</string>
+    <string name="scan_invalid">Không phải mã QR của OnCam. Trên máy camera bấm “Hiện mã QR” rồi quét lại.</string>
+    <string name="add_manual">Hoặc nhập tay (lấy ở mục “Nhập vào app OnCam Xem” trên máy camera)</string>
     <string name="field_broker_uri">Địa chỉ broker</string>
-    <string name="field_broker_uri_placeholder">tcp://100.x.y.z:1883</string>
+    <string name="field_broker_uri_placeholder">100.x.y.z</string>
+    <string name="field_broker_uri_hint">Chỉ cần gõ IP Tailscale của máy camera; app tự thêm tcp:// và cổng 1883.</string>
     <string name="field_device_id">Mã camera</string>
     <string name="field_device_id_placeholder">san-nha</string>
     <string name="field_secret">Token bí mật</string>
@@ -119,7 +126,7 @@
     <string name="field_broker_user">Tên đăng nhập broker</string>
     <string name="field_broker_pass">Mật khẩu broker</string>
     <string name="problem_device_id">Mã camera không hợp lệ: chỉ dùng a-z, 0-9, - và _, tối đa 32 ký tự.</string>
-    <string name="problem_broker_uri">Địa chỉ broker phải dạng tcp://100.x.y.z:1883 (hoặc ssl://...).</string>
+    <string name="problem_broker_uri">Địa chỉ broker chưa đúng: gõ IP Tailscale của máy camera, vd. 100.101.102.103 (đủ 4 số, mỗi số 0–255).</string>
     <string name="problem_secret">Token phải dài ít nhất 16 ký tự.</string>
 
     <!-- Cài đặt -->

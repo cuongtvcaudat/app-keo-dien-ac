@@ -36,6 +36,7 @@ import vn.cnldg.oncam.node.core.ConfigProblem
 import vn.cnldg.oncam.node.core.MountOrientation
 import vn.cnldg.oncam.node.core.NodeConfig
 import vn.cnldg.oncam.shared.OnCam
+import vn.cnldg.oncam.shared.client.BrokerAddress
 
 /**
  * Màn hình cấu hình ban đầu (spec mục 7.1): tên, mã camera, token bí mật, nơi đặt broker.
@@ -193,6 +194,7 @@ fun SetupScreen(
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {
+                if (mode == BrokerMode.EXTERNAL) externalUri = BrokerAddress.normalize(externalUri)
                 val config = NodeConfig(
                     deviceId = deviceId,
                     displayName = displayName.trim(),

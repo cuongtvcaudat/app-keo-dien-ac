@@ -37,6 +37,7 @@ import vn.cnldg.oncam.shared.protocol.Topics
 import vn.cnldg.oncam.shared.security.BrokerCredentials
 import vn.cnldg.oncam.shared.security.CommandCheck
 import vn.cnldg.oncam.shared.security.CommandVerifier
+import vn.cnldg.oncam.shared.security.EpochClock
 
 /**
  * CameraClient với broker thật (Moquette, có mật khẩu như broker nhúng) và một "camera giả" tối giản
@@ -141,11 +142,51 @@ class CameraClientTest {
         assertEquals(EventType.IDLE_TIMEOUT, event.event)
     }
 
+    @Test
+    fun `dong bo gio khi 2 may cung gio`() = runBlocking<Unit> {
+        startFakeNode()
+        val client = client(endpoint)
+        withTimeout(TIMEOUT_MS) { client.view.first { it.online } }
+
+        val sync = client.syncClock()!!
+
+        assertTrue(kotlin.math.abs(sync.offsetMs) <= sync.roundTripMs / 2 + 5, "lệch đo được: $sync")
+        assertEquals(sync, client.clockSync.value)
+    }
+
+    @Test
+    fun `do duoc gio camera nhanh 5 phut du lenh bi tu choi het han`() = runBlocking<Unit> {
+        val ahead = 5 * 60_000L
+        startFakeNode(cameraOffsetMs = ahead)
+        val client = client(endpoint)
+        withTimeout(TIMEOUT_MS) { client.view.first { it.online } }
+
+        assertEquals(CommandResult.Rejected(RejectReason.EXPIRED.name), client.send(Action.PING))
+        val sync = client.syncClock()!!
+
+        assertTrue(kotlin.math.abs(sync.offsetMs - ahead) <= sync.roundTripMs / 2 + 5, "lệch đo được: $sync")
+    }
+
+    @Test
+    fun `camera ban cu khong gui gio ms thi khong do duoc`() = runBlocking<Unit> {
+        startFakeNode(sendMs = false)
+        val client = client(endpoint)
+        withTimeout(TIMEOUT_MS) { client.view.first { it.online } }
+
+        assertNull(client.syncClock())
+        assertNull(client.clockSync.value)
+    }
+
     // --- camera giả + tiện ích ---
 
-    /** Camera giả: publish trạng thái online, kiểm chữ ký lệnh, trả COMMAND_RESULT. */
-    private suspend fun startFakeNode() {
-        val verifier = CommandVerifier(SECRET, DEVICE)
+    /**
+     * Camera giả: publish trạng thái online, kiểm chữ ký lệnh, trả COMMAND_RESULT.
+     * @param cameraOffsetMs đồng hồ camera nhanh hơn máy chạy test bao nhiêu ms.
+     * @param sendMs false = giả lập camera bản cũ (không gửi timestampMs).
+     */
+    private suspend fun startFakeNode(cameraOffsetMs: Long = 0, sendMs: Boolean = true) {
+        val cameraNowMs = { System.currentTimeMillis() + cameraOffsetMs }
+        val verifier = CommandVerifier(SECRET, DEVICE, EpochClock { cameraNowMs() / 1000 })
         val wrapper = MqttClientWrapper(
             MqttConfig(
                 serverUri = "tcp://127.0.0.1:$port",
@@ -188,7 +229,8 @@ class CameraClientTest {
                         else -> DeviceEvent(EventType.COMMAND_RESULT, "UNSUPPORTED", 1, cmd.id, false)
                     }
                 }
-                wrapper.publish(OutgoingMessage(Topics.event(DEVICE), ProtocolJson.encodeEvent(result), 0, false))
+                val stamped = if (sendMs) result.copy(timestampMs = cameraNowMs()) else result
+                wrapper.publish(OutgoingMessage(Topics.event(DEVICE), ProtocolJson.encodeEvent(stamped), 0, false))
             }
         }
         wrapper.subscribe(Topics.command(DEVICE), 1)

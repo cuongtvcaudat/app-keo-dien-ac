@@ -25,7 +25,7 @@
 
 | Module | Loại | Trách nhiệm |
 |---|---|---|
-| `shared` | Kotlin/JVM thuần | Data class lệnh/trạng thái/sự kiện (`protocol/`), ký/kiểm HMAC (`security/`), wrapper MQTT Paho mqttv3 (`mqtt/`), **client giao thức cho viewer** (`client/CameraClient`). Không phụ thuộc Android → unit test chạy trên JVM, có test tích hợp với broker thật (Moquette) |
+| `shared` | Kotlin/JVM thuần | Data class lệnh/trạng thái/sự kiện (`protocol/`), ký/kiểm HMAC (`security/`), wrapper MQTT Paho mqttv3 (`mqtt/`), **client giao thức cho viewer** (`client/CameraClient`, đồng bộ giờ `syncClock`), đọc MJPEG (`client/MjpegReader`), mã QR ghép đôi (`client/PairingCode`), chuẩn hoá địa chỉ broker (`client/BrokerAddress`). Không phụ thuộc Android → unit test chạy trên JVM, có test tích hợp với broker thật (Moquette) |
 | `camera-node` | Android app | Foreground Service, broker MQTT nhúng (Moquette), xử lý lệnh, đọc pin/nhiệt, CameraX + MJPEG (NanoHTTPD). Phần lõi `core/`, `mqtt/`, `broker/`, `camera/FrameHub`, `camera/MjpegStreamer` không dùng API Android → test trên JVM |
 | `viewer` | Android app | Danh sách camera (lưu mã hoá), kết nối khi app hiển thị, gửi lệnh, hiển thị trạng thái, lưu snapshot vào MediaStore, xem trực tiếp toàn màn hình (`stream/StreamClient`, `stream/MjpegView`, `ui/LiveViewScreen`) |
 
@@ -86,22 +86,30 @@ STOP / idle / quá nhiệt / lỗi camera ──► đóng HTTP server + gỡ Ca
 | D20 | Nút **Bật camera thử** trên máy camera gửi lệnh START_STREAM đã ký qua broker (đi đúng đường của app Xem) và có xem thử ngay trên máy | Test được Phase 3 khi chưa có app Xem |
 | D21 | `CameraClient` (phía viewer của giao thức) đặt trong module `shared` | Test đầu-cuối được viewer ↔ camera-node thật trên JVM (5 kịch bản theo tiêu chí nghiệm thu) |
 | D22 | App Xem chỉ kết nối MQTT khi đang hiển thị; rời app → tắt camera do chính app bật (cài đặt, mặc định bật) rồi ngắt; keepalive 10 s | Spec mục 7.3; tiết kiệm pin máy Xem; phát hiện offline ≤ ~20 s |
-| D23 | Khoá ký **debug** dùng chung commit trong `keystore/` (mật khẩu mặc định công khai "android") | APK debug từ các lần CI khác nhau cài đè được, không mất cấu hình. Không phải bí mật; bản release dùng khoá riêng (Phase 6) |
+| D23 | Khoá ký dùng chung commit trong `keystore/` (mật khẩu mặc định công khai "android") | APK từ các lần CI khác nhau cài đè được, không mất cấu hình. Không phải bí mật. Từ Phase 6 dùng cho cả bản release (D30) |
 | D24 | App Xem bật `cleartextTrafficPermitted` (network_security_config) | Android không cho khai báo theo dải IP 100.64.0.0/10; đường truyền đã được Tailscale mã hoá và request video/ảnh bắt buộc header HMAC |
 | D25 | Mỗi phần MJPEG có header `X-OnCam-Timestamp` (giờ chụp) | App Xem hiện **độ trễ thực tế** để kiểm tiêu chí < 2 s (2 máy cần bật giờ tự động) |
 | D26 | Bộ đọc MJPEG (`client/MjpegReader`) đặt trong `shared` | Test đầu-cuối được với MJPEG server thật của camera-node: đo FPS, độ trễ, số người xem |
 | D27 | App Xem giải mã RGB_565 và tái sử dụng 3 bitmap luân phiên | 720p: ~1,8 MB/khung thay vì tạo mới 3,7 MB/khung (~55 MB rác/giây ở 15 hình/giây) → máy xem đỡ giật |
 | D28 | Chưa có âm thanh (spec cho phép để phase sau) | MJPEG không mang âm thanh; làm cùng WebRTC (Phase 7) |
 | D12 | Thêm sự kiện `COMMAND_RESULT` (kèm `commandId`, `success`) và các trường trạng thái `displayName`, `flashOn`, `quality`, `charging`, `network`, `protocolVersion` | Cần để trả lời PING, báo lỗi lệnh, hiển thị đúng nút flash/chất lượng và tình trạng mạng (mục 2.1.4 spec). Đều có giá trị mặc định nên tương thích ngược |
+| D29 | **Mã QR ghép đôi** `oncam://pair?v=1&d=<mã>&b=<broker>&t=<token>&n=<tên>[&u=&p=]` (`client/PairingCode`). Máy camera vẽ QR bằng zxing core 3.5.3; app Xem quét bằng zxing-android-embedded 4.3.0 | Không phải gõ/gửi token 43 ký tự qua tin nhắn. QR chứa token nên chỉ hiện khi bấm, tự ẩn sau 120 s và ẩn ngay khi app bị ẩn. Broker nhúng không đưa mật khẩu broker vào QR (suy từ token); broker riêng thì kèm. zxing-android-embedded chạy offline, không cần Google Play Services; tự xin quyền CAMERA lúc quét (app Xem khai báo `camera` `required=false`) |
+| D30 | **Bản release ký bằng khoá dùng chung** (phương án B, chủ dự án chọn) | Cài đè lên bản debug đã cài, không mất cấu hình; không phải giữ khoá bí mật. Đánh đổi: ai có repo cũng ký được APK cùng chữ ký → chỉ cài từ Release `oncam-latest`; CI kiểm vân tay chứng chỉ trước khi đăng |
+| D31 | **Chưa bật R8** (thu gọn/làm rối mã) cho release | Moquette/Netty nạp lớp bằng reflection; thu gọn sai chỉ lỗi lúc chạy trên máy thật, test JVM không phát hiện. APK vì thế không nhỏ hơn bản debug. Bật khi có bộ test chạy trên chính APK release |
+| D32 | **Đồng bộ giờ qua PING**: mọi `COMMAND_RESULT` kèm `timestampMs` (giờ máy camera); `CameraClient.syncClock()` gửi 3 PING, lấy lần khứ hồi nhanh nhất, lệch = giờ camera − (t gửi + t nhận)/2 (cách của NTP). Độ trễ = giờ nhận − giờ chụp + lệch; âm ≤ 300 ms coi là 0 | Phase 5 thực tế: 2 máy lệch giờ vài trăm ms → độ trễ ra số âm và bị ẩn. Đo được cả khi lệch > 60 s (PING bị từ chối EXPIRED vẫn kèm giờ) → app Xem báo người dùng bật giờ tự động. Trường mới có giá trị mặc định → tương thích ngược |
+| D33 | Ô địa chỉ broker chỉ cần IP (`client/BrokerAddress`): tự thêm `tcp://` và `:1883`; kiểm IPv4 đủ 4 số 0–255 hoặc tên miền, cổng 1–65535 | Thực tế người dùng gõ nhầm `1883` vào ô địa chỉ |
+| D34 | Hướng dẫn chống tắt app chọn theo `Build.MANUFACTURER`: Samsung (One UI), Oppo/Realme/OnePlus (ColorOS), hãng khác | Máy camera đổi từ Oppo sang Samsung A54; tên mục cài đặt mỗi hãng khác nhau |
+| D35 | CI đăng **GitHub Release `oncam-latest`** (xoá và tạo lại mỗi lần push, chỉ khi build + test emulator đạt): `OnCam-Quay.apk`, `OnCam-Xem.apk`, `SHA256SUMS.txt`. Trước khi đăng: kiểm chữ ký, không debuggable, đúng mã ứng dụng/phiên bản (`ci/check-apk.sh`), mở thử 2 APK release trên emulator (`ci/smoke-release.sh`) | Link tải cố định, tải thẳng `.apk` trên điện thoại (artifact của Actions là file zip, cần đăng nhập GitHub) |
 
 ## 6. Ràng buộc Android cần nhớ
 
-- **Quyền camera là quyền "khi đang dùng" (while-in-use).** Service type `camera` phải được khởi động lúc app đang hiển thị (người dùng mở app). Nếu service bị kill rồi tự khởi động lại từ nền (`START_STICKY`, boot), service chỉ nghe lệnh được; mở camera sẽ bị chặn → node báo `cameraState: ERROR` + thông điệp "cần mở app trên máy camera". Phương án khắc phục sẽ chốt ở Phase 3.
+- **Quyền camera là quyền "khi đang dùng" (while-in-use).** Service type `camera` phải được khởi động lúc app đang hiển thị (người dùng mở app). Nếu service bị kill rồi tự khởi động lại từ nền (`START_STICKY`, boot), service chỉ nghe lệnh được; mở camera sẽ bị chặn → trạng thái gửi `cameraReady: false`, màn hình máy camera hiện *Mở camera từ xa: Chưa*. Cách xử lý (D14): mở app trên máy camera một lần. Không có cách hợp lệ nào vượt qua giới hạn này.
 - Android 15 chặn khởi động foreground service type `camera` từ `BOOT_COMPLETED`.
 - Nhiệt độ đọc được từ `BatteryManager` là **nhiệt độ pin** (đơn vị 0,1°C), không phải CPU. Từ Android 10 có thêm `PowerManager.getCurrentThermalStatus()`.
 - Từ Android 9, `HttpURLConnection`/OkHttp **chặn HTTP không mã hoá (cleartext)** mặc định (đã gặp trong test emulator). App **viewer** tải `http://100.x.y.z:8080` nên phải có `network_security_config` cho phép cleartext — chấp nhận được vì đường truyền đã được Tailscale (WireGuard) mã hoá. App camera-node chỉ làm server nên không cần.
 - Camera trước thường không có đèn flash → `SET_FLASH` khi đang dùng camera trước trả lỗi.
-- Máy Xiaomi/Oppo/Samsung có cơ chế diệt app riêng → cần tắt tối ưu pin + cho phép tự khởi chạy (màn hình hướng dẫn trong app).
+- Máy Xiaomi/Oppo/Samsung có cơ chế diệt app riêng → cần tắt tối ưu pin + cho phép tự khởi chạy (màn hình hướng dẫn trong app, theo hãng — D34).
+- `URLEncoder.encode(String, Charset)` chỉ có từ Android 13 (API 33) → mã dùng bản nhận tên bảng mã `"UTF-8"` để chạy được từ Android 8.
 
 ## 7. Đề xuất chờ duyệt
 

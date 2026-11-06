@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlin.math.abs
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -11,10 +13,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import vn.cnldg.oncam.shared.OnCam
 import vn.cnldg.oncam.shared.client.CommandResult
+import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
 import vn.cnldg.oncam.shared.protocol.Action
 import vn.cnldg.oncam.shared.protocol.CameraFacing
 import vn.cnldg.oncam.shared.protocol.CameraState
@@ -45,6 +51,9 @@ sealed interface UiMessage {
 
     /** Không tải/lưu được ảnh. */
     data object SnapshotFailed : UiMessage
+
+    /** Đồng hồ máy camera lệch quá giới hạn cho phép ([seconds] giây, dương = camera chạy nhanh). */
+    data class ClockSkew(val cameraName: String, val seconds: Long) : UiMessage
 }
 
 /**
@@ -82,6 +91,8 @@ class ViewerViewModel @Inject constructor(
 
     /** Luồng xem trực tiếp. */
     val streamState: StateFlow<StreamState> = stream.state
+
+    private var clockJob: Job? = null
 
     private val _liveDeviceId = MutableStateFlow<String?>(null)
 
@@ -169,12 +180,16 @@ class ViewerViewModel @Inject constructor(
 
     /** Rời màn hình xem trực tiếp. Camera tự tắt sau thời gian chờ nếu không còn ai xem. */
     fun closeLive() {
+        clockJob?.cancel()
         stream.stop()
         _liveDeviceId.value = null
     }
 
     /** App bị ẩn: ngắt luồng video (đỡ tốn dữ liệu), giữ nguyên màn hình đang xem. */
-    fun pauseLive() = stream.stop()
+    fun pauseLive() {
+        clockJob?.cancel()
+        stream.stop()
+    }
 
     /** App hiện lại: nối lại luồng nếu đang ở màn hình xem (không tự bật lại camera). */
     fun resumeLive() {
@@ -196,11 +211,31 @@ class ViewerViewModel @Inject constructor(
     }
 
     private fun playLive(deviceId: String) {
+        syncClock(deviceId)
         stream.play {
             val client = sender.client(deviceId) ?: return@play null
             val status = client.view.value.status ?: return@play null
             if (status.cameraState != CameraState.STREAMING) return@play null
-            status.streamUrl?.let { StreamSource(it, client.streamAuthHeader()) }
+            status.streamUrl?.let { url -> StreamSource(url, client.streamAuthHeader()) { client.clockSync.value?.offsetMs } }
+        }
+    }
+
+    /**
+     * Đo độ lệch đồng hồ 2 máy (3 lần PING) để tính đúng độ trễ hình; báo người dùng nếu lệch quá 60 giây
+     * (khi đó camera từ chối mọi lệnh và luồng hình).
+     */
+    private fun syncClock(deviceId: String) {
+        clockJob?.cancel()
+        clockJob = viewModelScope.launch {
+            val client = withTimeoutOrNull(CLOCK_WAIT_MS) {
+                sender.awaitClient(deviceId).also { c -> c.view.first { it.connection == MqttConnectionState.Connected } }
+            } ?: return@launch
+            val sync = client.syncClock() ?: return@launch
+            val seconds = sync.offsetMs / 1000
+            if (abs(seconds) > OnCam.MAX_CLOCK_SKEW_SEC) {
+                val name = cameras.value?.firstOrNull { it.saved.deviceId == deviceId }?.let(::displayName) ?: deviceId
+                _messages.emit(UiMessage.ClockSkew(name, seconds))
+            }
         }
     }
 
@@ -252,5 +287,6 @@ class ViewerViewModel @Inject constructor(
 
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L
+        const val CLOCK_WAIT_MS = 30_000L
     }
 }

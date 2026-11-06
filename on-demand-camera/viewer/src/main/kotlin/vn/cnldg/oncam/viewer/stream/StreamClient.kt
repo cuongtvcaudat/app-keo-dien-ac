@@ -14,11 +14,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import vn.cnldg.oncam.shared.LogSink
+import vn.cnldg.oncam.shared.client.FrameLatency
 import vn.cnldg.oncam.shared.client.HttpStatusException
 import vn.cnldg.oncam.shared.client.MjpegReader
 
-/** Địa chỉ luồng + header xác thực (tạo mới mỗi lần kết nối vì header chỉ dùng được 60 giây). */
-data class StreamSource(val url: String, val authHeader: String)
+/**
+ * Địa chỉ luồng + header xác thực (tạo mới mỗi lần kết nối vì header chỉ dùng được 60 giây).
+ * @property clockOffsetMs giờ camera − giờ máy xem (ms), đọc lại mỗi khung vì phép đo giờ có thể xong sau khi
+ *   đã kết nối luồng; null = chưa đo (coi như 2 máy cùng giờ).
+ */
+class StreamSource(val url: String, val authHeader: String, val clockOffsetMs: () -> Long? = { null })
 
 /** Giai đoạn của luồng xem trực tiếp. */
 enum class StreamPhase { IDLE, WAITING, CONNECTING, PLAYING, RECONNECTING }
@@ -26,7 +31,7 @@ enum class StreamPhase { IDLE, WAITING, CONNECTING, PLAYING, RECONNECTING }
 /**
  * Trạng thái hiển thị.
  * @property frameSeq tăng mỗi khung mới (bitmap được tái sử dụng nên cần số thứ tự để giao diện vẽ lại).
- * @property latencyMs độ trễ ước lượng = giờ máy xem − giờ chụp trên máy camera (2 máy cần bật giờ tự động).
+ * @property latencyMs độ trễ ước lượng = giờ máy xem − giờ chụp trên máy camera, đã trừ độ lệch đồng hồ 2 máy.
  */
 data class StreamState(
     val phase: StreamPhase = StreamPhase.IDLE,
@@ -98,7 +103,7 @@ class StreamClient(
                                 jpeg = f.jpeg,
                                 frameSeq = ++seq,
                                 fps = arrivals.size,
-                                latencyMs = f.capturedAtMs?.let { (now - it).takeIf { d -> d in 0..MAX_PLAUSIBLE_LATENCY_MS } },
+                                latencyMs = f.capturedAtMs?.let { FrameLatency.of(now, it, src.clockOffsetMs()) },
                             )
                         }
                     }
@@ -155,6 +160,5 @@ class StreamClient(
         const val WAIT_POLL_MS = 300L
         const val RETRY_MS = 1_000L
         const val FPS_WINDOW_MS = 1_000L
-        const val MAX_PLAUSIBLE_LATENCY_MS = 60_000L
     }
 }

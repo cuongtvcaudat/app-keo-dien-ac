@@ -19,7 +19,7 @@ class CommandHandlerTest {
     private val clock = EpochClock { 1_700_000_000L }
     private val signer = CommandSigner(secret, clock)
     private val performed = mutableListOf<Action>()
-    private val handler = CommandHandler(CommandVerifier(secret, "san-nha", clock), clock) { cmd ->
+    private val handler = CommandHandler(CommandVerifier(secret, "san-nha", clock), clock, nowMs = { 1_700_000_000_123L }) { cmd ->
         performed += cmd.action
         if (cmd.action == Action.SNAPSHOT) ActionOutcome.Failed("camera đang tắt") else ActionOutcome.Done("ok")
     }
@@ -36,6 +36,19 @@ class CommandHandlerTest {
         assertEquals(CommandHandler.PONG, handled.event.message)
         assertEquals(handled.command?.id, handled.event.commandId)
         assertEquals(emptyList(), performed)
+    }
+
+    @Test
+    fun `moi ket qua kem gio ms de viewer do lech gio ke ca khi tu choi`() = runBlocking<Unit> {
+        val pong = handler.handle(json(Action.PING))
+        val malformed = handler.handle("{rác")
+        val expired = CommandHandler(CommandVerifier(secret, "san-nha", EpochClock { 1_700_000_000L + 3_600 }), nowMs = { 42L })
+            .handle(json(Action.PING))
+
+        assertEquals(1_700_000_000_123L, pong.event.timestampMs)
+        assertEquals(1_700_000_000_123L, malformed.event.timestampMs)
+        assertEquals(RejectReason.EXPIRED.name, expired.event.message)
+        assertEquals(42L, expired.event.timestampMs)
     }
 
     @Test

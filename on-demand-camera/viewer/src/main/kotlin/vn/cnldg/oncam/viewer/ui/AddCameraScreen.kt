@@ -2,6 +2,7 @@ package vn.cnldg.oncam.viewer.ui
 
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,13 +28,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import vn.cnldg.oncam.shared.client.BrokerAddress
+import vn.cnldg.oncam.shared.client.PairingCode
 import vn.cnldg.oncam.viewer.R
 import vn.cnldg.oncam.viewer.data.SavedCamera
 import vn.cnldg.oncam.viewer.data.SavedCameraProblem
+import vn.cnldg.oncam.viewer.data.toSavedCamera
 
 /**
- * Thêm/sửa camera: nhập 3 thông tin hiện ở mục "Nhập vào app OnCam Xem" trên máy camera
- * (địa chỉ broker, mã camera, token bí mật). Có nút Dán để khỏi gõ token 43 ký tự.
+ * Thêm/sửa camera: quét mã QR trên máy camera, hoặc nhập 3 thông tin ở mục "Nhập vào app OnCam Xem"
+ * (địa chỉ broker — chỉ cần IP, mã camera, token bí mật). Có nút Dán để khỏi gõ token 43 ký tự.
  */
 @Composable
 fun AddCameraScreen(
@@ -51,6 +57,25 @@ fun AddCameraScreen(
     var brokerUser by rememberSaveable { mutableStateOf(initial?.brokerUsername.orEmpty()) }
     var brokerPass by rememberSaveable { mutableStateOf(initial?.brokerPassword.orEmpty()) }
     var problems by remember { mutableStateOf(emptyList<SavedCameraProblem>()) }
+    // null = chưa quét; "" = mã không hợp lệ; còn lại = tên camera vừa đọc được.
+    var scanned by remember { mutableStateOf<String?>(null) }
+    val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
+        val text = result.contents ?: return@rememberLauncherForActivityResult
+        val info = PairingCode.decode(text)
+        if (info == null) {
+            scanned = ""
+            return@rememberLauncherForActivityResult
+        }
+        val camera = info.toSavedCamera()
+        brokerUri = camera.brokerUri
+        deviceId = camera.deviceId
+        secret = camera.secret
+        externalBroker = camera.brokerUsername.isNotBlank()
+        brokerUser = camera.brokerUsername
+        brokerPass = camera.brokerPassword
+        problems = emptyList()
+        scanned = info.displayName ?: info.deviceId
+    }
 
     Column(
         modifier = modifier
@@ -65,11 +90,33 @@ fun AddCameraScreen(
         )
         Text(stringResource(R.string.add_intro), style = MaterialTheme.typography.bodyMedium)
 
+        Button(
+            onClick = {
+                scanner.launch(
+                    ScanOptions()
+                        .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                        .setPrompt(context.getString(R.string.scan_prompt))
+                        .setBeepEnabled(false)
+                        .setOrientationLocked(false),
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.action_scan_qr)) }
+        scanned?.let { name ->
+            Text(
+                if (name.isEmpty()) stringResource(R.string.scan_invalid) else stringResource(R.string.scan_ok, name),
+                color = if (name.isEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        Text(stringResource(R.string.add_manual), style = MaterialTheme.typography.titleSmall)
+
         PasteField(
             value = brokerUri,
             onValueChange = { brokerUri = it.trim() },
             label = stringResource(R.string.field_broker_uri),
             placeholder = stringResource(R.string.field_broker_uri_placeholder),
+            supporting = stringResource(R.string.field_broker_uri_hint),
             isError = SavedCameraProblem.INVALID_BROKER_URI in problems,
             onPaste = { pasteText(context)?.let { brokerUri = it.trim() } },
         )
@@ -126,6 +173,7 @@ fun AddCameraScreen(
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {
+                brokerUri = BrokerAddress.normalize(brokerUri)
                 val camera = SavedCamera(
                     deviceId = deviceId,
                     brokerUri = brokerUri,
@@ -150,6 +198,7 @@ private fun PasteField(
     placeholder: String?,
     isError: Boolean,
     onPaste: () -> Unit,
+    supporting: String? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         OutlinedTextField(
@@ -158,6 +207,11 @@ private fun PasteField(
             label = { Text(label) },
             placeholder = if (placeholder != null) {
                 { Text(placeholder) }
+            } else {
+                null
+            },
+            supportingText = if (supporting != null) {
+                { Text(supporting) }
             } else {
                 null
             },

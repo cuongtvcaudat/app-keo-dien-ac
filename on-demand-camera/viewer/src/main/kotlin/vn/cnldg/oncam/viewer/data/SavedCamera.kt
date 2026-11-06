@@ -1,7 +1,9 @@
 package vn.cnldg.oncam.viewer.data
 
 import kotlinx.serialization.Serializable
+import vn.cnldg.oncam.shared.client.BrokerAddress
 import vn.cnldg.oncam.shared.client.CameraEndpoint
+import vn.cnldg.oncam.shared.client.PairingCode
 import vn.cnldg.oncam.shared.protocol.DeviceIds
 import vn.cnldg.oncam.shared.security.SharedSecret
 
@@ -33,7 +35,7 @@ data class SavedCamera(
     /** Lỗi nhập liệu; rỗng nghĩa là hợp lệ. */
     fun problems(): List<SavedCameraProblem> = buildList {
         if (!DeviceIds.isValid(deviceId)) add(SavedCameraProblem.INVALID_DEVICE_ID)
-        if (!BROKER_URI.matches(brokerUri)) add(SavedCameraProblem.INVALID_BROKER_URI)
+        if (!BrokerAddress.isValid(brokerUri)) add(SavedCameraProblem.INVALID_BROKER_URI)
         if (!SharedSecret.isAcceptable(secret)) add(SavedCameraProblem.WEAK_SECRET)
     }
 
@@ -41,8 +43,14 @@ data class SavedCamera(
     override fun toString(): String = "SavedCamera(deviceId=$deviceId, brokerUri=$brokerUri, secret=***)"
 }
 
-// Đặt ngoài class: companion object của lớp @Serializable chứa hàm serializer() nên không được để private.
-private val BROKER_URI = Regex("^(tcp|ssl)://[A-Za-z0-9.\\-]+:\\d{2,5}$")
+/** Camera từ mã QR ghép đôi. Để trống tên tự đặt: app hiện tên máy camera gửi về (đổi bên đó thì bên này đổi theo). */
+fun PairingCode.Info.toSavedCamera() = SavedCamera(
+    deviceId = deviceId,
+    brokerUri = brokerUri,
+    secret = secret,
+    brokerUsername = brokerUsername.orEmpty(),
+    brokerPassword = brokerPassword.orEmpty(),
+)
 
 /** Lỗi nhập liệu khi thêm camera. */
 enum class SavedCameraProblem { INVALID_DEVICE_ID, INVALID_BROKER_URI, WEAK_SECRET }

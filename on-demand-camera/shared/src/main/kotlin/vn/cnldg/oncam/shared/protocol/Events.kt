@@ -35,6 +35,7 @@ enum class RejectReason {
  * @property timestamp giây kể từ 1970-01-01 UTC.
  * @property commandId id lệnh liên quan (chỉ với COMMAND_RESULT).
  * @property success lệnh thành công hay không (chỉ với COMMAND_RESULT).
+ * @property timestampMs giờ máy camera tính bằng mili-giây (để viewer đo độ lệch đồng hồ 2 máy).
  */
 @Serializable
 data class DeviceEvent(
@@ -43,4 +44,5 @@ data class DeviceEvent(
     val timestamp: Long,
     val commandId: String? = null,
     val success: Boolean? = null,
+    val timestampMs: Long? = null,
 )

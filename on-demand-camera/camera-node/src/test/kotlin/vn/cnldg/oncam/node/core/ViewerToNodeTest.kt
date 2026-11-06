@@ -94,6 +94,15 @@ class ViewerToNodeTest {
     }
 
     @Test
+    fun `dong bo gio voi camera that cung may thi lech gan 0`() = runBlocking<Unit> {
+        connect()
+
+        val sync = viewer.syncClock()!!
+
+        assertTrue(kotlin.math.abs(sync.offsetMs) <= sync.roundTripMs / 2 + 5, "lệch đo được: $sync")
+    }
+
+    @Test
     fun `bat camera xem snapshot doi camera flash chat luong roi tat`() = runBlocking<Unit> {
         connect()
 

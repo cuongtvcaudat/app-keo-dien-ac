@@ -36,6 +36,10 @@ securityCrypto = "1.0.0"
 hiltNavigationCompose = "1.2.0"
 # Broker MQTT nhúng (đề xuất P1) — cũng dùng trong test của module shared.
 moquette = "0.17"
+# Mã QR ghép đôi (Phase 6): camera-node chỉ cần vẽ QR (zxing core thuần Java),
+# viewer quét bằng zxing-android-embedded (chạy offline, không cần Google Play Services).
+zxingCore = "3.5.3"
+zxingAndroidEmbedded = "4.3.0"
 
 # Test
 junit = "4.13.2"
@@ -77,6 +81,8 @@ androidx-camera-core = { group = "androidx.camera", name = "camera-core", versio
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCore" }
+zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version.ref = "zxingAndroidEmbedded" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 

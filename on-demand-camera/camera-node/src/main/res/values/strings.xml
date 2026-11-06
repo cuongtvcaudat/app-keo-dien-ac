@@ -23,7 +23,7 @@
     <string name="setup_device_id">Mã camera</string>
     <string name="setup_device_id_hint">Chữ thường không dấu, số, dấu - hoặc _, tối đa 32 ký tự. Ví dụ: san-nha</string>
     <string name="setup_section_secret">Token bí mật</string>
-    <string name="setup_secret_hint">Nhập đúng token này ở app OnCam Xem. Ai có token mới điều khiển được camera. Chỉ gửi token qua kênh riêng tư.</string>
+    <string name="setup_secret_hint">Không cần chép token: sau khi lưu, bấm “Hiện mã QR” và quét bằng app OnCam Xem. Ai có token mới điều khiển được camera; tạo token mới thì phải quét QR lại trên máy xem.</string>
     <string name="setup_secret">Token bí mật</string>
     <string name="setup_secret_generate">Tạo token mới</string>
     <string name="setup_section_broker">MQTT broker</string>
@@ -33,7 +33,7 @@
     <string name="setup_broker_external_desc">Mosquitto trên máy khác hoặc broker cloud.</string>
     <string name="setup_port">Cổng broker</string>
     <string name="setup_external_uri">Địa chỉ broker</string>
-    <string name="setup_external_uri_placeholder">tcp://100.x.y.z:1883</string>
+    <string name="setup_external_uri_placeholder">100.x.y.z hoặc ssl://tên-miền:8883</string>
     <string name="setup_external_user">Tên đăng nhập</string>
     <string name="setup_external_pass">Mật khẩu</string>
     <string name="setup_auto_start">Tự chạy khi khởi động lại máy</string>
@@ -43,11 +43,11 @@
     <string name="problem_display_name">Chưa nhập tên hiển thị.</string>
     <string name="problem_secret">Token phải dài ít nhất 16 ký tự, không có khoảng trắng ở đầu/cuối.</string>
     <string name="problem_port">Cổng phải trong khoảng 1024–65535.</string>
-    <string name="problem_external_uri">Địa chỉ broker phải bắt đầu bằng tcp:// hoặc ssl://</string>
+    <string name="problem_external_uri">Địa chỉ broker chưa đúng: gõ IP (vd. 100.101.102.103), hoặc đầy đủ dạng tcp://IP:1883 / ssl://tên-miền:8883.</string>
 
     <!-- Màn hình trạng thái -->
     <string name="status_device_id">Mã camera: %1$s</string>
-    <string name="status_battery_warning">Ứng dụng chưa được bỏ tối ưu pin. ColorOS có thể tắt camera node bất cứ lúc nào.</string>
+    <string name="status_battery_warning">Ứng dụng chưa được bỏ tối ưu pin. Hệ thống có thể tắt camera bất cứ lúc nào.</string>
     <string name="status_open_guide">Hướng dẫn chống tắt app</string>
     <string name="status_edit_config">Sửa cấu hình</string>
     <string name="status_section_node">Camera node</string>
@@ -61,7 +61,13 @@
     <string name="status_disconnects">Số lần mất kết nối</string>
     <string name="status_uptime">Chạy liên tục</string>
     <string name="status_section_viewer">Nhập vào app OnCam Xem</string>
-    <string name="status_viewer_hint">Cần 3 thông tin: địa chỉ broker, mã camera và token bí mật.</string>
+    <string name="status_show_qr">Hiện mã QR cho app Xem</string>
+    <string name="status_qr_wait">Chờ có IP Tailscale mới tạo được mã QR.</string>
+    <string name="status_viewer_hint">Hoặc nhập tay 3 thông tin: địa chỉ broker, mã camera và token bí mật.</string>
+    <string name="action_close">Đóng</string>
+    <string name="qr_title">Quét bằng app OnCam Xem</string>
+    <string name="qr_steps">Trên máy xem: Thêm camera → Quét mã QR trên máy camera → Lưu.</string>
+    <string name="qr_warning">Mã này chứa token bí mật: không chụp màn hình, không gửi qua Zalo/Facebook. Tự ẩn sau %1$d giây.</string>
     <string name="status_broker_address">Địa chỉ broker</string>
     <string name="status_device_id_label">Mã camera</string>
     <string name="status_copy_address">Sao chép địa chỉ</string>
@@ -114,7 +120,10 @@
     <string name="notif_cannot_start_title">Camera node đã dừng</string>
     <string name="notif_cannot_start_text">Hệ thống không cho chạy lại từ nền. Chạm để mở app và khởi động lại.</string>
 
-    <!-- Hướng dẫn chống tắt app (ColorOS) -->
+    <!-- Hướng dẫn chống tắt app: chọn theo hãng (Build.MANUFACTURER) -->
+    <string name="guide_family_samsung">Samsung</string>
+    <string name="guide_family_coloros">Oppo/Realme</string>
+    <string name="guide_family_other">Hãng khác</string>
     <string name="guide_title">Chống tắt app (Oppo / ColorOS)</string>
     <string name="guide_intro">ColorOS tắt app chạy nền rất mạnh tay. Làm đủ 5 bước dưới đây để camera node chạy 24/7. Tên mục có thể khác đôi chút giữa ColorOS 11, 12 và 13.</string>
     <string name="guide_step1_title">1. Bỏ tối ưu pin</string>
@@ -127,9 +136,31 @@
     <string name="guide_step3_title">3. Khoá app trong đa nhiệm</string>
     <string name="guide_step3_body">Mở màn hình đa nhiệm (vuốt từ dưới lên và giữ), chạm vào dấu ⋮ hoặc nhấn giữ thẻ OnCam Quay → chọn “Khoá”. Khi đó nút “Dọn tất cả” sẽ không tắt app.</string>
     <string name="guide_step4_title">4. Làm tương tự cho Tailscale</string>
-    <string name="guide_step4_body">Lặp lại bước 1–3 cho app Tailscale. Thêm: Cài đặt → Kết nối khác → VPN → Tailscale → bật “VPN luôn bật”. Thiếu bước này, khởi động lại máy là camera mất kết nối.</string>
+    <string name="guide_step4_body">Lặp lại bước 1–3 cho app Tailscale. Thêm: Cài đặt → Kết nối khác → VPN → Tailscale → bật “VPN luôn bật”. Thiếu bước này, khởi động lại máy là camera mất kết nối. Trên trang quản trị login.tailscale.com → Machines → máy này → ⋯ → “Disable key expiry” để không bị đăng xuất sau 180 ngày.</string>
     <string name="guide_step5_title">5. Nguồn điện và nhiệt</string>
     <string name="guide_step5_body">Cắm sạc liên tục, đặt máy nơi thoáng và tránh nắng trực tiếp. Cắm sạc lâu ngày làm pin chai/phồng; kiểm tra pin định kỳ.</string>
+
+    <string name="guide_title_samsung">Chống tắt app (Samsung / One UI)</string>
+    <string name="guide_intro_samsung">One UI cho app chạy nền ổn định nếu đặt đúng. Làm đủ 6 bước dưới đây để camera chạy 24/7. Tên mục có thể khác đôi chút giữa One UI 5, 6 và 7.</string>
+    <string name="guide_samsung_step2_title">2. Pin: “Không hạn chế” và “Không bao giờ ngủ”</string>
+    <string name="guide_samsung_step2_body">Mở Thông tin ứng dụng → Pin → chọn “Không hạn chế”. Sau đó vào Cài đặt → Pin (hoặc Chăm sóc thiết bị → Pin) → Giới hạn sử dụng nền: thêm OnCam Quay và Tailscale vào “Ứng dụng không bao giờ ngủ”, và tắt “Đặt ứng dụng không dùng sang chế độ ngủ”.</string>
+    <string name="guide_samsung_step3_title">3. “Giữ mở” trong đa nhiệm</string>
+    <string name="guide_samsung_step3_body">Mở đa nhiệm (nút ||| hoặc vuốt lên và giữ), chạm biểu tượng OnCam Quay phía trên thẻ → “Giữ mở”. Khi đó nút “Đóng tất cả” không tắt app.</string>
+    <string name="guide_samsung_step4_title">4. Tailscale luôn bật</string>
+    <string name="guide_samsung_step4_body">Lặp lại bước 1–3 cho app Tailscale. Thêm: Cài đặt → Kết nối → Cài đặt kết nối khác → VPN → bánh răng cạnh Tailscale → bật “Luôn bật VPN”. Trên trang quản trị login.tailscale.com → Machines → máy này → ⋯ → “Disable key expiry” để không bị đăng xuất sau 180 ngày.</string>
+    <string name="guide_samsung_step5_title">5. Tắt tự khởi động lại theo lịch</string>
+    <string name="guide_samsung_step5_body">Cài đặt → Chăm sóc thiết bị → Tự động hoá (hoặc Tối ưu tự động) → tắt “Tự động khởi động lại vào giờ đã đặt”. App vẫn tự chạy lại sau khi máy khởi động, nhưng mỗi lần khởi động camera mất kết nối 1–2 phút.</string>
+    <string name="guide_samsung_step6_title">6. Nguồn điện và nhiệt</string>
+    <string name="guide_samsung_step6_body">Cắm sạc liên tục và bật Cài đặt → Pin → Bảo vệ pin (chọn mức dừng sạc ở 80% nếu có) để pin đỡ chai/phồng khi cắm 24/7. Đặt máy nơi thoáng, tránh nắng trực tiếp; app tự tắt camera khi máy quá 45 °C.</string>
+
+    <string name="guide_title_other">Chống tắt app (hướng dẫn chung)</string>
+    <string name="guide_intro_other">Mỗi hãng đặt tên mục khác nhau; tìm mục gần nghĩa nhất. Xem thêm trang dontkillmyapp.com theo đúng hãng máy.</string>
+    <string name="guide_other_step2_title">2. Cho chạy nền không giới hạn</string>
+    <string name="guide_other_step2_body">Mở Thông tin ứng dụng → Pin → chọn “Không hạn chế” (hoặc “Không tối ưu”), bật “Cho phép chạy nền” và “Tự khởi chạy” nếu có.</string>
+    <string name="guide_other_step3_title">3. Khoá app trong đa nhiệm</string>
+    <string name="guide_other_step3_body">Mở đa nhiệm, nhấn giữ thẻ OnCam Quay (hoặc chạm biểu tượng phía trên thẻ) → chọn “Khoá” / “Giữ mở”.</string>
+    <string name="guide_other_step4_title">4. Tailscale luôn bật</string>
+    <string name="guide_other_step4_body">Lặp lại bước 1–3 cho Tailscale. Thêm: Cài đặt → Mạng → VPN → Tailscale → bật “VPN luôn bật”. Trên login.tailscale.com chọn máy này → “Disable key expiry”.</string>
 
     <!-- Camera (Phase 3) -->
     <string name="camera_section">Camera</string>
