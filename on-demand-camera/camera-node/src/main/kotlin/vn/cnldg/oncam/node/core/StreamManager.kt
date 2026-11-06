@@ -140,6 +140,7 @@ class StreamManager(
                 else -> ActionOutcome.Done(StreamPaths.SNAPSHOT)
             }
             Action.PING -> ActionOutcome.Done() // CommandHandler đã trả lời PING trước khi tới đây
+            Action.UPDATE_LOCATION -> ActionOutcome.Unsupported // NodeController xử lý (không liên quan camera)
             Action.RTC_OFFER -> rtcOfferLocked(p)
             Action.RTC_HANGUP -> {
                 rtc?.hangup(checkNotNull(p.sessionId))

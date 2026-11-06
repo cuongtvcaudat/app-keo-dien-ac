@@ -63,7 +63,9 @@ class MainActivity : ComponentActivity() {
         // gửi lại lệnh start để service nâng lên loại "camera".
         val missingCamera = !runtime.cameraAccess.value && granted(Manifest.permission.CAMERA)
         val missingMic = !runtime.micAccess.value && granted(Manifest.permission.RECORD_AUDIO)
-        if (runtime.controller.value != null && (missingCamera || missingMic)) {
+        val missingLocation = runtime.locationWanted && !runtime.locationAccess.value &&
+            (granted(Manifest.permission.ACCESS_FINE_LOCATION) || granted(Manifest.permission.ACCESS_COARSE_LOCATION))
+        if (runtime.controller.value != null && (missingCamera || missingMic || missingLocation)) {
             CameraForegroundService.start(this, fromUi = true)
         }
     }
@@ -91,7 +93,10 @@ private fun NodeApp(modifier: Modifier = Modifier, vm: NodeViewModel = hiltViewM
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         CameraForegroundService.start(context, fromUi = true)
     }
-    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+    val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
+        if (r.values.any { it } && running) CameraForegroundService.start(context, fromUi = true)
+    }
+        val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         // Đang chạy → nâng service lên loại "microphone" ngay.
         if (ok && running) CameraForegroundService.start(context, fromUi = true)
     }
@@ -99,6 +104,10 @@ private fun NodeApp(modifier: Modifier = Modifier, vm: NodeViewModel = hiltViewM
         val needed = buildList {
             add(Manifest.permission.CAMERA)
             add(Manifest.permission.RECORD_AUDIO)
+            if ((config as? ConfigLoad.Loaded)?.config?.shareLocation == true) {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
         }.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
         if (needed.isEmpty()) {
@@ -139,6 +148,12 @@ private fun NodeApp(modifier: Modifier = Modifier, vm: NodeViewModel = hiltViewM
                 cameraAccess = cameraAccess,
                 micAccess = micAccess,
                 onRequestMic = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                onRequestLocation = {
+                    locationLauncher.launch(
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                    )
+                },
+                onUpdateLocation = vm::updateLocation,
                 selfTesting = selfTesting,
                 onStart = startNode,
                 onStop = { CameraForegroundService.stop(context) },

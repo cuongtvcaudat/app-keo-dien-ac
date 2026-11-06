@@ -25,6 +25,7 @@ import vn.cnldg.oncam.shared.protocol.CommandParams
 import vn.cnldg.oncam.shared.protocol.DeviceEvent
 import vn.cnldg.oncam.shared.protocol.DeviceStatus
 import vn.cnldg.oncam.shared.protocol.EventType
+import vn.cnldg.oncam.shared.protocol.GeoLocation
 import vn.cnldg.oncam.shared.protocol.ProtocolJson
 import vn.cnldg.oncam.shared.protocol.StreamPaths
 import vn.cnldg.oncam.shared.protocol.Topics
@@ -87,6 +88,11 @@ data class CameraView(
     val status: DeviceStatus? = null,
     /** Thời điểm nhận trạng thái gần nhất (ms, đồng hồ máy viewer). */
     val statusReceivedAtMs: Long? = null,
+    /**
+     * Vị trí cuối cùng biết được của camera — giữ lại cả khi camera offline (mất mạng, bị tắt, mất trộm);
+     * chỉ xoá khi camera đang online báo đã tắt chia sẻ vị trí.
+     */
+    val lastLocation: GeoLocation? = null,
 ) {
     /** Camera online: đang kết nối broker và camera báo online. */
     val online: Boolean get() = connection == MqttConnectionState.Connected && status?.online == true
@@ -108,6 +114,8 @@ class CameraClient(
     private val clock: EpochClock = EpochClock.SYSTEM,
     private val nowMs: () -> Long = System::currentTimeMillis,
     keepAliveSec: Int = 10,
+    /** Vị trí cuối đã lưu từ lần trước (hiện ngay cả khi camera đang offline). */
+    initialLocation: GeoLocation? = null,
 ) {
     private val signer = CommandSigner(endpoint.secret, clock)
     private val streamAuth = StreamAuth(endpoint.secret, endpoint.deviceId, clock)
@@ -128,7 +136,7 @@ class CameraClient(
         log = log,
     )
 
-    private val _view = MutableStateFlow(CameraView())
+    private val _view = MutableStateFlow(CameraView(lastLocation = initialLocation))
 
     /** Trạng thái hiện tại của camera. */
     val view: StateFlow<CameraView> = _view.asStateFlow()
@@ -170,6 +178,9 @@ class CameraClient(
         pending.clear()
         _view.update { it.copy(connection = MqttConnectionState.Idle) }
     }
+
+    /** Yêu cầu camera lấy vị trí mới (trả lời ngay; vị trí mới đến qua trạng thái sau vài giây). */
+    suspend fun updateLocation(): CommandResult = send(Action.UPDATE_LOCATION)
 
     /** Gửi lệnh [action] đã ký và chờ kết quả tối đa [timeoutMs]. */
     suspend fun send(action: Action, params: CommandParams = CommandParams(), timeoutMs: Long = 10_000): CommandResult =
@@ -273,7 +284,14 @@ class CameraClient(
     private fun onMessage(msg: IncomingMessage) {
         when (msg.topic) {
             statusTopic -> ProtocolJson.decodeStatus(msg.payload)?.let { status ->
-                _view.update { it.copy(status = status, statusReceivedAtMs = nowMs()) }
+                _view.update {
+                    val keep = status.location != null || !status.online
+                    it.copy(
+                        status = status,
+                        statusReceivedAtMs = nowMs(),
+                        lastLocation = status.location?.point ?: it.lastLocation.takeIf { keep },
+                    )
+                }
             }
             eventTopic -> ProtocolJson.decodeEvent(msg.payload)?.let { event ->
                 val waiter = event.commandId?.let { pending[it] }

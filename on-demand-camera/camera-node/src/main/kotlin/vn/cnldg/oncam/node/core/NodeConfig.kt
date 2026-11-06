@@ -21,6 +21,7 @@ enum class BrokerMode {
  * @property brokerPort cổng broker nhúng (chỉ dùng khi [brokerMode] = EMBEDDED).
  * @property externalUri địa chỉ broker ngoài, vd. `tcp://100.x.y.z:1883` hoặc `ssl://host:8883`.
  * @property orientation hướng đặt máy để xoay ảnh cho đứng.
+ * @property shareLocation gửi vị trí máy (GPS/mạng) cho app Xem, cập nhật 15 phút/lần và khi được yêu cầu. Mặc định tắt.
  */
 data class NodeConfig(
     val deviceId: String,
@@ -32,6 +33,7 @@ data class NodeConfig(
     val externalUsername: String = "",
     val externalPassword: String = "",
     val orientation: MountOrientation = MountOrientation.UP,
+    val shareLocation: Boolean = false,
 ) {
     /** Danh sách lỗi cấu hình; rỗng nghĩa là hợp lệ. */
     fun problems(): List<ConfigProblem> = buildList {

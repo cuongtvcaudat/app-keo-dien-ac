@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -35,6 +36,7 @@ import vn.cnldg.oncam.node.core.SelfTestResult
 import vn.cnldg.oncam.node.core.pairingCode
 import vn.cnldg.oncam.node.system.BatteryOptimization
 import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
+import vn.cnldg.oncam.shared.protocol.CameraCodes
 import vn.cnldg.oncam.shared.protocol.NetworkType
 
 /**
@@ -58,14 +60,18 @@ fun StatusScreen(
     onStopCamera: () -> Unit,
     latestFrame: () -> ByteArray?,
     onRequestMic: () -> Unit,
+    onRequestLocation: () -> Unit,
+    onUpdateLocation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     var batteryIgnored by remember { mutableStateOf(BatteryOptimization.isIgnoring(context)) }
     var micGranted by remember { mutableStateOf(micPermission(context)) }
+    var locationGranted by remember { mutableStateOf(locationPermission(context)) }
     LifecycleResumeEffect(Unit) {
         batteryIgnored = BatteryOptimization.isIgnoring(context)
         micGranted = micPermission(context)
+        locationGranted = locationPermission(context)
         onPauseOrDispose { }
     }
     var showQr by remember { mutableStateOf(false) }
@@ -188,6 +194,42 @@ fun StatusScreen(
                 }
             }
 
+            if (config.shareLocation) {
+                SectionCard(title = stringResource(R.string.status_section_location)) {
+                    val loc = state.location
+                    val point = loc?.point
+                    val error = loc?.error
+                    if (point != null) {
+                        InfoRow(stringResource(R.string.status_location_coords), point.coordinates())
+                        InfoRow(
+                            stringResource(R.string.status_location_detail),
+                            locationDetail(point.accuracyM, point.provider, nowSec - point.timestamp),
+                        )
+                    }
+                    when {
+                        !locationGranted -> Text(stringResource(R.string.location_no_permission), style = MaterialTheme.typography.bodySmall)
+                        loc?.updating == true -> Text(stringResource(R.string.location_updating), style = MaterialTheme.typography.bodySmall)
+                        error != null -> Text(locationErrorText(error), style = MaterialTheme.typography.bodySmall)
+                        point == null -> Text(stringResource(R.string.location_none), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (!locationGranted) {
+                            Button(onClick = onRequestLocation) { Text(stringResource(R.string.action_allow_location)) }
+                        } else {
+                            OutlinedButton(onClick = onUpdateLocation, enabled = loc?.updating != true) {
+                                Text(stringResource(R.string.action_update_location))
+                            }
+                        }
+                        if (point != null) {
+                            val uri = LocalUriHandler.current
+                            OutlinedButton(onClick = { runCatching { uri.openUri(point.mapsUrl()) } }) {
+                                Text(stringResource(R.string.action_open_maps))
+                            }
+                        }
+                    }
+                }
+            }
+
             SectionCard(title = stringResource(R.string.status_section_test)) {
                 Button(
                     onClick = onSelfTest,
@@ -262,6 +304,32 @@ private fun selfTestText(result: SelfTestResult): String = when (result) {
         },
     )
 }
+
+@Composable
+private fun locationDetail(accuracyM: Float?, provider: String?, ageSec: Long): String {
+    val source = stringResource(if (provider == "gps") R.string.location_source_gps else R.string.location_source_network)
+    val age = when {
+        ageSec < 60 -> stringResource(R.string.age_just_now)
+        ageSec < 3_600 -> stringResource(R.string.age_minutes, (ageSec / 60).toInt())
+        ageSec < 86_400 -> stringResource(R.string.age_hours, (ageSec / 3_600).toInt())
+        else -> stringResource(R.string.age_days, (ageSec / 86_400).toInt())
+    }
+    return listOfNotNull(accuracyM?.let { stringResource(R.string.location_accuracy, it.toInt()) }, source, age).joinToString(" • ")
+}
+
+@Composable
+private fun locationErrorText(code: String): String = stringResource(
+    when (code) {
+        CameraCodes.LOCATION_NO_PERMISSION -> R.string.location_err_permission
+        CameraCodes.LOCATION_OFF -> R.string.location_err_off
+        else -> R.string.location_err_unavailable
+    },
+)
+
+private fun locationPermission(context: android.content.Context) =
+    listOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION).any {
+        androidx.core.content.ContextCompat.checkSelfPermission(context, it) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
 
 private fun micPermission(context: android.content.Context) =
     androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) ==

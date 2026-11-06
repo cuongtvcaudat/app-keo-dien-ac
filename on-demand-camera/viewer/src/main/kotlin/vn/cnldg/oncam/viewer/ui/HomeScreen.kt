@@ -50,6 +50,9 @@ interface CameraActions {
     /** Mở màn hình xem trực tiếp. */
     fun openLive(entry: CameraEntry)
 
+    /** Yêu cầu camera lấy vị trí mới. */
+    fun updateLocation(entry: CameraEntry)
+
     /** Sửa camera. */
     fun edit(entry: CameraEntry)
 
@@ -119,6 +122,7 @@ fun HomeScreen(
                         onQuality = { actions.setQuality(entry, it) },
                         onSnapshot = { actions.snapshot(entry) },
                         onOpenLive = { actions.openLive(entry) },
+                        onUpdateLocation = { actions.updateLocation(entry) },
                         onEdit = { actions.edit(entry) },
                         onDelete = { actions.delete(entry) },
                     )

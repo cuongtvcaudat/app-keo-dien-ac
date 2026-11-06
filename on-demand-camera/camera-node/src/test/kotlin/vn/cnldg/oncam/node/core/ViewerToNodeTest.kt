@@ -59,7 +59,9 @@ class ViewerToNodeTest {
         broker = EmbeddedBroker(createTempDirectory("moquette").toFile()),
         timing = NodeController.Timing(addressCheckMs = 200, keepAliveSec = 5, maxReconnectDelayMs = 1_000),
         camera = streams,
+        location = LocationTracker({ LocationFix.Ok(nextLocation) }, scope),
     )
+    @Volatile private var nextLocation = HOME
     private val viewer = CameraClient(
         endpoint = CameraEndpoint(DEVICE, "tcp://127.0.0.1:$mqttPort", SECRET),
         clientId = "viewer-test",
@@ -100,6 +102,21 @@ class ViewerToNodeTest {
         val sync = viewer.syncClock()!!
 
         assertTrue(kotlin.math.abs(sync.offsetMs) <= sync.roundTripMs / 2 + 5, "lệch đo được: $sync")
+    }
+
+    @Test
+    fun `app Xem thay vi tri va bam cap nhat vi tri`() = runBlocking<Unit> {
+        connect()
+        // Lấy vị trí ngay khi node khởi động.
+        withTimeout(TIMEOUT_MS) { viewer.view.first { it.status?.location?.point == HOME } }
+
+        val moved = HOME.copy(lat = 11.95, lon = 108.44, timestamp = HOME.timestamp + 600)
+        nextLocation = moved
+        assertEquals(CommandResult.Ok(null), viewer.send(Action.UPDATE_LOCATION))
+
+        val loc = withTimeout(TIMEOUT_MS) { viewer.view.first { it.status?.location?.point == moved } }.status!!.location!!
+        assertEquals("https://www.google.com/maps/search/?api=1&query=11.950000,108.440000", loc.point!!.mapsUrl())
+        assertEquals(null, loc.error)
     }
 
     @Test
@@ -208,6 +225,8 @@ class ViewerToNodeTest {
     }
 
     private companion object {
+        val HOME = vn.cnldg.oncam.shared.protocol.GeoLocation(11.940419, 108.458313, 8f, 1_700_000_000, "gps")
+
         const val DEVICE = "san-nha"
         const val SECRET = "test-secret-0123456789"
         const val TIMEOUT_MS = 10_000L

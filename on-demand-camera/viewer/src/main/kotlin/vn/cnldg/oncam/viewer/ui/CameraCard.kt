@@ -27,12 +27,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
+import vn.cnldg.oncam.shared.protocol.CameraCodes
 import vn.cnldg.oncam.shared.protocol.CameraFacing
 import vn.cnldg.oncam.shared.protocol.CameraState
+import vn.cnldg.oncam.shared.protocol.GeoLocation
 import vn.cnldg.oncam.shared.protocol.NetworkType
 import vn.cnldg.oncam.shared.protocol.StreamQuality
 import vn.cnldg.oncam.viewer.R
@@ -56,6 +59,7 @@ fun CameraCard(
     onQuality: (StreamQuality) -> Unit,
     onSnapshot: () -> Unit,
     onOpenLive: () -> Unit,
+    onUpdateLocation: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -115,6 +119,21 @@ fun CameraCard(
                 status.error?.let {
                     Text(codeText(context, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
+            }
+
+            // Vị trí: hiện cả khi camera offline (vị trí cuối đã lưu) để tìm máy khi mất trộm/mất điện.
+            val loc = status?.location?.takeIf { online }
+            val last = view.lastLocation
+            if (loc != null || last != null) {
+                LocationBlock(
+                    point = last,
+                    updating = loc?.updating == true,
+                    error = loc?.error,
+                    online = online,
+                    canUpdate = online && loc != null && !busy,
+                    nowSec = nowMs / 1000,
+                    onUpdate = onUpdateLocation,
+                )
             }
 
             Button(onClick = onOpenLive, enabled = online, modifier = Modifier.fillMaxWidth()) {
@@ -208,5 +227,65 @@ private fun networkText(network: NetworkType?): String = stringResource(
         NetworkType.ETHERNET -> R.string.network_ethernet
         NetworkType.OTHER -> R.string.network_other
         NetworkType.NONE, null -> R.string.network_none
+    },
+)
+
+/** Vị trí máy camera + nút mở Google Maps / cập nhật. */
+@Composable
+private fun LocationBlock(
+    point: GeoLocation?,
+    updating: Boolean,
+    error: String?,
+    online: Boolean,
+    canUpdate: Boolean,
+    nowSec: Long,
+    onUpdate: () -> Unit,
+) {
+    val uri = LocalUriHandler.current
+    if (point != null) {
+        InfoRow(stringResource(R.string.location), point.coordinates())
+        val age = (nowSec - point.timestamp).coerceAtLeast(0)
+        val ageText = when {
+            age < 60 -> stringResource(R.string.age_just_now)
+            age < 3_600 -> stringResource(R.string.age_minutes, (age / 60).toInt())
+            age < 86_400 -> stringResource(R.string.age_hours, (age / 3_600).toInt())
+            else -> stringResource(R.string.age_days, (age / 86_400).toInt())
+        }
+        val detail = listOfNotNull(
+            point.accuracyM?.let { stringResource(R.string.location_accuracy, it.toInt()) },
+            stringResource(if (point.provider == "gps") R.string.location_source_gps else R.string.location_source_network),
+            ageText,
+        ).joinToString(" • ")
+        Text(
+            if (online) detail else stringResource(R.string.location_last_known, detail),
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    when {
+        updating -> Text(stringResource(R.string.location_updating), style = MaterialTheme.typography.bodySmall)
+        error != null -> Text(locationErrorText(error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        point == null -> Text(stringResource(R.string.location_none), style = MaterialTheme.typography.bodySmall)
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (point != null) {
+            OutlinedButton(onClick = { runCatching { uri.openUri(point.mapsUrl()) } }) {
+                Text(stringResource(R.string.action_open_maps))
+            }
+        }
+        if (online) {
+            OutlinedButton(onClick = onUpdate, enabled = canUpdate && !updating) {
+                Text(stringResource(R.string.action_update_location))
+            }
+        }
+    }
+}
+
+@Composable
+private fun locationErrorText(code: String): String = stringResource(
+    when (code) {
+        CameraCodes.LOCATION_NO_PERMISSION -> R.string.location_err_permission
+        CameraCodes.LOCATION_OFF -> R.string.location_err_off
+        CameraCodes.LOCATION_DISABLED -> R.string.location_err_disabled
+        else -> R.string.location_err_unavailable
     },
 )

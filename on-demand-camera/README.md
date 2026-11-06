@@ -30,6 +30,7 @@ Kiến trúc: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 5 | viewer: xem trực tiếp toàn màn hình, nút điều khiển đè lên video, hiện FPS + độ trễ + số người xem | ✅ |
 | 6 | Bản release + link tải cố định, mã QR ghép đôi, tự đồng bộ giờ (độ trễ đúng), ô địa chỉ chỉ cần IP, hướng dẫn chống tắt app theo hãng (Samsung/Oppo), tài liệu đầy đủ | ✅ |
 | 7 | WebRTC: hình nén (ít dữ liệu hơn MJPEG ~5–18 lần), nghe tiếng sân, **giữ để nói** ra loa máy camera; tự quay về MJPEG khi lỗi | 🧪 đã qua test emulator, chờ thử trên máy thật |
+| 7+ | Tối ưu máy camera (JPEG chỉ khi cần, ưu tiên nén phần cứng, chuyển màu nhanh 4,3 lần trên ART); hiện chuẩn nén + kbit/s thật; **vị trí máy camera trên Google Maps** (giữ vị trí cuối khi camera offline) | 🧪 đã qua test, chờ thử trên máy thật |
 
 ## Cấu trúc
 

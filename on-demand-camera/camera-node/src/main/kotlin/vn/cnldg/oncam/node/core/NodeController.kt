@@ -61,6 +61,7 @@ import vn.cnldg.oncam.shared.security.RtcAuth
  * @param scope nên chạy trên Dispatchers.IO (có thao tác chặn luồng: bind cổng, tắt Netty).
  * @param addressProvider trả về IP Tailscale hiện tại (null nếu chưa bật Tailscale).
  * @param camera phần camera + stream (Phase 3); null → các lệnh camera trả về "chưa hỗ trợ".
+ * @param location theo dõi vị trí khi bật "Chia sẻ vị trí"; null → không gửi vị trí, UPDATE_LOCATION bị từ chối.
  */
 class NodeController(
     private val config: NodeConfig,
@@ -72,6 +73,7 @@ class NodeController(
     private val log: LogSink = LogSink.NONE,
     private val timing: Timing = Timing(),
     private val camera: CameraSession? = null,
+    private val location: LocationTracker? = null,
 ) {
     /** Các mốc thời gian (rút ngắn được trong test). */
     data class Timing(
@@ -93,7 +95,15 @@ class NodeController(
         clock = clock,
         rtcAuth = RtcAuth(config.secret, config.deviceId),
     ) { cmd ->
-        camera?.perform(cmd) ?: ActionOutcome.Unsupported
+        if (cmd.action == Action.UPDATE_LOCATION) {
+            // Trả lời ngay, lấy vị trí ở nền (GPS có thể mất 30 giây) → không chặn lệnh camera phía sau.
+            location?.let {
+                it.requestUpdate()
+                ActionOutcome.Done()
+            } ?: ActionOutcome.Failed(CameraCodes.LOCATION_DISABLED)
+        } else {
+            camera?.perform(cmd) ?: ActionOutcome.Unsupported
+        }
     }
     private val signer = CommandSigner(config.secret, clock)
     private val pending = ConcurrentHashMap<String, CompletableDeferred<DeviceEvent>>()
@@ -103,6 +113,7 @@ class NodeController(
     private var mqtt: MqttClientWrapper? = null
     private var mainJob: Job? = null
     private var cameraJob: Job? = null
+    private var locationJob: Job? = null
 
     init {
         require(config.problems().isEmpty()) { "Cấu hình không hợp lệ: ${config.problems()}" }
@@ -120,6 +131,12 @@ class NodeController(
             device = deviceInfo.snapshot(),
         )
         mainJob = scope.launch { runSessions() }
+        location?.let { t ->
+            locationJob = scope.launch {
+                launch { t.run() }
+                t.status.collect { st -> _state.update { it.copy(location = st) } }
+            }
+        }
         camera?.let { cam ->
             cameraJob = scope.launch { cam.status.collect { s -> _state.update { it.copy(camera = s) } } }
         }
@@ -137,6 +154,8 @@ class NodeController(
         camera?.shutdown()
         cameraJob?.cancel()
         cameraJob = null
+        locationJob?.cancel()
+        locationJob = null
         val wrapper = mqtt
         if (wrapper != null && wrapper.state.value == MqttConnectionState.Connected) {
             wrapper.publish(statusMessage(online = false))
@@ -254,6 +273,7 @@ class NodeController(
                 launch { wrapper.messages.collect { onMessage(wrapper, it) } },
                 launch { heartbeat(wrapper) },
                 camera?.let { cam -> launch { publishCameraChanges(wrapper, cam) } },
+                location?.let { t -> launch { publishLocationChanges(wrapper, t) } },
             )
             wrapper.subscribe(cmdTopic, Topics.QOS_COMMAND) // ghi nhớ, tự áp dụng mỗi lần kết nối
             wrapper.start()
@@ -337,7 +357,14 @@ class NodeController(
         }
     }
 
-    /** Gửi một lệnh đã ký tới chính máy này qua broker (nút "Bật camera thử" trên máy camera). */
+    /** Vị trí đổi (đang lấy / có vị trí mới / lỗi) → publish lại trạng thái. */
+    private suspend fun publishLocationChanges(wrapper: MqttClientWrapper, t: LocationTracker) {
+        t.status.drop(1).collect {
+            if (wrapper.state.value == MqttConnectionState.Connected) wrapper.publish(statusMessage(online = true))
+        }
+    }
+
+        /** Gửi một lệnh đã ký tới chính máy này qua broker (nút "Bật camera thử" trên máy camera). */
     suspend fun sendLocalCommand(action: Action, params: CommandParams = CommandParams()): Boolean {
         val wrapper = mqtt ?: return false
         if (wrapper.state.value != MqttConnectionState.Connected) return false
@@ -352,6 +379,11 @@ class NodeController(
 
     /** Khung JPEG mới nhất để xem thử trên máy camera. */
     fun latestFrame(): ByteArray? = camera?.latestFrame()
+
+    /** Lấy vị trí mới ngay (nút trên máy camera); không làm gì nếu không bật chia sẻ vị trí. */
+    fun requestLocationUpdate() {
+        location?.requestUpdate()
+    }
 
     private suspend fun heartbeat(wrapper: MqttClientWrapper) {
         while (true) {
@@ -384,6 +416,7 @@ class NodeController(
                 cameraReady = camera?.cameraReady(),
                 rtc = camera?.rtcAvailable() == true,
                 micReady = camera?.micReady(),
+                location = location?.status?.value,
                 batteryPercent = d.batteryPercent,
                 charging = d.charging,
                 temperatureC = d.temperatureC,
@@ -391,7 +424,7 @@ class NodeController(
                 lastSeen = now,
             )
         } else {
-            DeviceStatus.offline(config.deviceId, config.displayName, now)
+            DeviceStatus.offline(config.deviceId, config.displayName, now, location?.status?.value?.copy(updating = false))
         }
         return OutgoingMessage(
             topic = Topics.status(config.deviceId),

@@ -35,6 +35,20 @@ class NodeRuntime @Inject constructor() {
         _micAccess.value = allowed
     }
 
+    private val _locationAccess = MutableStateFlow(false)
+
+    /** Service được lấy vị trí (loại foreground "location" — chỉ có khi khởi động lúc app đang hiển thị). */
+    val locationAccess: StateFlow<Boolean> = _locationAccess.asStateFlow()
+
+    internal fun setLocationAccess(allowed: Boolean) {
+        _locationAccess.value = allowed
+    }
+
+    /** Cấu hình đang chạy có bật "Chia sẻ vị trí" (để màn hình xin quyền / nâng loại service khi cần). */
+    @Volatile
+    var locationWanted: Boolean = false
+        internal set
+
     internal fun attach(controller: NodeController) {
         _controller.value = controller
     }

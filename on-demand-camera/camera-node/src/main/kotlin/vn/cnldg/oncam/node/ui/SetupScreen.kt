@@ -64,6 +64,7 @@ fun SetupScreen(
     var externalPass by rememberSaveable { mutableStateOf(initial?.externalPassword.orEmpty()) }
     var orientation by rememberSaveable { mutableStateOf(initial?.orientation ?: MountOrientation.UP) }
     var autoStart by rememberSaveable { mutableStateOf(initialAutoStart) }
+    var shareLocation by rememberSaveable { mutableStateOf(initial?.shareLocation ?: false) }
     var problems by remember { mutableStateOf(emptyList<ConfigProblem>()) }
 
     Column(
@@ -183,6 +184,13 @@ fun SetupScreen(
             Checkbox(checked = autoStart, onCheckedChange = { autoStart = it })
             Text(stringResource(R.string.setup_auto_start), style = MaterialTheme.typography.bodyMedium)
         }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = shareLocation, onCheckedChange = { shareLocation = it })
+            Column {
+                Text(stringResource(R.string.setup_share_location), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.setup_share_location_hint), style = MaterialTheme.typography.bodySmall)
+            }
+        }
 
         problems.forEach { problem ->
             Text(
@@ -205,6 +213,7 @@ fun SetupScreen(
                     externalUsername = externalUser,
                     externalPassword = externalPass,
                     orientation = orientation,
+                    shareLocation = shareLocation,
                 )
                 problems = config.problems()
                 if (problems.isEmpty()) onSave(config, autoStart)

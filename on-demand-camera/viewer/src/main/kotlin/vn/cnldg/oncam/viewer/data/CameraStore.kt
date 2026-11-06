@@ -18,8 +18,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import timber.log.Timber
+import vn.cnldg.oncam.shared.protocol.GeoLocation
 import vn.cnldg.oncam.viewer.di.ApplicationScope
 
 /**
@@ -57,9 +60,36 @@ class CameraStore @Inject constructor(
         write(next)
     }
 
-    /** Xoá camera. */
+    /** Xoá camera (cả vị trí cuối đã lưu). */
     suspend fun remove(deviceId: String) = withContext(Dispatchers.IO) {
         write((_cameras.value ?: read()).filterNot { it.deviceId == deviceId })
+        saveLocation(deviceId, null)
+    }
+
+    private val locations: MutableMap<String, GeoLocation> by lazy { readLocations().toMutableMap() }
+
+    /**
+     * Vị trí cuối cùng nhận được của camera [deviceId] (lưu mã hoá) — để vẫn mở bản đồ được khi camera đã
+     * offline (vd. mất trộm, tắt máy) và sau khi mở lại app Xem.
+     */
+    @Synchronized
+    fun lastLocation(deviceId: String): GeoLocation? = locations[deviceId]
+
+    /** Lưu (hoặc xoá khi [location] null) vị trí cuối của camera [deviceId]. */
+    @Synchronized
+    fun saveLocation(deviceId: String, location: GeoLocation?) {
+        if (location == null) locations.remove(deviceId) else locations[deviceId] = location
+        val text = json.encodeToString(MapSerializer(String.serializer(), GeoLocation.serializer()), locations.toMap())
+        secure.edit { putString(KEY_LOCATIONS, text) }
+    }
+
+    private fun readLocations(): Map<String, GeoLocation> = try {
+        secure.getString(KEY_LOCATIONS, null)
+            ?.let { json.decodeFromString(MapSerializer(String.serializer(), GeoLocation.serializer()), it) }
+            .orEmpty()
+    } catch (e: Exception) {
+        Timber.w(e, "Không đọc được vị trí đã lưu")
+        emptyMap()
     }
 
     private fun write(list: List<SavedCamera>) {
@@ -98,6 +128,7 @@ class CameraStore @Inject constructor(
         const val SECURE_FILE = "oncam_viewer_secure"
         const val PLAIN_FILE = "oncam_viewer"
         const val KEY_CAMERAS = "cameras"
+        const val KEY_LOCATIONS = "last_locations"
         const val KEY_INSTALLATION = "installation_id"
         val json = Json { ignoreUnknownKeys = true }
     }

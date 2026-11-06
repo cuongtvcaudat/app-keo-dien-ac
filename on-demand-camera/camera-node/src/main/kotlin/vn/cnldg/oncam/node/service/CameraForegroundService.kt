@@ -31,11 +31,13 @@ import vn.cnldg.oncam.node.broker.EmbeddedBroker
 import vn.cnldg.oncam.node.camera.CameraController
 import vn.cnldg.oncam.node.config.NodeConfigRepository
 import vn.cnldg.oncam.node.core.BrokerMode
+import vn.cnldg.oncam.node.core.LocationTracker
 import vn.cnldg.oncam.node.core.NodeController
 import vn.cnldg.oncam.node.core.StreamManager
 import vn.cnldg.oncam.node.core.TailscaleIp
 import vn.cnldg.oncam.node.log.TimberLogSink
 import vn.cnldg.oncam.node.rtc.NodeRtc
+import vn.cnldg.oncam.node.system.AndroidLocationSource
 import vn.cnldg.oncam.node.system.DeviceInfoReader
 import vn.cnldg.oncam.node.system.NetworkMonitor
 import vn.cnldg.oncam.rtc.AudioRouting
@@ -72,6 +74,7 @@ class CameraForegroundService : LifecycleService() {
     private val work = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var controller: NodeController? = null
     private var cameraController: CameraController? = null
+    private var lastFromUi = false
     private var rtcEngine: RtcEngine? = null
     private var cameraRtc: CameraRtc? = null
     private var starting = false
@@ -99,6 +102,7 @@ class CameraForegroundService : LifecycleService() {
             return START_STICKY
         }
         val fromUi = intent?.getBooleanExtra(EXTRA_FROM_UI, false) == true
+        lastFromUi = fromUi
         if (!enterForeground(fromUi)) {
             stopSelf()
             return START_NOT_STICKY
@@ -131,17 +135,18 @@ class CameraForegroundService : LifecycleService() {
         val whileInUse = fromUi || Build.VERSION.SDK_INT < Build.VERSION_CODES.R
         val cameraUsable = granted(Manifest.permission.CAMERA) && whileInUse
         val micUsable = granted(Manifest.permission.RECORD_AUDIO) && whileInUse
+        val locationUsable = runtime.locationWanted && whileInUse &&
+            (granted(Manifest.permission.ACCESS_FINE_LOCATION) || granted(Manifest.permission.ACCESS_COARSE_LOCATION))
 
-        // Thử từ đủ quyền nhất tới ít nhất: camera + micro → chỉ camera → chỉ nghe lệnh.
-        val attempts = buildList {
-            if (cameraUsable && micUsable) add(true to true)
-            if (cameraUsable) add(true to false)
-            add(false to false)
-        }
-        for ((withCamera, withMic) in attempts) {
-            if (tryStartForeground(notification, withCamera, withMic)) {
-                runtime.setCameraAccess(withCamera)
-                runtime.setMicAccess(withMic)
+        // Thử từ đủ quyền nhất tới ít nhất: + vị trí → camera + micro → chỉ camera → chỉ nghe lệnh.
+        val full = Types(cameraUsable, micUsable, locationUsable)
+        val attempts = listOf(full, full.copy(location = false), full.copy(location = false, mic = false), Types())
+            .distinct()
+        for (t in attempts) {
+            if (tryStartForeground(notification, t)) {
+                runtime.setCameraAccess(t.camera)
+                runtime.setMicAccess(t.mic)
+                runtime.setLocationAccess(t.location)
                 return true
             }
         }
@@ -149,32 +154,34 @@ class CameraForegroundService : LifecycleService() {
         return false
     }
 
+    /** Các loại foreground service xin cùng lúc. */
+    private data class Types(val camera: Boolean = false, val mic: Boolean = false, val location: Boolean = false)
+
     private fun granted(permission: String) =
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
-    private fun tryStartForeground(notification: android.app.Notification, withCamera: Boolean, withMic: Boolean): Boolean =
+    private fun tryStartForeground(notification: android.app.Notification, t: Types): Boolean =
         try {
-            ServiceCompat.startForeground(
-                this,
-                NotificationHelper.NOTIFICATION_ID,
-                notification,
-                foregroundTypes(withCamera, withMic),
-            )
+            ServiceCompat.startForeground(this, NotificationHelper.NOTIFICATION_ID, notification, foregroundTypes(t))
             true
         } catch (e: Exception) {
-            // SecurityException (thiếu quyền cho loại camera/micro) hoặc ForegroundServiceStartNotAllowedException.
-            Timber.w(e, "startForeground thất bại (camera=%s, micro=%s)", withCamera, withMic)
+            // SecurityException (thiếu quyền cho loại camera/micro/vị trí) hoặc ForegroundServiceStartNotAllowedException.
+            Timber.w(e, "startForeground thất bại (%s)", t)
             false
         }
 
-    private fun foregroundTypes(withCamera: Boolean, withMic: Boolean): Int {
+    private fun foregroundTypes(t: Types): Int {
         var types = 0
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (withCamera) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
-            if (withMic) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            if (t.camera) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+            if (t.mic) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        }
+        // Loại "location" có từ Android 10.
+        if (t.location && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
         }
         return types
     }
@@ -184,6 +191,11 @@ class CameraForegroundService : LifecycleService() {
         configRepository.nodeEnabled = true
         work.launch {
             val config = configRepository.current()
+            if (config != null && config.shareLocation != runtime.locationWanted) {
+                // Lần đầu biết cấu hình bật vị trí: nâng service lên loại "location" (nếu đang ở màn hình app).
+                runtime.locationWanted = config.shareLocation
+                withContext(Dispatchers.Main) { enterForeground(lastFromUi) }
+            }
             if (config == null || config.problems().isNotEmpty()) {
                 Timber.w("Chưa có cấu hình hợp lệ, dừng service")
                 withContext(Dispatchers.Main) {
@@ -224,6 +236,18 @@ class CameraForegroundService : LifecycleService() {
             )
             // Chỉ xem WebRTC → không cần nén JPEG đủ số hình/giây (giữ 1 khung/giây cho chụp ảnh): máy đỡ nóng.
             cam.fullRateJpeg = { streams.mjpegClients() > 0 || (cameraRtc?.sessionCount?.value ?: 0) == 0 }
+            // Vị trí (nếu bật chia sẻ): được lấy khi service có loại "location" hoặc người dùng chọn "Luôn cho phép".
+            val tracker = if (config.shareLocation) {
+                LocationTracker(
+                    source = AndroidLocationSource(applicationContext) {
+                        runtime.locationAccess.value || granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                    },
+                    scope = work,
+                    log = TimberLogSink,
+                )
+            } else {
+                null
+            }
             val c = NodeController(
                 config = config,
                 scope = work,
@@ -232,6 +256,7 @@ class CameraForegroundService : LifecycleService() {
                 broker = broker,
                 log = TimberLogSink,
                 camera = streams,
+                location = tracker,
             )
             withContext(Dispatchers.Main) {
                 controller = c

@@ -2,6 +2,7 @@ package vn.cnldg.oncam.node.core
 
 import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
 import vn.cnldg.oncam.shared.protocol.Action
+import vn.cnldg.oncam.shared.protocol.LocationStatus
 import vn.cnldg.oncam.shared.protocol.NetworkType
 
 /** Thông tin máy đọc định kỳ để gửi kèm trạng thái. */
@@ -71,4 +72,5 @@ data class NodeState(
     val selfTest: SelfTestResult? = null,
     val device: DeviceSnapshot = DeviceSnapshot(),
     val camera: CameraStatus = CameraStatus(),
+    val location: LocationStatus? = null,
 )

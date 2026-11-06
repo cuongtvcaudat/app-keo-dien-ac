@@ -27,6 +27,7 @@ enum class NetworkType { WIFI, CELLULAR, ETHERNET, OTHER, NONE }
  * @property cameraReady false nếu camera-node chưa được phép mở camera từ xa (cần mở app một lần).
  * @property rtc camera hỗ trợ xem qua WebRTC (Phase 7, lệnh RTC_OFFER). Bản cũ không gửi → false → app Xem dùng MJPEG.
  * @property micReady micro máy camera dùng được (đã cấp quyền + service có loại microphone) → nghe/nói được.
+ * @property location vị trí máy camera; null nếu không bật chia sẻ vị trí (app Xem ẩn nút Bản đồ / Cập nhật vị trí).
  */
 @Serializable
 data class DeviceStatus(
@@ -49,16 +50,18 @@ data class DeviceStatus(
     val protocolVersion: Int = OnCam.PROTOCOL_VERSION,
     val rtc: Boolean = false,
     val micReady: Boolean? = null,
+    val location: LocationStatus? = null,
 ) {
     companion object {
-        /** Trạng thái "offline" dùng làm LWT khi camera-node kết nối broker. */
-        fun offline(deviceId: String, displayName: String?, lastSeen: Long): DeviceStatus =
+        /** Trạng thái "offline" dùng làm LWT khi camera-node kết nối broker (kèm vị trí cuối nếu có chia sẻ). */
+        fun offline(deviceId: String, displayName: String?, lastSeen: Long, location: LocationStatus? = null): DeviceStatus =
             DeviceStatus(
                 deviceId = deviceId,
                 displayName = displayName,
                 online = false,
                 cameraState = CameraState.OFF,
                 lastSeen = lastSeen,
+                location = location,
             )
     }
 }

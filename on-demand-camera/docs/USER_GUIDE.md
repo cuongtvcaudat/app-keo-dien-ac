@@ -143,6 +143,27 @@ kênh riêng tư của bạn, dán vào app Xem. Ô *Địa chỉ broker* chỉ 
   NĐ 13/2023/NĐ-CP). Chỉ hướng camera/micro vào khu vực nhà mình; nếu sân có người ngoài qua lại thường xuyên, nên
   dán thông báo "Khu vực có camera ghi hình, ghi âm". App **không lưu** file ghi âm/ghi hình nào, chỉ phát trực tiếp.
 
+### Vị trí máy camera trên Google Maps (từ bản 0.8)
+
+Dùng để biết camera đang ở đâu (nhiều camera ở nhiều nơi) và **tìm lại máy khi bị lấy trộm**.
+
+1. Máy camera: **Sửa cấu hình** → tích **Chia sẻ vị trí máy này với app Xem** → Lưu → **Dừng** rồi **Khởi động**
+   node → cho phép quyền **Vị trí** (chọn *Khi dùng ứng dụng*, nên bật *Vị trí chính xác*).
+2. Bật **Vị trí** trên máy camera (kéo thanh thông báo xuống → *Vị trí*).
+3. Máy xem: thẻ camera hiện **Vị trí** (toạ độ, sai số ±m, nguồn GPS hay Wi-Fi/mạng, cách đây bao lâu) với 2 nút:
+   **Mở Google Maps** (mở đúng điểm đó trên Google Maps) và **Cập nhật vị trí** (lấy vị trí mới ngay, GPS có thể mất
+   tới 30 giây).
+
+| Điều cần biết | Chi tiết |
+|---|---|
+| Tự cập nhật | Khi khởi động node, sau đó **15 phút/lần**, và mỗi lần bấm Cập nhật vị trí |
+| Độ chính xác | GPS ngoài trời: 3–10 m. Trong nhà/dưới mái tôn: GPS yếu, app dùng Wi-Fi/mạng (sai số 20–500 m) |
+| Camera offline | App Xem **giữ vị trí cuối cùng** (lưu mã hoá trong máy xem), ghi rõ "Vị trí cuối (camera đang offline)" — vẫn mở bản đồ được |
+| Sau khi máy camera tự khởi động lại | Giống camera/micro: phải mở app OnCam Quay một lần. Muốn vị trí vẫn cập nhật mà không cần mở app: Cài đặt → Ứng dụng → OnCam Quay → Quyền → Vị trí → **Luôn cho phép** |
+| Dữ liệu | Rất nhỏ (vài trăm byte mỗi lần), không ảnh hưởng gói 4G |
+
+⚠️ Vị trí là dữ liệu cá nhân (NĐ 13/2023/NĐ-CP): chỉ bật trên máy của mình; ai có token camera thì xem được vị trí.
+
 ## 7. Dung lượng dữ liệu (ước tính)
 
 Máy camera ở nhà dùng Wi-Fi thì **máy xem đi 4G mới là bên tốn tiền**.
@@ -195,6 +216,10 @@ xem video nhiều. Khi không xem, cả 2 app chỉ trao đổi tin trạng thá
 | "Máy camera chưa cho dùng micro" | Máy camera chưa cấp quyền micro hoặc vừa khởi động lại | Trên máy camera: **Cho phép micro** hoặc mở app một lần |
 | Giữ để nói nhưng ở sân không nghe | Âm lượng máy camera bị chặn (Không làm phiền) hoặc loa máy camera bị che | Tắt *Không làm phiền* trên máy camera; đặt máy để loa không áp vào tường |
 | Nghe tiếng mình vọng lại | Thả nút nói ra quá sớm / loa máy camera quá to sát micro | Nói xong mới thả nút; để máy camera cách tường ít nhất 10 cm |
+| Thẻ camera không có mục Vị trí | Máy camera chưa bật *Chia sẻ vị trí*, hoặc máy camera bản < 0.8 | Bật trong Sửa cấu hình; cập nhật OnCam Quay |
+| "Máy camera chưa lấy được vị trí: mở app…" | Máy camera vừa khởi động lại (service chạy từ nền không được dùng vị trí) | Mở app OnCam Quay một lần, hoặc chọn quyền Vị trí *Luôn cho phép* |
+| "Máy camera chưa bắt được vị trí" | Trong nhà kín, chưa có vệ tinh | Đặt máy gần cửa/ngoài hiên; bật Wi-Fi để có vị trí theo mạng |
+| Vị trí lệch vài trăm mét | Đang dùng vị trí theo Wi-Fi/mạng (GPS không bắt được) | Xem cột nguồn: *Wi-Fi/mạng* thì sai số lớn là bình thường |
 
 ## 9. Bảo mật
 

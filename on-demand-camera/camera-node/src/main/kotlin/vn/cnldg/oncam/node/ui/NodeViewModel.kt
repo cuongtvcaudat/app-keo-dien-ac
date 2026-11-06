@@ -45,6 +45,14 @@ class NodeViewModel @Inject constructor(
     /** Service được dùng micro (nghe/nói qua WebRTC). */
     val micAccess: StateFlow<Boolean> = runtime.micAccess
 
+    /** Service được lấy vị trí. */
+    val locationAccess: StateFlow<Boolean> = runtime.locationAccess
+
+    /** Lấy vị trí mới ngay (nút "Cập nhật vị trí" trên máy camera). */
+    fun updateLocation() {
+        runtime.controller.value?.requestLocationUpdate()
+    }
+
     /** Node có đang chạy không. */
     val running: StateFlow<Boolean> = runtime.controller
         .map { it != null }

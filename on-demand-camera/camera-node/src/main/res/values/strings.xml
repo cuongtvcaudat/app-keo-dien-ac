@@ -37,6 +37,8 @@
     <string name="setup_external_user">Tên đăng nhập</string>
     <string name="setup_external_pass">Mật khẩu</string>
     <string name="setup_auto_start">Tự chạy khi khởi động lại máy</string>
+    <string name="setup_share_location">Chia sẻ vị trí máy này với app Xem</string>
+    <string name="setup_share_location_hint">GPS/mạng, cập nhật 15 phút/lần và khi app Xem bấm “Cập nhật vị trí”. Xem được trên Google Maps. Cần cho phép quyền Vị trí.</string>
     <string name="setup_restart_note">Thay đổi có hiệu lực sau khi Dừng rồi Khởi động lại camera node.</string>
 
     <string name="problem_device_id">Mã camera không hợp lệ: chỉ dùng a-z, 0-9, - và _, tối đa 32 ký tự.</string>
@@ -79,6 +81,25 @@
     <string name="status_network">Mạng</string>
     <string name="status_camera_access">Mở camera từ xa</string>
     <string name="status_camera_access_no">Chưa — mở app này một lần</string>
+    <string name="status_section_location">Vị trí máy camera</string>
+    <string name="status_location_coords">Toạ độ</string>
+    <string name="status_location_detail">Chi tiết</string>
+    <string name="location_accuracy">±%1$d m</string>
+    <string name="location_source_gps">GPS</string>
+    <string name="location_source_network">Wi-Fi/mạng</string>
+    <string name="age_just_now">vừa xong</string>
+    <string name="age_minutes">%1$d phút trước</string>
+    <string name="age_hours">%1$d giờ trước</string>
+    <string name="age_days">%1$d ngày trước</string>
+    <string name="location_updating">Đang lấy vị trí (GPS có thể mất tới 30 giây)…</string>
+    <string name="location_none">Chưa có vị trí. Bấm “Cập nhật vị trí”.</string>
+    <string name="location_no_permission">Chưa cho phép quyền Vị trí.</string>
+    <string name="location_err_permission">Không lấy được vị trí: cần mở app này một lần (sau khi máy khởi động lại) hoặc chọn “Luôn cho phép” trong quyền Vị trí.</string>
+    <string name="location_err_off">Vị trí đang tắt: kéo thanh thông báo xuống và bật “Vị trí”.</string>
+    <string name="location_err_unavailable">Chưa bắt được vị trí (máy trong nhà kín hoặc chưa có vệ tinh). Thử lại sau.</string>
+    <string name="action_allow_location">Cho phép vị trí</string>
+    <string name="action_update_location">Cập nhật vị trí</string>
+    <string name="action_open_maps">Mở Google Maps</string>
     <string name="status_mic_access">Micro (nghe/nói từ xa)</string>
     <string name="status_mic_no_permission">Chưa cấp quyền</string>
     <string name="status_mic_allow">Cho phép micro</string>

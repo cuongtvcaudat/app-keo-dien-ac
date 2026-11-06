@@ -40,6 +40,10 @@ fun codeText(context: Context, code: String?): String {
         code == CameraCodes.NO_FLASH -> R.string.code_no_flash
         code == CameraCodes.NO_FRAME -> R.string.code_no_frame
         code == CameraCodes.ADDRESS_CHANGED -> R.string.code_address_changed
+        code == CameraCodes.LOCATION_DISABLED -> R.string.location_err_disabled
+        code == CameraCodes.LOCATION_NO_PERMISSION -> R.string.location_err_permission
+        code == CameraCodes.LOCATION_OFF -> R.string.location_err_off
+        code == CameraCodes.LOCATION_UNAVAILABLE -> R.string.location_err_unavailable
         code == RejectReason.BAD_SIGNATURE.name -> R.string.code_bad_signature
         code == RejectReason.EXPIRED.name -> R.string.code_expired
         code == RejectReason.UNSUPPORTED.name -> R.string.code_unsupported

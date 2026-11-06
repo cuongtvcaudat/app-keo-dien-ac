@@ -8,6 +8,8 @@ import vn.cnldg.oncam.shared.OnCam
  *
  * [RTC_OFFER]/[RTC_HANGUP] (Phase 7): mở/đóng phiên WebRTC (hình + tiếng 2 chiều). Camera bản cũ không biết
  * 2 lệnh này → trả MALFORMED → app Xem quay về xem MJPEG.
+ *
+ * [UPDATE_LOCATION]: lấy vị trí mới ngay (GPS/mạng) và gửi lại trạng thái; chỉ khi máy camera bật chia sẻ vị trí.
  */
 @Serializable
 enum class Action {
@@ -20,6 +22,7 @@ enum class Action {
     PING,
     RTC_OFFER,
     RTC_HANGUP,
+    UPDATE_LOCATION,
 }
 
 /** Camera trước/sau của máy camera-node. */
@@ -114,6 +117,7 @@ fun Command.paramProblem(): CommandProblem? {
         }
         Action.RTC_HANGUP ->
             if (params.sessionId == null || !SESSION_ID.matches(params.sessionId)) CommandProblem.SESSION_REQUIRED else null
+        Action.UPDATE_LOCATION,
         Action.START_STREAM,
         Action.STOP_STREAM,
         Action.SWITCH_CAMERA, // camera = null nghĩa là đổi sang camera còn lại

@@ -115,6 +115,23 @@
     <string name="event_error">%1$s: %2$s</string>
 
     <!-- Ảnh chụp -->
+    <string name="location">Vị trí</string>
+    <string name="location_accuracy">±%1$d m</string>
+    <string name="location_source_gps">GPS</string>
+    <string name="location_source_network">Wi-Fi/mạng</string>
+    <string name="age_just_now">vừa xong</string>
+    <string name="age_minutes">%1$d phút trước</string>
+    <string name="age_hours">%1$d giờ trước</string>
+    <string name="age_days">%1$d ngày trước</string>
+    <string name="location_last_known">Vị trí cuối (camera đang offline): %1$s</string>
+    <string name="location_updating">Máy camera đang lấy vị trí (GPS có thể mất tới 30 giây)…</string>
+    <string name="location_none">Chưa có vị trí. Bấm “Cập nhật vị trí”.</string>
+    <string name="location_err_permission">Máy camera chưa lấy được vị trí: mở app OnCam Quay trên máy camera một lần (hoặc cấp quyền Vị trí).</string>
+    <string name="location_err_off">Máy camera đang tắt Vị trí trong Cài đặt.</string>
+    <string name="location_err_disabled">Máy camera chưa bật “Chia sẻ vị trí”.</string>
+    <string name="location_err_unavailable">Máy camera chưa bắt được vị trí (trong nhà kín hoặc chưa có vệ tinh). Thử lại sau.</string>
+    <string name="action_open_maps">Mở Google Maps</string>
+    <string name="action_update_location">Cập nhật vị trí</string>
     <string name="snapshot_saved">Đã lưu ảnh vào Thư viện (Pictures/OnCam).</string>
     <string name="snapshot_failed">Không tải hoặc lưu được ảnh.</string>
 

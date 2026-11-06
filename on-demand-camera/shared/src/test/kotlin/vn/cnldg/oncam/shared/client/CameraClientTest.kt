@@ -31,6 +31,8 @@ import vn.cnldg.oncam.shared.protocol.CameraState
 import vn.cnldg.oncam.shared.protocol.DeviceEvent
 import vn.cnldg.oncam.shared.protocol.DeviceStatus
 import vn.cnldg.oncam.shared.protocol.EventType
+import vn.cnldg.oncam.shared.protocol.GeoLocation
+import vn.cnldg.oncam.shared.protocol.LocationStatus
 import vn.cnldg.oncam.shared.protocol.ProtocolJson
 import vn.cnldg.oncam.shared.protocol.RejectReason
 import vn.cnldg.oncam.shared.protocol.Topics
@@ -213,6 +215,44 @@ class CameraClientTest {
 
         assertFalse(view.status!!.rtc, "camera 0.6 không gửi cờ rtc")
         assertEquals(RtcAnswerResult.Failed(CommandResult.Timeout), client.rtcOffer(SESSION, "v=0\r\n", timeoutMs = 500))
+    }
+
+    @Test
+    fun `giu vi tri cuoi khi camera offline, xoa khi camera tat chia se`() = runBlocking<Unit> {
+        startFakeNode()
+        val client = client(endpoint)
+        withTimeout(TIMEOUT_MS) { client.view.first { it.online } }
+        val here = GeoLocation(11.940419, 108.458313, 8f, 1_700_000_000, "gps")
+
+        publishStatus(online = true, location = LocationStatus(point = here))
+        withTimeout(TIMEOUT_MS) { client.view.first { it.lastLocation == here } }
+
+        // Camera mất mạng: trạng thái offline (như LWT của bản cũ, không kèm vị trí) → vẫn giữ vị trí cuối.
+        publishStatus(online = false, location = null)
+        withTimeout(TIMEOUT_MS) { client.view.first { it.status?.online == false } }
+        assertEquals(here, client.view.value.lastLocation)
+
+        // Online lại nhưng đã tắt chia sẻ vị trí → xoá.
+        publishStatus(online = true, location = null)
+        withTimeout(TIMEOUT_MS) { client.view.first { it.status?.online == true && it.lastLocation == null } }
+    }
+
+    @Test
+    fun `vi tri da luu hien ngay ca khi chua ket noi`() {
+        val here = GeoLocation(11.94, 108.45, null, 1, "network")
+        val client = CameraClient(endpoint, "viewer-loc", scope, initialLocation = here)
+        assertEquals(here, client.view.value.lastLocation)
+    }
+
+    private fun publishStatus(online: Boolean, location: LocationStatus?) = runBlocking {
+        node!!.publish(
+            OutgoingMessage(
+                Topics.status(DEVICE),
+                ProtocolJson.encodeStatus(DeviceStatus(deviceId = DEVICE, online = online, lastSeen = 2, location = location)),
+                Topics.QOS_STATUS,
+                true,
+            ),
+        )
     }
 
     // --- camera giả + tiện ích ---

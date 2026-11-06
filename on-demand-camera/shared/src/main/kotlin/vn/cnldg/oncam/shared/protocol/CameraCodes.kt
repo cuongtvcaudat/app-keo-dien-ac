@@ -46,6 +46,18 @@ object CameraCodes {
     const val STOP_ON_DEVICE: String = "ON_DEVICE"
     const val STOP_SHUTDOWN: String = "SHUTDOWN"
 
+    /** Máy camera chưa bật "Chia sẻ vị trí". */
+    const val LOCATION_DISABLED: String = "LOCATION_DISABLED"
+
+    /** Chưa cấp quyền vị trí, hoặc service chưa có loại "location" (cần mở app trên máy camera). */
+    const val LOCATION_NO_PERMISSION: String = "LOCATION_NO_PERMISSION"
+
+    /** Vị trí (GPS/mạng) đang tắt trong Cài đặt của máy camera. */
+    const val LOCATION_OFF: String = "LOCATION_OFF"
+
+    /** Không bắt được vị trí trong thời gian chờ (trong nhà kín, chưa có vệ tinh). */
+    const val LOCATION_UNAVAILABLE: String = "LOCATION_UNAVAILABLE"
+
     /** Tiền tố thông điệp THERMAL_THROTTLE: "LOWERED:LOW:43.1" hoặc "STOPPED:45.2". */
     const val THERMAL_LOWERED: String = "LOWERED"
     const val THERMAL_STOPPED: String = "STOPPED"
