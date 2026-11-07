@@ -29,6 +29,7 @@ enum class NetworkType { WIFI, CELLULAR, ETHERNET, OTHER, NONE }
  * @property micReady micro máy camera dùng được (đã cấp quyền + service có loại microphone) → nghe/nói được.
  * @property location vị trí máy camera; null nếu không bật chia sẻ vị trí (app Xem ẩn nút Bản đồ / Cập nhật vị trí).
  * @property recording trạng thái quay video; null = camera bản cũ (app Xem ẩn nút Quay).
+ * @property motion trạng thái canh chuyển động; null = camera bản cũ (app Xem ẩn nút Canh chuyển động).
  */
 @Serializable
 data class DeviceStatus(
@@ -53,6 +54,7 @@ data class DeviceStatus(
     val micReady: Boolean? = null,
     val location: LocationStatus? = null,
     val recording: RecordingStatus? = null,
+    val motion: MotionStatus? = null,
 ) {
     companion object {
         /** Trạng thái "offline" dùng làm LWT khi camera-node kết nối broker (kèm vị trí cuối nếu có chia sẻ). */

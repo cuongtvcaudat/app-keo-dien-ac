@@ -34,6 +34,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.launch
+import vn.cnldg.oncam.shared.protocol.MotionSensitivity
 import vn.cnldg.oncam.shared.protocol.StreamQuality
 import vn.cnldg.oncam.viewer.mqtt.CameraEntry
 import vn.cnldg.oncam.viewer.mqtt.CommandSender
@@ -188,6 +189,9 @@ private fun ViewerApp(vm: ViewerViewModel) {
             override fun trackLocation(entry: CameraEntry, minutes: Int) = vm.trackLocation(entry, minutes)
             override fun toggleRecording(entry: CameraEntry) = vm.toggleRecording(entry)
             override fun downloadVideos(entry: CameraEntry) = withStoragePermission { vm.downloadVideos(entry) }
+            override fun toggleMotion(entry: CameraEntry) = vm.toggleMotion(entry)
+            override fun setMotionSensitivity(entry: CameraEntry, sensitivity: MotionSensitivity) =
+                vm.setMotionSensitivity(entry, sensitivity)
         }
     }
 

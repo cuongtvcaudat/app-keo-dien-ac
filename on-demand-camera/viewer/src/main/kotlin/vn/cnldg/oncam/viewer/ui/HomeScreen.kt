@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import vn.cnldg.oncam.shared.protocol.MotionSensitivity
 import vn.cnldg.oncam.shared.protocol.StreamQuality
 import vn.cnldg.oncam.viewer.R
 import vn.cnldg.oncam.viewer.mqtt.CameraEntry
@@ -61,6 +62,12 @@ interface CameraActions {
 
     /** Tải các video chưa có từ máy camera về Thư viện. */
     fun downloadVideos(entry: CameraEntry)
+
+    /** Bật/tắt canh chuyển động. */
+    fun toggleMotion(entry: CameraEntry)
+
+    /** Đổi độ nhạy phát hiện chuyển động. */
+    fun setMotionSensitivity(entry: CameraEntry, sensitivity: MotionSensitivity)
 
     /** Sửa camera. */
     fun edit(entry: CameraEntry)
@@ -137,6 +144,8 @@ fun HomeScreen(
                         onTrackLocation = { minutes -> actions.trackLocation(entry, minutes) },
                         onToggleRecording = { actions.toggleRecording(entry) },
                         onDownloadVideos = { actions.downloadVideos(entry) },
+                        onToggleMotion = { actions.toggleMotion(entry) },
+                        onMotionSensitivity = { actions.setMotionSensitivity(entry, it) },
                         onEdit = { actions.edit(entry) },
                         onDelete = { actions.delete(entry) },
                     )

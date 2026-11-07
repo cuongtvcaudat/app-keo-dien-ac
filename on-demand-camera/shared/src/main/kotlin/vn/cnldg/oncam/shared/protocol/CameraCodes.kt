@@ -67,6 +67,12 @@ object CameraCodes {
     /** Máy camera bản này chưa hỗ trợ quay video. */
     const val RECORDING_UNSUPPORTED: String = "RECORDING_UNSUPPORTED"
 
+    /** Không tắt camera vì đang canh chuyển động (tắt canh trước bằng SET_MOTION false). */
+    const val MOTION_ARMED: String = "MOTION_ARMED"
+
+    /** Canh chuyển động tự tắt vì camera bị tắt (quá nhiệt, lỗi camera, dừng node...). */
+    const val MOTION_STOPPED: String = "MOTION_STOPPED"
+
     /** Tiền tố thông điệp THERMAL_THROTTLE: "LOWERED:LOW:43.1" hoặc "STOPPED:45.2". */
     const val THERMAL_LOWERED: String = "LOWERED"
     const val THERMAL_STOPPED: String = "STOPPED"

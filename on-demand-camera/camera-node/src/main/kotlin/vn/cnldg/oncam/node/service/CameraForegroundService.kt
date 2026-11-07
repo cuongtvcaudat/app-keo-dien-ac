@@ -242,7 +242,11 @@ class CameraForegroundService : LifecycleService() {
                 audioAllowed = micAllowed,
             )
             // Chỉ xem WebRTC → không cần nén JPEG đủ số hình/giây (giữ 1 khung/giây cho chụp ảnh): máy đỡ nóng.
-            cam.fullRateJpeg = { streams.mjpegClients() > 0 || (cameraRtc?.sessionCount?.value ?: 0) == 0 }
+            // JPEG đủ tốc độ chỉ khi có người xem MJPEG (hoặc chưa ai xem WebRTC); đang canh chuyển động mà không ai
+            // xem thì 1 khung/giây là đủ (ảnh chụp, xem thử) → đỡ nóng máy khi camera chạy cả ngày.
+            cam.fullRateJpeg = {
+                streams.mjpegClients() > 0 || ((cameraRtc?.sessionCount?.value ?: 0) == 0 && !streams.motionArmed())
+            }
             // Vị trí (nếu bật chia sẻ): được lấy khi service có loại "location" hoặc người dùng chọn "Luôn cho phép".
             val tracker = if (config.shareLocation) {
                 LocationTracker(

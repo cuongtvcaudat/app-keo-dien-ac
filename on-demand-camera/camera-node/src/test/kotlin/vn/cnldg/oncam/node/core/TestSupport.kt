@@ -56,6 +56,30 @@ class FakeCameraPort(private val scope: CoroutineScope) : CameraPort {
         return true
     }
 
+    // --- canh chuyển động: test đẩy kênh Y giả qua pushLuma ---
+    @Volatile var luma: LumaSink? = null
+    @Volatile var prepareCount = 0
+
+    override fun setLumaSink(sink: LumaSink?) {
+        luma = sink
+    }
+
+    override suspend fun prepareRecording(): Boolean {
+        prepareCount++
+        return recordingSupported && opened != null
+    }
+
+    /** Khung Y w×h toàn giá trị [value] (+ khối sáng 200 ở [block] nếu có: x0, y0, rộng, cao). */
+    fun pushLuma(w: Int, h: Int, value: Int, block: IntArray? = null) {
+        val buf = ByteArray(w * h) { i ->
+            val x = i % w
+            val y = i / w
+            val inBlock = block != null && x in block[0] until block[0] + block[2] && y in block[1] until block[1] + block[3]
+            (if (inBlock) 200 else value).toByte()
+        }
+        luma?.invoke(java.nio.ByteBuffer.wrap(buf), w, w, h)
+    }
+
     // --- quay video giả: ghi 1 KB rồi báo xong khi dừng / hết giờ / đóng camera ---
     var recordingSupported = true
     @Volatile var recordingFile: java.io.File? = null

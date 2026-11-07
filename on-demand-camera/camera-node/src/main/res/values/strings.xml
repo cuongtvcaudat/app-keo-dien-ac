@@ -201,6 +201,8 @@
     <string name="camera_viewers">Người đang xem</string>
     <string name="camera_recording">Quay video</string>
     <string name="camera_recording_on">● Đang quay</string>
+    <string name="camera_motion">Canh chuyển động</string>
+    <string name="camera_motion_on">Đang canh</string>
     <string name="camera_facing">Camera</string>
     <string name="camera_front">Trước</string>
     <string name="camera_back">Sau</string>
@@ -232,6 +234,7 @@
 
     <string name="notif_streaming">Đang phát video • %1$d người xem</string>
     <string name="notif_recording">● Đang quay video (lưu trên máy này)</string>
+    <string name="notif_motion">Đang canh chuyển động (có chuyển động sẽ tự quay)</string>
     <string name="notif_camera_starting">Đang mở camera…</string>
     <string name="notif_action_stop_camera">Tắt camera</string>
 </resources>

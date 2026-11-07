@@ -185,4 +185,16 @@
     <string name="code_recording_failed">Máy camera không quay được video.</string>
     <string name="code_recording_storage_full">Máy camera hết bộ nhớ, đã dừng quay.</string>
     <string name="code_recording_unsupported">Camera chưa hỗ trợ quay video (cần cập nhật app OnCam Quay ≥ 0.10).</string>
+
+    <!-- Canh chuyển động (0.11): có chuyển động thì máy camera tự quay -->
+    <string name="motion_title">Canh chuyển động</string>
+    <string name="motion_on">Đang canh</string>
+    <string name="motion_off">Tắt</string>
+    <string name="motion_hint">Có chuyển động là tự quay (tới %1$d giây sau khi hết chuyển động, tối đa 2 phút/clip) rồi tự chép về máy này. Camera bật liên tục: nên cắm sạc.</string>
+    <string name="motion_last">Chuyển động gần nhất: %1$s</string>
+    <string name="motion_sensitivity">Độ nhạy</string>
+    <string name="action_motion_on">Bật canh chuyển động</string>
+    <string name="action_motion_off">Tắt canh chuyển động</string>
+    <string name="code_motion_armed">Camera đang canh chuyển động nên không tắt — bấm \"Tắt canh chuyển động\" trước.</string>
+    <string name="code_motion_stopped">Canh chuyển động đã tự tắt vì camera bị tắt (quá nóng, lỗi camera hoặc tắt trên máy camera).</string>
 </resources>

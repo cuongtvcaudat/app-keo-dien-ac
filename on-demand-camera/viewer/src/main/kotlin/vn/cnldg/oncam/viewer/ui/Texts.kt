@@ -49,6 +49,8 @@ fun codeText(context: Context, code: String?): String {
         code == CameraCodes.RECORDING_FAILED -> R.string.code_recording_failed
         code == CameraCodes.RECORDING_STORAGE_FULL -> R.string.code_recording_storage_full
         code == CameraCodes.RECORDING_UNSUPPORTED -> R.string.code_recording_unsupported
+        code == CameraCodes.MOTION_ARMED -> R.string.code_motion_armed
+        code == CameraCodes.MOTION_STOPPED -> R.string.code_motion_stopped
         code == RejectReason.BAD_SIGNATURE.name -> R.string.code_bad_signature
         code == RejectReason.EXPIRED.name -> R.string.code_expired
         code == RejectReason.UNSUPPORTED.name -> R.string.code_unsupported

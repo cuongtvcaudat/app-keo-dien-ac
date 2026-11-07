@@ -13,6 +13,7 @@ import vn.cnldg.oncam.shared.OnCam
  *
  * [START_RECORDING]/[STOP_RECORDING] (0.10): quay video MP4 trên máy camera (tự bật camera nếu đang tắt).
  * [OPEN_RECORDINGS]: mở cổng tải video trên IP Tailscale ~10 phút, kết quả là địa chỉ (không cần bật camera).
+ * [SET_MOTION] (0.11): bật/tắt "canh chuyển động" — camera chạy liên tục, thấy chuyển động thì tự quay clip.
  */
 @Serializable
 enum class Action {
@@ -29,6 +30,7 @@ enum class Action {
     START_RECORDING,
     STOP_RECORDING,
     OPEN_RECORDINGS,
+    SET_MOTION,
 }
 
 /** Camera trước/sau của máy camera-node. */
@@ -58,6 +60,8 @@ enum class StreamQuality(val width: Int, val height: Int, val fps: Int, val jpeg
  * @property trackMinutes (UPDATE_LOCATION) theo dõi vị trí 1 phút/lần trong chừng ấy phút; 0 = dừng theo dõi;
  *   null = chỉ lấy vị trí một lần.
  * @property maxSeconds (START_RECORDING) độ dài tối đa của clip (giây); null = mặc định 10 phút.
+ * @property motion (SET_MOTION) true = bật canh chuyển động, false = tắt.
+ * @property sensitivity (SET_MOTION) độ nhạy; null = giữ mức đang dùng.
  */
 @Serializable
 data class CommandParams(
@@ -69,11 +73,14 @@ data class CommandParams(
     val sessionId: String? = null,
     val trackMinutes: Int? = null,
     val maxSeconds: Int? = null,
+    val motion: Boolean? = null,
+    val sensitivity: MotionSensitivity? = null,
 ) {
     /** Không in SDP (dài, chứa khoá ICE) ra log. */
     override fun toString(): String =
         "CommandParams(camera=$camera, flash=$flash, quality=$quality, idleTimeoutSec=$idleTimeoutSec, " +
-            "sdp=${sdp?.let { "${it.length} ký tự" }}, sessionId=$sessionId, trackMinutes=$trackMinutes, maxSeconds=$maxSeconds)"
+            "sdp=${sdp?.let { "${it.length} ký tự" }}, sessionId=$sessionId, trackMinutes=$trackMinutes, maxSeconds=$maxSeconds, " +
+            "motion=$motion, sensitivity=$sensitivity)"
 }
 
 /**
@@ -102,6 +109,7 @@ enum class CommandProblem {
     SESSION_REQUIRED,
     TRACK_MINUTES_OUT_OF_RANGE,
     RECORD_SECONDS_OUT_OF_RANGE,
+    MOTION_REQUIRED,
 }
 
 /** Giới hạn độ dài một clip (giây): 5 giây – 30 phút. */
@@ -140,6 +148,7 @@ fun Command.paramProblem(): CommandProblem? {
             params.trackMinutes?.takeIf { it !in 0..MAX_TRACK_MINUTES }?.let { CommandProblem.TRACK_MINUTES_OUT_OF_RANGE }
         Action.START_RECORDING ->
             params.maxSeconds?.takeIf { it !in RECORD_SECONDS_RANGE }?.let { CommandProblem.RECORD_SECONDS_OUT_OF_RANGE }
+        Action.SET_MOTION -> if (params.motion == null) CommandProblem.MOTION_REQUIRED else null
         Action.STOP_RECORDING,
         Action.OPEN_RECORDINGS,
         Action.START_STREAM,

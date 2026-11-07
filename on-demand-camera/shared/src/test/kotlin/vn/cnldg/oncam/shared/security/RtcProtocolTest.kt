@@ -9,6 +9,7 @@ import vn.cnldg.oncam.shared.protocol.Action
 import vn.cnldg.oncam.shared.protocol.CommandParams
 import vn.cnldg.oncam.shared.protocol.CommandProblem
 import vn.cnldg.oncam.shared.protocol.MAX_SDP_LENGTH
+import vn.cnldg.oncam.shared.protocol.MotionSensitivity
 import vn.cnldg.oncam.shared.protocol.ProtocolJson
 import vn.cnldg.oncam.shared.protocol.RejectReason
 import vn.cnldg.oncam.shared.protocol.StreamQuality
@@ -112,6 +113,27 @@ class RtcProtocolTest {
         )
         assertNull(signer.sign("san-nha", Action.STOP_RECORDING, CommandParams()).paramProblem())
         assertNull(signer.sign("san-nha", Action.OPEN_RECORDINGS, CommandParams()).paramProblem())
+    }
+
+    @Test
+    fun `lenh canh chuyen dong ky ca bat-tat va do nhay`() {
+        val verifier = CommandVerifier(secret, "san-nha", clock)
+        val cmd = signer.sign("san-nha", Action.SET_MOTION, CommandParams(motion = true, sensitivity = MotionSensitivity.LOW))
+        assertEquals(CommandCheck.Accepted, verifier.verify(cmd))
+        assertNull(cmd.paramProblem())
+        // Kẻ giữa đường đổi "bật" thành "tắt" hoặc đổi độ nhạy → sai chữ ký.
+        assertEquals(CommandCheck.Rejected(RejectReason.BAD_SIGNATURE), verifier.verify(cmd.copy(params = cmd.params.copy(motion = false))))
+        assertEquals(
+            CommandCheck.Rejected(RejectReason.BAD_SIGNATURE),
+            verifier.verify(cmd.copy(params = cmd.params.copy(sensitivity = MotionSensitivity.HIGH))),
+        )
+        assertEquals(CommandProblem.MOTION_REQUIRED, signer.sign("san-nha", Action.SET_MOTION, CommandParams()).paramProblem())
+        assertTrue(
+            CommandCanonical.of("san-nha", "id-12345678", Action.SET_MOTION, CommandParams(motion = true), 100).endsWith("|motion:true"),
+        )
+        // Qua JSON vẫn giữ nguyên.
+        val back = ProtocolJson.decodeCommand(ProtocolJson.encodeCommand(cmd))
+        assertEquals(cmd, back)
     }
 
     @Test

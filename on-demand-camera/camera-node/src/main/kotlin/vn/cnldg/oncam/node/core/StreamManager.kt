@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +36,7 @@ import vn.cnldg.oncam.shared.protocol.Command
 import vn.cnldg.oncam.shared.protocol.CommandParams
 import vn.cnldg.oncam.shared.protocol.DeviceEvent
 import vn.cnldg.oncam.shared.protocol.EventType
+import vn.cnldg.oncam.shared.protocol.MotionStatus
 import vn.cnldg.oncam.shared.protocol.Recordings
 import vn.cnldg.oncam.shared.protocol.StreamPaths
 import vn.cnldg.oncam.shared.protocol.StreamQuality
@@ -59,6 +61,11 @@ import vn.cnldg.oncam.shared.security.StreamAuth
  * @param rtc phiên WebRTC; null nếu máy không chạy được WebRTC → RTC_OFFER trả UNSUPPORTED.
  * @param recordings thư mục video (0.10); null → không quay được. Đang quay được tính là người xem (camera không
  *   tự tắt); tắt/đổi camera thì clip đang quay được đóng lại trước. Quay xong → mở cổng tải video 10 phút.
+ *
+ * - SET_MOTION (0.11): canh chuyển động — camera bật liên tục (không tự tắt, STOP_STREAM bị từ chối với
+ *   MOTION_ARMED), [MotionDetector] xem kênh Y; có chuyển động → quay clip, dừng sau [Settings.motionClipMs] kể từ
+ *   lần chuyển động cuối (tối đa [Settings.motionMaxClipSec] giây/clip, còn chuyển động thì quay clip tiếp).
+ *   Camera bị tắt vì lý do khác (quá nhiệt, lỗi, nút trên máy camera) → tự tắt canh, báo MOTION_STOPPED.
  */
 class StreamManager(
     private val camera: CameraPort,
@@ -91,6 +98,10 @@ class StreamManager(
         val recordingPort: Int = vn.cnldg.oncam.shared.protocol.Recordings.PORT,
         val recordingServerOpenMs: Long = 10 * 60_000L,
         val recordingFinishWaitMs: Long = 5_000L,
+        val motionClipMs: Long = 30_000L,
+        val motionMaxClipSec: Int = 120,
+        val motionIntervalMs: Long = 250L,
+        val motionWarmupFrames: Int = 4,
     )
 
     private val mutex = Mutex()
@@ -110,6 +121,27 @@ class StreamManager(
 
     @Volatile
     private var recordingDone: CompletableDeferred<Unit>? = null
+
+    private val detector = MotionDetector(minIntervalMs = settings.motionIntervalMs, warmupFrames = settings.motionWarmupFrames)
+
+    @Volatile
+    private var motionArmed = false
+
+    @Volatile
+    private var lastMotionMs = 0L
+
+    /** Clip đang quay là do chuyển động (tự dừng khi hết chuyển động); clip bấm tay thì không tự dừng. */
+    private var motionClip = false
+    private var motionJob: Job? = null
+    private val motionSignal = Channel<Unit>(Channel.CONFLATED)
+
+    /** Gọi trên luồng camera cho mỗi khung khi đang canh. */
+    private val lumaSink: LumaSink = { y, stride, w, h ->
+        if (detector.analyze(y, stride, w, h, monoMs())?.motion == true) {
+            lastMotionMs = monoMs()
+            motionSignal.trySend(Unit)
+        }
+    }
 
     private val serverLock = Any()
     private var recordingServer: RecordingServer? = null
@@ -139,6 +171,9 @@ class StreamManager(
 
     override fun latestFrame(): ByteArray? = hub?.latest()
 
+    /** Đang canh chuyển động (camera bật liên tục). */
+    fun motionArmed(): Boolean = motionArmed
+
     /** Số người đang xem luồng MJPEG (không tính WebRTC). */
     fun mjpegClients(): Int = server?.clientCount ?: 0
 
@@ -146,11 +181,14 @@ class StreamManager(
         val p = command.params
         when (command.action) {
             Action.START_STREAM -> startLocked(p)
-            Action.STOP_STREAM -> if (_status.value.state == CameraState.OFF) {
-                ActionOutcome.Done(CameraCodes.ALREADY_OFF)
-            } else {
-                stopLocked(EventType.CAMERA_STOPPED, CameraCodes.STOP_BY_VIEWER)
-                ActionOutcome.Done()
+            Action.STOP_STREAM -> when {
+                _status.value.state == CameraState.OFF -> ActionOutcome.Done(CameraCodes.ALREADY_OFF)
+                // App Xem rời màn hình / bấm Tắt camera: camera vẫn phải chạy để canh → tắt canh trước.
+                motionArmed -> ActionOutcome.Failed(CameraCodes.MOTION_ARMED)
+                else -> {
+                    stopLocked(EventType.CAMERA_STOPPED, CameraCodes.STOP_BY_VIEWER)
+                    ActionOutcome.Done()
+                }
             }
             Action.SWITCH_CAMERA -> switchLocked(p.camera)
             Action.SET_FLASH -> flashLocked(checkNotNull(p.flash))
@@ -162,13 +200,18 @@ class StreamManager(
             }
             Action.PING -> ActionOutcome.Done() // CommandHandler đã trả lời PING trước khi tới đây
             Action.UPDATE_LOCATION -> ActionOutcome.Unsupported // NodeController xử lý (không liên quan camera)
-            Action.START_RECORDING -> startRecordingLocked(p)
+            Action.START_RECORDING -> {
+                motionClip = false // bấm tay: không tự dừng khi hết chuyển động
+                startRecordingLocked(p)
+            }
             Action.STOP_RECORDING -> {
+                motionClip = false
                 stopRecordingLocked()
                 ActionOutcome.Done(_status.value.recording.lastFile)
             }
             Action.OPEN_RECORDINGS -> openRecordingServer()?.let { ActionOutcome.Done(it) }
                 ?: ActionOutcome.Failed(if (recordings == null) CameraCodes.RECORDING_UNSUPPORTED else CameraCodes.NO_TAILSCALE)
+            Action.SET_MOTION -> motionLocked(p)
             Action.RTC_OFFER -> rtcOfferLocked(p)
             Action.RTC_HANGUP -> {
                 rtc?.hangup(checkNotNull(p.sessionId))
@@ -325,6 +368,91 @@ class StreamManager(
         done.complete(Unit)
     }
 
+    private suspend fun motionLocked(p: CommandParams): ActionOutcome {
+        if (recordings == null) return ActionOutcome.Failed(CameraCodes.RECORDING_UNSUPPORTED)
+        p.sensitivity?.let { s ->
+            detector.sensitivity = s
+            _status.update { it.copy(motion = it.motion.copy(sensitivity = s)) }
+        }
+        if (p.motion != true) {
+            disarmLocked(error = null)
+            return ActionOutcome.Done()
+        }
+        if (motionArmed) return ActionOutcome.Done()
+        if (_status.value.state != CameraState.STREAMING) {
+            // Canh ở mức Thấp (640×480, 10 hình/giây) cho đỡ nóng máy; video quay vẫn là HD.
+            val started = startLocked(p.copy(motion = null, sensitivity = null, quality = p.quality ?: StreamQuality.LOW))
+            if (started is ActionOutcome.Failed) return started
+        }
+        prepareMotionRecording()
+        detector.sensitivity = _status.value.motion.sensitivity
+        detector.reset()
+        motionClip = false
+        motionArmed = true
+        camera.setLumaSink(lumaSink)
+        _status.update {
+            it.copy(motion = it.motion.copy(armed = true, error = null, clipSeconds = (settings.motionClipMs / 1000).toInt()))
+        }
+        motionJob = scope.launch { motionLoop() }
+        log.log(LogSink.Level.INFO, "Bắt đầu canh chuyển động (độ nhạy ${_status.value.motion.sensitivity})", null)
+        return ActionOutcome.Done()
+    }
+
+    /** Gắn sẵn bộ quay để khi có chuyển động là quay ngay (gắn thêm luồng làm tắt đèn → bật lại). */
+    private suspend fun prepareMotionRecording() {
+        if (camera.prepareRecording() && _status.value.flashOn) camera.setTorch(true)
+    }
+
+    /** Tắt canh; [error] = lý do tự tắt (null khi người dùng tắt). Clip đang quay do chuyển động được đóng lại. */
+    private suspend fun disarmLocked(error: String?) {
+        val wasArmed = motionArmed
+        motionArmed = false
+        camera.setLumaSink(null)
+        val job = motionJob
+        motionJob = null
+        if (job != null && job != currentCoroutineContext()[Job]) job.cancel()
+        if (motionClip) {
+            motionClip = false
+            stopRecordingLocked()
+        }
+        if (wasArmed || error == null) {
+            _status.update { it.copy(motion = it.motion.copy(armed = false, error = error)) }
+        }
+        if (wasArmed) {
+            idleReset = true // không ai xem thì camera tự tắt sau thời gian chờ như thường
+            log.log(LogSink.Level.INFO, "Tắt canh chuyển động${error?.let { " ($it)" }.orEmpty()}", null)
+        }
+    }
+
+    /** Nhận tín hiệu chuyển động từ luồng camera: quay clip, hết chuyển động [Settings.motionClipMs] thì dừng. */
+    private suspend fun motionLoop() {
+        while (currentCoroutineContext().isActive) {
+            val signalled = withTimeoutOrNull(settings.checkIntervalMs) { motionSignal.receive() } != null
+            mutex.withLock {
+                if (!motionArmed || _status.value.state != CameraState.STREAMING) return
+                val recording = _status.value.recording.active
+                if (signalled) {
+                    val nowSec = clock.nowSec()
+                    val last = _status.value.motion.lastMotionAt
+                    // Ghi lúc bắt đầu clip, hoặc mỗi 15 giây khi còn chuyển động (không gửi trạng thái 4 lần/giây).
+                    if (!recording || last == null || nowSec - last >= MOTION_STATUS_EVERY_SEC) {
+                        _status.update { it.copy(motion = it.motion.copy(lastMotionAt = nowSec)) }
+                    }
+                    if (!recording) {
+                        motionClip = startRecordingLocked(CommandParams(maxSeconds = settings.motionMaxClipSec)) is ActionOutcome.Done
+                        if (motionClip) log.log(LogSink.Level.INFO, "Có chuyển động → quay clip", null)
+                    }
+                } else if (motionClip && recording && monoMs() - lastMotionMs >= settings.motionClipMs) {
+                    stopRecordingLocked()
+                    motionClip = false
+                }
+                if (!_status.value.recording.active) motionClip = false
+            }
+        }
+    }
+
+    private fun monoMs(): Long = System.nanoTime() / 1_000_000
+
     /**
      * Mở (hoặc gia hạn) cổng tải video trên IP Tailscale trong [Settings.recordingServerOpenMs].
      * @return địa chỉ gốc (http://ip:port), null nếu không quay được hoặc chưa có IP Tailscale.
@@ -383,6 +511,7 @@ class StreamManager(
         hub = null
         host = null
         withContext(NonCancellable) {
+            if (motionArmed) disarmLocked(CameraCodes.MOTION_STOPPED)
             stopRecordingLocked()
             rtc?.closeAll()
             srv?.let { withContext(Dispatchers.IO) { it.stopServer() } }
@@ -429,6 +558,8 @@ class StreamManager(
         val currentHub = hub ?: return ActionOutcome.Failed(CameraCodes.CAMERA_OFF)
         // Mở lại camera (đổi camera/chất lượng) làm đứt clip đang quay → đóng clip cho gọn trước.
         stopRecordingLocked()
+        motionClip = false
+        detector.reset() // độ phân giải/camera đổi → học lại nền
         val wasFlash = _status.value.flashOn
         val s = _status.value
         return when (val opened = camera.open(s.facing, s.quality, currentHub::publish)) {
@@ -440,6 +571,7 @@ class StreamManager(
                 // Mở lại camera làm tắt đèn; bật lại nếu camera mới có flash.
                 val flash = wasFlash && opened.hasFlash && camera.setTorch(true)
                 _status.update { it.copy(flashOn = flash) }
+                if (motionArmed) prepareMotionRecording()
                 null
             }
         }
@@ -457,9 +589,9 @@ class StreamManager(
             val clients = (server?.clientCount ?: 0) + (rtc?.sessions?.value ?: 0) + recordingNow
             _status.update { if (it.clients != clients) it.copy(clients = clients) else it }
 
-            if (idleReset || clients > 0) {
+            if (idleReset || clients > 0 || motionArmed) {
                 idleReset = false
-                idleSinceMs = if (clients > 0) null else nowMs
+                idleSinceMs = if (clients > 0 || motionArmed) null else nowMs
             } else if (idleSinceMs == null) {
                 idleSinceMs = nowMs
             } else if (nowMs - idleSinceMs >= _status.value.idleTimeoutSec * settings.msPerIdleSecond) {
@@ -516,4 +648,8 @@ class StreamManager(
     }
 
     private fun format(c: Double) = String.format(java.util.Locale.US, "%.1f", c)
+
+    private companion object {
+        const val MOTION_STATUS_EVERY_SEC = 15L
+    }
 }

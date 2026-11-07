@@ -118,7 +118,9 @@ class CommandSender @Inject constructor(
                 if (settings.stopOnLeave.value) {
                     startedHere.toList().forEach { id ->
                         val c = connections.value[id]?.client ?: return@forEach
-                        if (c.view.value.status?.cameraState == CameraState.STREAMING) {
+                        val status = c.view.value.status
+                        // Đang canh chuyển động thì camera phải chạy tiếp (camera cũng từ chối lệnh tắt).
+                        if (status?.cameraState == CameraState.STREAMING && status.motion?.armed != true) {
                             val r = c.send(Action.STOP_STREAM, timeoutMs = STOP_ON_LEAVE_TIMEOUT_MS)
                             Timber.i("Rời app: tắt camera %s → %s", id, r)
                         }

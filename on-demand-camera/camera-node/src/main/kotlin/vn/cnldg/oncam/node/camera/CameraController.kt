@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import vn.cnldg.oncam.node.core.CameraPort
+import vn.cnldg.oncam.node.core.LumaSink
 import vn.cnldg.oncam.node.core.MountOrientation
 import vn.cnldg.oncam.node.core.OpenResult
 import vn.cnldg.oncam.node.core.RecordingOutcome
@@ -87,6 +88,14 @@ class CameraController(
     @Volatile
     var fullRateJpeg: () -> Boolean = { true }
 
+    /** Kênh Y mỗi khung cho phát hiện chuyển động (0.11); null = không canh. */
+    @Volatile
+    private var luma: LumaSink? = null
+
+    override fun setLumaSink(sink: LumaSink?) {
+        luma = sink
+    }
+
         private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
     override val errors: Flow<String> = _errors.asSharedFlow()
 
@@ -126,7 +135,7 @@ class CameraController(
                 .setOutputImageRotationEnabled(true)
                 .setTargetRotation(surfaceRotation(orientation))
                 .build()
-            analysis.setAnalyzer(analysisExecutor, FrameEncoder(quality, sink, { rawFrameSink }, { fullRateJpeg() }))
+            analysis.setAnalyzer(analysisExecutor, FrameEncoder(quality, sink, { rawFrameSink }, { fullRateJpeg() }, { luma }))
 
             try {
                 detachObserver()
@@ -164,27 +173,7 @@ class CameraController(
         val sel = currentSelector ?: return@withContext false
         val analysis = currentAnalysis ?: return@withContext false
         if (recording != null) return@withContext false
-        val capture = videoCapture ?: run {
-            val recorder = Recorder.Builder()
-                .setQualitySelector(QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.HD)))
-                .setTargetVideoEncodingBitRate(VIDEO_BITRATE)
-                .build()
-            val vc = VideoCapture.Builder(recorder).setTargetRotation(surfaceRotation(orientation)).build()
-            try {
-                detachObserver()
-                p.unbindAll()
-                attach(p.bindToLifecycle(lifecycleOwner, sel, analysis, vc))
-                vc
-            } catch (e: Exception) {
-                log.log(LogSink.Level.WARN, "Máy không quay video song song với luồng xem được", e)
-                runCatching {
-                    p.unbindAll()
-                    attach(p.bindToLifecycle(lifecycleOwner, sel, analysis))
-                }
-                return@withContext false
-            }
-        }
-        videoCapture = capture
+        val capture = ensureVideoCapture(p, sel, analysis) ?: return@withContext false
         val audio = withAudio &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val options = FileOutputOptions.Builder(file).setDurationLimitMillis(maxMs).build()
@@ -201,6 +190,40 @@ class CameraController(
             return@withContext false
         }
         true
+    }
+
+    override suspend fun prepareRecording(): Boolean = withContext(Dispatchers.Main) {
+        val p = provider ?: return@withContext false
+        val sel = currentSelector ?: return@withContext false
+        val analysis = currentAnalysis ?: return@withContext false
+        ensureVideoCapture(p, sel, analysis) != null
+    }
+
+    /**
+     * Gắn VideoCapture cạnh luồng xem (nếu chưa gắn). Gắn thêm làm CameraX mở lại camera (hình khựng ~1 giây).
+     * Máy không cho 2 luồng cùng lúc → null, giữ nguyên luồng xem.
+     */
+    private fun ensureVideoCapture(p: ProcessCameraProvider, sel: CameraSelector, analysis: ImageAnalysis): VideoCapture<Recorder>? {
+        videoCapture?.let { return it }
+        val recorder = Recorder.Builder()
+            .setQualitySelector(QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.HD)))
+            .setTargetVideoEncodingBitRate(VIDEO_BITRATE)
+            .build()
+        val vc = VideoCapture.Builder(recorder).setTargetRotation(surfaceRotation(orientation)).build()
+        return try {
+            detachObserver()
+            p.unbindAll()
+            attach(p.bindToLifecycle(lifecycleOwner, sel, analysis, vc))
+            videoCapture = vc
+            vc
+        } catch (e: Exception) {
+            log.log(LogSink.Level.WARN, "Máy không quay video song song với luồng xem được", e)
+            runCatching {
+                p.unbindAll()
+                attach(p.bindToLifecycle(lifecycleOwner, sel, analysis))
+            }
+            null
+        }
     }
 
     override suspend fun stopRecording() = withContext(Dispatchers.Main) {
@@ -299,7 +322,7 @@ class CameraController(
     }
 
     /**
-     * Giới hạn FPS, chuyển NV21 một lần rồi: nén JPEG (MJPEG/ảnh chụp) — đủ FPS hoặc 1 khung/giây tuỳ [fullJpeg] —
+     * Giới hạn FPS, đưa kênh Y cho phát hiện chuyển động (nếu đang canh), chuyển NV21 một lần rồi: nén JPEG (MJPEG/ảnh chụp) — đủ FPS hoặc 1 khung/giây tuỳ [fullJpeg] —
      * và đưa sang WebRTC nếu có phiên; luôn đóng ImageProxy để CameraX gửi khung tiếp.
      */
     private class FrameEncoder(
@@ -307,6 +330,7 @@ class CameraController(
         private val sink: (ByteArray) -> Unit,
         private val raw: () -> ((ByteArray, Int, Int, Long) -> Unit)?,
         private val fullJpeg: () -> Boolean,
+        private val motion: () -> LumaSink?,
     ) : ImageAnalysis.Analyzer {
         private val intervalNs = 1_000_000_000L / quality.fps
         private val converter = YuvToNv21()
@@ -318,6 +342,11 @@ class CameraController(
                 val now = System.nanoTime()
                 if (now - lastNs < intervalNs) return
                 lastNs = now
+                // Canh chuyển động: đọc thẳng kênh Y (không cần chuyển NV21/JPEG), bộ phát hiện tự giới hạn 4 khung/giây.
+                motion()?.let { m ->
+                    val y = image.planes[0]
+                    m(y.buffer, y.rowStride, image.width, image.height)
+                }
                 val rtc = raw()
                 val jpeg = fullJpeg() || now - lastJpegNs >= SLOW_JPEG_INTERVAL_NS
                 if (!jpeg && rtc == null) return

@@ -37,6 +37,8 @@ import vn.cnldg.oncam.shared.protocol.CameraCodes
 import vn.cnldg.oncam.shared.protocol.CameraFacing
 import vn.cnldg.oncam.shared.protocol.CameraState
 import vn.cnldg.oncam.shared.protocol.GeoLocation
+import vn.cnldg.oncam.shared.protocol.MotionSensitivity
+import vn.cnldg.oncam.shared.protocol.MotionStatus
 import vn.cnldg.oncam.shared.protocol.NetworkType
 import vn.cnldg.oncam.shared.protocol.RecordingStatus
 import vn.cnldg.oncam.shared.protocol.Recordings
@@ -67,6 +69,8 @@ fun CameraCard(
     onTrackLocation: (Int) -> Unit,
     onToggleRecording: () -> Unit,
     onDownloadVideos: () -> Unit,
+    onToggleMotion: () -> Unit,
+    onMotionSensitivity: (MotionSensitivity) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -174,6 +178,16 @@ fun CameraCard(
                     onDownload = onDownloadVideos,
                 )
             }
+            // Canh chuyển động (camera ≥ 0.11): có chuyển động thì máy camera tự quay, clip tự chép về máy này.
+            status?.motion?.takeIf { online }?.let { motion ->
+                MotionBlock(
+                    motion = motion,
+                    nowSec = nowMs / 1000,
+                    busy = busy,
+                    onToggle = onToggleMotion,
+                    onSensitivity = onMotionSensitivity,
+                )
+            }
             if (online) {
                 Text(stringResource(R.string.quality), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -251,6 +265,66 @@ private fun networkText(network: NetworkType?): String = stringResource(
     },
 )
 
+/** "vừa xong" / "5 phút trước" / "2 giờ trước" / "3 ngày trước". */
+@Composable
+private fun ageText(seconds: Long): String {
+    val age = seconds.coerceAtLeast(0)
+    return when {
+        age < 60 -> stringResource(R.string.age_just_now)
+        age < 3_600 -> stringResource(R.string.age_minutes, (age / 60).toInt())
+        age < 86_400 -> stringResource(R.string.age_hours, (age / 3_600).toInt())
+        else -> stringResource(R.string.age_days, (age / 86_400).toInt())
+    }
+}
+
+/** Canh chuyển động: trạng thái, lần chuyển động gần nhất, nút bật/tắt, độ nhạy. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MotionBlock(
+    motion: MotionStatus,
+    nowSec: Long,
+    busy: Boolean,
+    onToggle: () -> Unit,
+    onSensitivity: (MotionSensitivity) -> Unit,
+) {
+    val context = LocalContext.current
+    InfoRow(
+        stringResource(R.string.motion_title),
+        stringResource(if (motion.armed) R.string.motion_on else R.string.motion_off),
+    )
+    if (motion.armed) {
+        Text(stringResource(R.string.motion_hint, motion.clipSeconds), style = MaterialTheme.typography.bodySmall)
+    }
+    motion.lastMotionAt?.let {
+        Text(stringResource(R.string.motion_last, ageText(nowSec - it)), style = MaterialTheme.typography.bodySmall)
+    }
+    motion.error?.takeIf { !motion.armed }?.let {
+        Text(codeText(context, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+    if (motion.armed) {
+        Button(onClick = onToggle, enabled = !busy) { Text(stringResource(R.string.action_motion_off)) }
+    } else {
+        OutlinedButton(onClick = onToggle, enabled = !busy) { Text(stringResource(R.string.action_motion_on)) }
+    }
+    Text(stringResource(R.string.motion_sensitivity), style = MaterialTheme.typography.labelLarge)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        MotionSensitivity.entries.forEach { s ->
+            val label = stringResource(
+                when (s) {
+                    MotionSensitivity.LOW -> R.string.quality_low
+                    MotionSensitivity.MEDIUM -> R.string.quality_medium
+                    MotionSensitivity.HIGH -> R.string.quality_high
+                },
+            )
+            if (motion.sensitivity == s) {
+                Button(onClick = {}, enabled = !busy) { Text(label) }
+            } else {
+                OutlinedButton(onClick = { onSensitivity(s) }, enabled = !busy) { Text(label) }
+            }
+        }
+    }
+}
+
 /** Đang quay bao lâu + nút Quay/Dừng + Tải video về máy. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -311,17 +385,11 @@ private fun LocationBlock(
     val trackLeftMin = trackingUntil?.let { ((it - nowSec + 59) / 60).coerceAtLeast(0).toInt() }?.takeIf { it > 0 }
     if (point != null) {
         InfoRow(stringResource(R.string.location), point.coordinates())
-        val age = (nowSec - point.timestamp).coerceAtLeast(0)
-        val ageText = when {
-            age < 60 -> stringResource(R.string.age_just_now)
-            age < 3_600 -> stringResource(R.string.age_minutes, (age / 60).toInt())
-            age < 86_400 -> stringResource(R.string.age_hours, (age / 3_600).toInt())
-            else -> stringResource(R.string.age_days, (age / 86_400).toInt())
-        }
+        val age = ageText(nowSec - point.timestamp)
         val detail = listOfNotNull(
             point.accuracyM?.let { stringResource(R.string.location_accuracy, it.toInt()) },
             stringResource(if (point.provider == "gps") R.string.location_source_gps else R.string.location_source_network),
-            ageText,
+            age,
         ).joinToString(" • ")
         Text(
             if (online) detail else stringResource(R.string.location_last_known, detail),

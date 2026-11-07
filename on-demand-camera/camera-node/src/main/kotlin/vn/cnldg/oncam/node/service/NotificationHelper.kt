@@ -53,6 +53,7 @@ class NotificationHelper @Inject constructor(
         return when {
             // Người cầm máy camera luôn biết máy đang quay (video lưu trên máy).
             state.camera.recording.active -> context.getString(R.string.notif_recording)
+            state.camera.motion.armed -> context.getString(R.string.notif_motion)
             state.camera.state == CameraState.STREAMING ->
                 context.getString(R.string.notif_streaming, state.camera.clients)
             state.camera.state == CameraState.STARTING -> context.getString(R.string.notif_camera_starting)

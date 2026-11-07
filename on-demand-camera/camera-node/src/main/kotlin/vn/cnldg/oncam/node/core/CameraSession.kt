@@ -1,6 +1,7 @@
 package vn.cnldg.oncam.node.core
 
 import java.io.File
+import java.nio.ByteBuffer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import vn.cnldg.oncam.node.mqtt.ActionOutcome
@@ -9,6 +10,7 @@ import vn.cnldg.oncam.shared.protocol.CameraFacing
 import vn.cnldg.oncam.shared.protocol.CameraState
 import vn.cnldg.oncam.shared.protocol.Command
 import vn.cnldg.oncam.shared.protocol.DeviceEvent
+import vn.cnldg.oncam.shared.protocol.MotionStatus
 import vn.cnldg.oncam.shared.protocol.RecordingStatus
 import vn.cnldg.oncam.shared.protocol.StreamQuality
 
@@ -43,7 +45,11 @@ data class CameraStatus(
     val clients: Int = 0,
     val error: String? = null,
     val recording: RecordingStatus = RecordingStatus(),
+    val motion: MotionStatus = MotionStatus(),
 )
+
+/** Nhận kênh độ sáng (Y) của khung camera: (dữ liệu từ vị trí 0, số byte mỗi hàng, rộng, cao). */
+typealias LumaSink = (ByteBuffer, Int, Int, Int) -> Unit
 
 /** Phần camera + stream mà [NodeController] điều khiển (cài đặt: [StreamManager]). */
 interface CameraSession {
@@ -119,6 +125,15 @@ interface CameraPort {
 
     /** Dừng quay (file hoàn tất bất đồng bộ qua onFinished). */
     suspend fun stopRecording() = Unit
+
+    /** Chuẩn bị sẵn bộ quay (canh chuyển động: có chuyển động là quay ngay, không chờ gắn thêm luồng ~1 giây). */
+    suspend fun prepareRecording(): Boolean = false
+
+    /**
+     * Đặt nơi nhận kênh Y của mỗi khung (canh chuyển động, 0.11); null = thôi. Gọi từ luồng camera,
+     * dữ liệu chỉ dùng được trong lúc gọi (không giữ lại).
+     */
+    fun setLumaSink(sink: LumaSink?) = Unit
 }
 
 /** Kết quả một lần quay. */

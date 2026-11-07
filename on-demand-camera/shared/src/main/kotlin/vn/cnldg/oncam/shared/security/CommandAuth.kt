@@ -50,6 +50,8 @@ internal object CommandCanonical {
         // Theo dõi vị trí (0.9): cũng chỉ thêm khi có, nên lệnh cũ vẫn ký như cũ.
         params.trackMinutes?.let { fields += "track:$it" }
         params.maxSeconds?.let { fields += "rec:$it" }
+        params.motion?.let { fields += "motion:$it" }
+        params.sensitivity?.let { fields += "sens:${it.name}" }
         return fields.joinToString("|")
     }
 }

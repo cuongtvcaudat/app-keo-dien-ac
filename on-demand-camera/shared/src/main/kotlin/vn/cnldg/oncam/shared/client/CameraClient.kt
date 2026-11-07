@@ -26,6 +26,7 @@ import vn.cnldg.oncam.shared.protocol.DeviceEvent
 import vn.cnldg.oncam.shared.protocol.DeviceStatus
 import vn.cnldg.oncam.shared.protocol.EventType
 import vn.cnldg.oncam.shared.protocol.GeoLocation
+import vn.cnldg.oncam.shared.protocol.MotionSensitivity
 import vn.cnldg.oncam.shared.protocol.RecordingStatus
 import vn.cnldg.oncam.shared.protocol.ProtocolJson
 import vn.cnldg.oncam.shared.protocol.StreamPaths
@@ -192,6 +193,13 @@ class CameraClient(
 
     /** Mở cổng tải video trên máy camera; trả về địa chỉ gốc (vd. http://100.x.y.z:8081) hoặc null nếu lỗi. */
     suspend fun openRecordings(): String? = (send(Action.OPEN_RECORDINGS) as? CommandResult.Ok)?.message
+
+    /**
+     * Bật/tắt canh chuyển động (0.11): camera chạy liên tục, có chuyển động thì tự quay clip.
+     * [sensitivity] null = giữ độ nhạy đang dùng.
+     */
+    suspend fun setMotion(on: Boolean, sensitivity: MotionSensitivity? = null, idleTimeoutSec: Int? = null): CommandResult =
+        send(Action.SET_MOTION, CommandParams(motion = on, sensitivity = sensitivity, idleTimeoutSec = idleTimeoutSec))
 
         /** Theo dõi vị trí 1 phút/lần trong [minutes] phút (0 = dừng). Chỉ camera có `location.canTrack` mới hiểu. */
     suspend fun trackLocation(minutes: Int): CommandResult =

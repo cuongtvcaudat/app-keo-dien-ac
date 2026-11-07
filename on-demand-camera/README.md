@@ -36,6 +36,7 @@ Kiến trúc: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 7 | WebRTC: hình nén (ít dữ liệu hơn MJPEG ~5–18 lần), nghe tiếng sân, **giữ để nói** ra loa máy camera; tự quay về MJPEG khi lỗi | 🧪 đã qua test emulator, chờ thử trên máy thật |
 | 7+ | Tối ưu máy camera (JPEG chỉ khi cần, ưu tiên nén phần cứng, chuyển màu nhanh 4,3 lần trên ART); hiện chuẩn nén + kbit/s thật; **vị trí máy camera trên Google Maps** (giữ vị trí cuối khi camera offline) | 🧪 đã qua test, chờ thử trên máy thật |
 | 8.1 | **Quay video** trên máy camera (HD, tối đa 10 phút/clip, giữ 2 GB), tự chép về Thư viện máy xem qua Tailscale | 🧪 đã qua test, chờ thử trên máy thật |
+| 8.2 | **Canh chuyển động**: có người/xe là máy camera tự quay clip (30 s sau khi hết chuyển động, ≤ 2 phút/clip), lọc đổi ánh sáng, 3 mức độ nhạy, tự chép về máy xem | 🧪 đã qua test, chờ thử trên máy thật |
 
 ## Cấu trúc
 

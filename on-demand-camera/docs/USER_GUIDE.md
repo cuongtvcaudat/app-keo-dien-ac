@@ -194,6 +194,37 @@ Thư viện máy xem** (album *Movies/OnCam*, mở bằng Thư viện/Google Pho
 - Lần đầu bấm quay, hình xem trực tiếp có thể **khựng ~1 giây** (camera gắn thêm bộ quay); đổi camera trước/sau hoặc
   đổi chất lượng trong lúc quay sẽ **kết thúc clip** đang quay (clip đến lúc đó vẫn được lưu).
 
+### Canh chuyển động — tự quay khi có người/xe vào (từ bản 0.11, cả 2 app ≥ 0.11)
+
+1. Thẻ camera → **Bật canh chuyển động** (camera đang tắt thì tự bật ở mức **Thấp** cho đỡ nóng; video quay vẫn HD).
+2. Có chuyển động → máy camera **tự quay**, quay tiếp **30 giây sau khi hết chuyển động** (tối đa 2 phút/clip, còn
+   chuyển động thì quay clip tiếp). Clip tự chép về Thư viện máy xem như mục Quay video.
+3. Thẻ hiện **Chuyển động gần nhất: 5 phút trước**. Thông báo trên máy camera ghi *Đang canh chuyển động*.
+4. **Tắt canh chuyển động** khi không cần. Trong lúc canh, nút *Tắt camera* và việc rời app Xem **không tắt camera**.
+
+| Độ nhạy | Báo khi | Dùng khi |
+|---|---|---|
+| Thấp | Vật chiếm ≥ 5 % khung hình (người đi gần, xe vào cổng) | Sân có cây lá, hay mưa gió |
+| Vừa (mặc định) | ≥ 2,5 % khung (người đi ngang sân ~10 m) | Đa số trường hợp |
+| Cao | ≥ 1 % khung (người ở xa, vật nhỏ) | Cảnh tĩnh, trong nhà/kho |
+
+Cách nhận biết: chia khung thành lưới 32×24 ô, so độ sáng từng ô với ảnh nền (tự thích nghi khi trời sáng/tối dần),
+phải thấy đổi **2 lần liên tiếp** (~0,5 giây) mới tính. Bật/tắt đèn, mây che nắng (đổi ≥ 70 % khung cùng lúc) **không
+tính** là chuyển động.
+
+⚠️ Rủi ro cần biết (chưa đo trên máy thật):
+- **Pin và nhiệt**: camera chạy liên tục — ước tính 1–1,5 W, pin 5.000 mAh cạn trong ~13–19 giờ nếu không cắm sạc.
+  **Bắt buộc cắm sạc**. Samsung: Cài đặt → Chăm sóc pin → Bảo vệ pin → *Tối đa 85 %* để pin không phồng khi cắm
+  sạc lâu ngày. Đặt máy chỗ thoáng, không phơi nắng: ≥ 45 °C máy tự tắt camera và tự tắt canh (thẻ báo lý do).
+- **Báo nhầm**: lá cây, bóng nắng di chuyển, mưa, côn trùng bám ống kính, đèn xe quét qua. Hướng camera tránh cây/
+  đường lớn, chọn độ nhạy Thấp nếu quay nhầm nhiều.
+- **Ban đêm**: điện thoại không có đèn hồng ngoại → cảnh tối nhiều nhiễu, dễ bỏ sót người đi trong bóng tối. Cần
+  đèn sân (đèn cảm biến chuyển động là tốt nhất).
+- **Clip bắt đầu chậm ~0,5–1 giây** sau lúc có chuyển động (không có đoạn quay trước).
+- Bộ nhớ 2 GB tự xoá clip cũ nhất: 1 clip 30 giây ≈ 7,5 MB → giữ được ~270 clip. Muốn giữ lâu thì để app Xem tự chép về.
+- Máy camera **khởi động lại** (mất điện, cập nhật) thì **không tự canh lại** — phải mở app OnCam Quay rồi bật canh
+  từ máy xem (giới hạn của Android với camera chạy nền).
+
 ## 7. Dung lượng dữ liệu (ước tính)
 
 Máy camera ở nhà dùng Wi-Fi thì **máy xem đi 4G mới là bên tốn tiền**.

@@ -50,6 +50,9 @@ fun CameraSection(
             if (camera.recording.active) {
                 InfoRow(stringResource(R.string.camera_recording), stringResource(R.string.camera_recording_on))
             }
+            if (camera.motion.armed) {
+                InfoRow(stringResource(R.string.camera_motion), stringResource(R.string.camera_motion_on))
+            }
             InfoRow(
                 stringResource(R.string.camera_facing),
                 stringResource(if (camera.facing == CameraFacing.FRONT) R.string.camera_front else R.string.camera_back),

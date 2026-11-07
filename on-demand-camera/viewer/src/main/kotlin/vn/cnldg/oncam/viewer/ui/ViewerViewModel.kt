@@ -26,6 +26,7 @@ import vn.cnldg.oncam.shared.protocol.CameraFacing
 import vn.cnldg.oncam.shared.protocol.CameraState
 import vn.cnldg.oncam.shared.protocol.CommandParams
 import vn.cnldg.oncam.shared.protocol.DeviceEvent
+import vn.cnldg.oncam.shared.protocol.MotionSensitivity
 import vn.cnldg.oncam.shared.protocol.StreamQuality
 import vn.cnldg.oncam.viewer.data.CameraStore
 import vn.cnldg.oncam.viewer.data.SavedCamera
@@ -192,6 +193,18 @@ class ViewerViewModel @Inject constructor(
         } else {
             command(entry, Action.START_RECORDING, CommandParams(idleTimeoutSec = settings.idleTimeoutSec.value))
         }
+    }
+
+    /** Bật/tắt canh chuyển động: camera bật liên tục (tự bật nếu đang tắt), có chuyển động thì tự quay clip. */
+    fun toggleMotion(entry: CameraEntry) {
+        val on = entry.view.status?.motion?.armed != true
+        command(entry, Action.SET_MOTION, CommandParams(motion = on, idleTimeoutSec = settings.idleTimeoutSec.value.takeIf { on }))
+    }
+
+    /** Đổi độ nhạy (giữ nguyên đang canh hay không). */
+    fun setMotionSensitivity(entry: CameraEntry, sensitivity: MotionSensitivity) {
+        val armed = entry.view.status?.motion?.armed == true
+        command(entry, Action.SET_MOTION, CommandParams(motion = armed, sensitivity = sensitivity))
     }
 
     /**
