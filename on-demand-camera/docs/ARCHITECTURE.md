@@ -135,6 +135,7 @@ STOP / idle / quá nhiệt / lỗi camera ──► đóng HTTP server + gỡ Ca
 | D50 | Mở bản đồ bằng link chuẩn `https://www.google.com/maps/search/?api=1&query=lat,lon` (toạ độ 6 chữ số, luôn dấu chấm) | Mở thẳng app Google Maps nếu có, không thì trình duyệt; không cần API key |
 | D51 | App Xem **giữ và lưu mã hoá vị trí cuối** của từng camera (xoá khi camera online báo tắt chia sẻ hoặc khi xoá camera); trạng thái offline/LWT của máy camera cũng kèm vị trí cuối | Broker nhúng nằm trên máy camera: camera mất mạng/bị tắt thì không còn gì để hỏi → vị trí cuối phải nằm ở máy xem (tìm máy khi mất trộm) |
 | D52 | Service thêm loại foreground `location` (khi bật chia sẻ, cùng quy tắc "khi đang dùng"); khai báo `ACCESS_BACKGROUND_LOCATION` nhưng không tự xin — người dùng có thể chọn *Luôn cho phép* | Sau khi máy tự khởi động lại vẫn cập nhật được vị trí mà không cần mở app |
+| D53 | **Tắt bộ theo dõi mạng Android của WebRTC** (`disableNetworkMonitor`); gom ứng viên ICE tối đa 3 s; khi lỗi ghi rõ bước hỏng + địa chỉ 2 bên (`NO_LOCAL_ADDRESS`, `NO_ANSWER`, `ICE_FAILED`, `ICE_TIMEOUT`, `RTC_NO_ADDRESS:<địa chỉ>`) lên màn hình xem | Lỗi thật trên máy (0.8.0): bộ theo dõi mạng mặc định không nhận VPN do app khác tạo (cờ `requestVPN`/`includeOtherUidNetworks` tắt — đã kiểm trong mã thư viện) → bỏ qua `tun0` của Tailscale → không có địa chỉ 100.x → `RTC_CONNECT_FAILED`. Emulator không có Tailscale nên test tự động không bắt được |
 
 ## 6. Ràng buộc Android cần nhớ
 

@@ -61,6 +61,11 @@ class RtcEngine private constructor(
                 .setAudioTrackErrorCallback(PlayErrors(log))
                 .createAudioDeviceModule()
             val factory = PeerConnectionFactory.builder()
+                // Tắt bộ theo dõi mạng Android của WebRTC: mặc định nó KHÔNG nhận mạng VPN do app khác tạo
+                // (Tailscale) — cờ requestVPN/includeOtherUidNetworks đều tắt — nên bỏ qua giao diện tun0 và
+                // địa chỉ 100.x → không có ứng viên ICE nào (lỗi thật trên Oppo/Samsung). Tắt đi thì WebRTC liệt kê
+                // thẳng các giao diện mạng. Không mất gì: IP Tailscale không đổi khi máy chuyển Wi-Fi ↔ 4G.
+                .setOptions(PeerConnectionFactory.Options().apply { disableNetworkMonitor = true })
                 .setAudioDeviceModule(audio)
                 // Ưu tiên mã hoá/giải mã phần cứng (H.264/VP8), không có thì dùng phần mềm (VP8).
                 .setVideoEncoderFactory(DefaultVideoEncoderFactory(egl?.eglBaseContext, true, true))
@@ -83,6 +88,9 @@ class RtcEngine private constructor(
          * Cấu hình phiên: không STUN/TURN (2 máy thấy nhau qua IP Tailscale), chỉ UDP, gom ứng viên một lần
          * rồi gửi cả SDP (không trickle) → bắt tay đúng 1 lượt lệnh/kết quả qua MQTT.
          */
+        /** Chờ gom ứng viên ICE tối đa (ms); quá thì dùng các địa chỉ đã có (máy nhiều mạng đôi khi gom rất lâu). */
+        internal const val GATHER_MAX_MS: Long = 3_000
+
         internal fun rtcConfiguration() = PeerConnection.RTCConfiguration(emptyList()).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE

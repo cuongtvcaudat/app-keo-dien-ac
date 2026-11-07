@@ -131,6 +131,7 @@
     <string name="location_err_disabled">Máy camera chưa bật “Chia sẻ vị trí”.</string>
     <string name="location_err_unavailable">Máy camera chưa bắt được vị trí (trong nhà kín hoặc chưa có vệ tinh). Thử lại sau.</string>
     <string name="action_open_maps">Mở Google Maps</string>
+    <string name="action_map">Bản đồ</string>
     <string name="action_update_location">Cập nhật vị trí</string>
     <string name="snapshot_saved">Đã lưu ảnh vào Thư viện (Pictures/OnCam).</string>
     <string name="snapshot_failed">Không tải hoặc lưu được ảnh.</string>

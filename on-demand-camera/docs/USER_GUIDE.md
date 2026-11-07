@@ -212,6 +212,8 @@ xem video nhiều. Khi không xem, cả 2 app chỉ trao đổi tin trạng thá
 | Video giật, hình/giây thấp | Mạng 4G yếu ở máy xem hoặc máy camera | Chọn **Thấp**; kiểm tra sóng Wi-Fi chỗ đặt máy camera |
 | Cuối màn hình xem: "Đang xem MJPEG … `RTC_NO_ADDRESS`" | WebRTC trên máy camera không thấy IP Tailscale | Kiểm tra Tailscale máy camera Connected; Dừng rồi Khởi động lại node |
 | "… `RTC_CONNECT_FAILED`" / "… `TIMEOUT`" | 2 máy không nối thẳng được qua Tailscale (mạng chặn UDP), hoặc mạng quá yếu | Vẫn xem được MJPEG. Thử đổi Wi-Fi ↔ 4G trên máy xem rồi mở lại màn hình xem |
+| "… `NO_LOCAL_ADDRESS: máy xem không có IP Tailscale`" | Tailscale máy xem chưa Connected | Mở Tailscale trên máy xem → Connected, mở lại màn hình xem |
+| "… `ICE_FAILED`/`ICE_TIMEOUT: xem 100.a ↔ camera 100.b`" | 2 máy có địa chỉ Tailscale nhưng gói UDP không qua được | Chụp màn hình gửi người cài đặt (có đủ địa chỉ 2 bên để chẩn đoán); vẫn xem được MJPEG |
 | "… `RTC_BUSY`" | Đã có 2 máy xem bằng WebRTC cùng lúc (giới hạn để máy camera đỡ nóng) | Máy thứ 3 tự xem bằng MJPEG |
 | "Máy camera chưa cho dùng micro" | Máy camera chưa cấp quyền micro hoặc vừa khởi động lại | Trên máy camera: **Cho phép micro** hoặc mở app một lần |
 | Giữ để nói nhưng ở sân không nghe | Âm lượng máy camera bị chặn (Không làm phiền) hoặc loa máy camera bị che | Tắt *Không làm phiền* trên máy camera; đặt máy để loa không áp vào tường |

@@ -96,8 +96,10 @@ class LiveRtcSession(
             }
         }
         if (!ok) {
+            // Mã lỗi từ camera (từ chối/hết giờ) nếu có, không thì chi tiết bước hỏng ở máy xem (để chẩn đoán).
+            val detail = failure ?: v.failureDetail ?: CODE_CONNECT_FAILED
             stop()
-            return fallback(failure ?: CODE_CONNECT_FAILED)
+            return fallback(detail)
         }
         v.setListening(_state.value.listening)
         _state.update {

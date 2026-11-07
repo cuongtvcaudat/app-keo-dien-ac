@@ -100,7 +100,7 @@ class RtcLoopbackTest {
             }
             assertEquals(false, ok)
             assertEquals(RtcPhase.FAILED, viewer.phase.value)
-            assertEquals(CameraRtc.CODE_NO_ADDRESS, code)
+            assertTrue(code!!.startsWith(CameraRtc.CODE_NO_ADDRESS), "mã lỗi: $code")
             assertEquals(0, strict.sessionCount.value)
         } finally {
             strict.dispose()

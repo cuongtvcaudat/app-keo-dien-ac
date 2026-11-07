@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -185,6 +186,13 @@ fun LiveViewScreen(
                         }
                         Button(onClick = onSnapshot, enabled = playing && !busy) {
                             Text(stringResource(R.string.action_snapshot))
+                        }
+                        // Vị trí máy camera (khi camera bật "Chia sẻ vị trí"): mở thẳng Google Maps.
+                        entry?.view?.lastLocation?.let { point ->
+                            val uri = LocalUriHandler.current
+                            OutlinedButton(onClick = { runCatching { uri.openUri(point.mapsUrl()) } }) {
+                                Text(stringResource(R.string.action_map), color = Color.White)
+                            }
                         }
                     }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

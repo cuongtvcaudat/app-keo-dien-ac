@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
 import org.webrtc.MediaConstraints
@@ -105,14 +106,16 @@ class CameraRtc(
                 pc.setRemoteAwait(SessionDescription(SessionDescription.Type.OFFER, SdpCandidates.filter(offerSdp, keepCandidate)))
                 attachTracks(pc, withAudio)
                 pc.setLocalAwait(pc.createAnswerAwait())
-                watcher.gathered.await()
+                withTimeoutOrNull(RtcEngine.GATHER_MAX_MS) { watcher.gathered.await() }
                 pc.localDescription?.description ?: throw RtcException("Không có SDP cục bộ")
             }
             val filtered = SdpCandidates.filter(sdp, keepCandidate)
             if (SdpCandidates.addresses(filtered).isEmpty()) {
                 // Máy camera chưa có IP Tailscale mà WebRTC thấy được → app Xem quay về MJPEG.
+                val all = SdpCandidates.addresses(sdp).distinct()
+                log.log(LogSink.Level.WARN, "WebRTC: máy camera không có địa chỉ Tailscale, chỉ có $all", null)
                 pc.dispose()
-                return CameraRtcAnswer.Failed(CODE_NO_ADDRESS)
+                return CameraRtcAnswer.Failed("$CODE_NO_ADDRESS:${all.joinToString(" ").ifEmpty { "-" }}")
             }
             applyQuality(pc, quality)
             val session = Session(sessionId, pc, watcher, withAudio)

@@ -77,6 +77,17 @@ class ViewerRtc(
 
     private var statsJob: Job? = null
 
+    /**
+     * Lý do lần [connect] gần nhất thất bại, dạng "BƯỚC: chi tiết" (vd. "ICE_FAILED: xem 100.1.2.3 ↔ camera 100.4.5.6")
+     * — hiện ở màn hình xem để chẩn đoán từ ảnh chụp màn hình. null nếu chưa lỗi.
+     */
+    @Volatile
+    var failureDetail: String? = null
+        private set
+
+    private var localAddresses: List<String> = emptyList()
+    private var remoteAddresses: List<String> = emptyList()
+
     private val _fps = MutableStateFlow(0)
 
     /** Số khung hình nhận được trong 1 giây gần nhất. */
@@ -117,7 +128,7 @@ class ViewerRtc(
      */
     suspend fun connect(signal: suspend (offerSdp: String) -> String?): Boolean {
         _phase.value = RtcPhase.CONNECTING
-        val peer = engine.factory.createPeerConnection(RtcEngine.rtcConfiguration(), watcher) ?: return fail("Không tạo được PeerConnection")
+        val peer = engine.factory.createPeerConnection(RtcEngine.rtcConfiguration(), watcher) ?: return fail("NO_PEER", "không tạo được PeerConnection")
         pc = peer
         return try {
             peer.addTransceiver(
@@ -140,21 +151,34 @@ class ViewerRtc(
 
             val offer = withTimeout(connectTimeoutMs) {
                 peer.setLocalAwait(peer.createOfferAwait())
-                watcher.gathered.await()
+                // Gom ứng viên tối đa vài giây rồi dùng các địa chỉ đã có (không chờ mãi một mạng chậm).
+                withTimeoutOrNull(RtcEngine.GATHER_MAX_MS) { watcher.gathered.await() }
                 peer.localDescription?.description ?: throw RtcException("Không có SDP cục bộ")
             }
             val filteredOffer = SdpCandidates.filter(offer, keepCandidate)
-            if (SdpCandidates.addresses(filteredOffer).isEmpty()) return fail("Máy xem chưa có IP Tailscale")
+            localAddresses = SdpCandidates.addresses(filteredOffer).distinct()
+            if (localAddresses.isEmpty()) {
+                val all = SdpCandidates.addresses(offer).distinct().joinToString(" ").ifEmpty { "-" }
+                return fail("NO_LOCAL_ADDRESS", "máy xem không có IP Tailscale (có: $all)")
+            }
 
-            val answer = signal(filteredOffer) ?: return fail("Camera không trả lời offer")
-            peer.setRemoteAwait(SessionDescription(SessionDescription.Type.ANSWER, SdpCandidates.filter(answer, keepCandidate)))
+            val answer = signal(filteredOffer) ?: return fail("NO_ANSWER", "camera không trả lời")
+            val filteredAnswer = SdpCandidates.filter(answer, keepCandidate)
+            remoteAddresses = SdpCandidates.addresses(filteredAnswer).distinct()
+            try {
+                peer.setRemoteAwait(SessionDescription(SessionDescription.Type.ANSWER, filteredAnswer))
+            } catch (e: RtcException) {
+                return fail("BAD_ANSWER", e.message.orEmpty())
+            }
             bindRemoteTracks(peer)
-            val reached = withTimeout(connectTimeoutMs) {
+            val reached = withTimeoutOrNull(connectTimeoutMs) {
                 watcher.state.first {
                     it == PeerConnection.PeerConnectionState.CONNECTED || it == PeerConnection.PeerConnectionState.FAILED
                 }
             }
-            if (reached != PeerConnection.PeerConnectionState.CONNECTED) return fail("Không nối được tới camera qua Tailscale")
+            if (reached != PeerConnection.PeerConnectionState.CONNECTED) {
+                return fail(if (reached == null) "ICE_TIMEOUT" else "ICE_FAILED", "xem ${pathText()}")
+            }
             _phase.value = RtcPhase.CONNECTED
             if (hasRemoteAudio || talk) {
                 audioRouting?.acquire()
@@ -164,12 +188,12 @@ class ViewerRtc(
             statsJob = scope.launch { pollStats(peer) }
             true
         } catch (_: TimeoutCancellationException) {
-            fail("Quá thời gian chờ kết nối")
+            fail("OFFER_TIMEOUT", "tạo offer quá ${connectTimeoutMs / 1000} giây")
         } catch (e: CancellationException) {
             throw e // người dùng rời màn hình: chủ phiên sẽ gọi close()
         } catch (e: Exception) {
             log.log(LogSink.Level.WARN, "Kết nối WebRTC lỗi", e)
-            fail(e.message ?: e.javaClass.simpleName)
+            fail("ERROR", e.message ?: e.javaClass.simpleName)
         }
     }
 
@@ -270,8 +294,12 @@ class ViewerRtc(
         }
     }
 
-    private fun fail(reason: String): Boolean {
-        log.log(LogSink.Level.WARN, "WebRTC không dùng được: $reason", null)
+    private fun pathText() =
+        "${localAddresses.joinToString(" ").ifEmpty { "-" }} ↔ camera ${remoteAddresses.joinToString(" ").ifEmpty { "-" }}"
+
+    private fun fail(step: String, detail: String): Boolean {
+        failureDetail = "$step: $detail"
+        log.log(LogSink.Level.WARN, "WebRTC không dùng được: $failureDetail", null)
         _phase.value = RtcPhase.FAILED
         return false
     }
