@@ -155,6 +155,10 @@ class ViewerViewModel @Inject constructor(
     /** Yêu cầu camera lấy vị trí mới (GPS có thể mất tới 30 giây; vị trí mới hiện trên thẻ camera). */
     fun updateLocation(entry: CameraEntry) = command(entry, Action.UPDATE_LOCATION)
 
+    /** Theo dõi vị trí 1 phút/lần trong [minutes] phút; 0 = dừng (GPS máy camera chỉ chạy trong thời gian này). */
+    fun trackLocation(entry: CameraEntry, minutes: Int) =
+        command(entry, Action.UPDATE_LOCATION, CommandParams(trackMinutes = minutes))
+
         /** Đổi chất lượng stream. */
     fun setQuality(entry: CameraEntry, quality: StreamQuality) {
         command(entry, Action.SET_QUALITY, CommandParams(quality = quality))

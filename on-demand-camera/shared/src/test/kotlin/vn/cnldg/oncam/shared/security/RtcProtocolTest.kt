@@ -62,6 +62,27 @@ class RtcProtocolTest {
     }
 
     @Test
+    fun `lenh theo doi vi tri ky ca so phut va kiem gioi han`() {
+        val verifier = CommandVerifier(secret, "san-nha", clock)
+        val cmd = signer.sign("san-nha", Action.UPDATE_LOCATION, CommandParams(trackMinutes = 15))
+        assertEquals(CommandCheck.Accepted, verifier.verify(cmd))
+        assertNull(cmd.paramProblem())
+        // Sửa số phút mà giữ chữ ký → bị từ chối.
+        val other = signer.sign("san-nha", Action.UPDATE_LOCATION, CommandParams(trackMinutes = 15))
+        assertEquals(CommandCheck.Rejected(RejectReason.BAD_SIGNATURE), verifier.verify(other.copy(params = CommandParams(trackMinutes = 120))))
+        assertEquals(
+            CommandProblem.TRACK_MINUTES_OUT_OF_RANGE,
+            signer.sign("san-nha", Action.UPDATE_LOCATION, CommandParams(trackMinutes = 121)).paramProblem(),
+        )
+        assertNull(signer.sign("san-nha", Action.UPDATE_LOCATION, CommandParams(trackMinutes = 0)).paramProblem())
+        // Lấy 1 lần (không có trackMinutes) vẫn ký như bản 0.8 → camera 0.8 hiểu.
+        assertEquals(
+            "oncam-cmd-v1|san-nha|id-12345678|UPDATE_LOCATION|100||||",
+            CommandCanonical.of("san-nha", "id-12345678", Action.UPDATE_LOCATION, CommandParams(), 100),
+        )
+    }
+
+    @Test
     fun `khong in SDP ra log`() {
         assertFalse(CommandParams(sdp = offer, sessionId = session).toString().contains("candidate"))
     }

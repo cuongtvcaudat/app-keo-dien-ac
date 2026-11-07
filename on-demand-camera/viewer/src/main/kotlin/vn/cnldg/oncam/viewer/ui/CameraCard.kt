@@ -60,6 +60,7 @@ fun CameraCard(
     onSnapshot: () -> Unit,
     onOpenLive: () -> Unit,
     onUpdateLocation: () -> Unit,
+    onTrackLocation: (Int) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -133,6 +134,9 @@ fun CameraCard(
                     canUpdate = online && loc != null && !busy,
                     nowSec = nowMs / 1000,
                     onUpdate = onUpdateLocation,
+                    canTrack = online && loc?.canTrack == true && !busy,
+                    trackingUntil = loc?.trackingUntil,
+                    onTrack = onTrackLocation,
                 )
             }
 
@@ -240,8 +244,12 @@ private fun LocationBlock(
     canUpdate: Boolean,
     nowSec: Long,
     onUpdate: () -> Unit,
+    canTrack: Boolean,
+    trackingUntil: Long?,
+    onTrack: (Int) -> Unit,
 ) {
     val uri = LocalUriHandler.current
+    val trackLeftMin = trackingUntil?.let { ((it - nowSec + 59) / 60).coerceAtLeast(0).toInt() }?.takeIf { it > 0 }
     if (point != null) {
         InfoRow(stringResource(R.string.location), point.coordinates())
         val age = (nowSec - point.timestamp).coerceAtLeast(0)
@@ -258,6 +266,13 @@ private fun LocationBlock(
         ).joinToString(" • ")
         Text(
             if (online) detail else stringResource(R.string.location_last_known, detail),
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    if (online && trackLeftMin != null) {
+        Text(
+            stringResource(R.string.location_tracking, trackLeftMin),
+            color = MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.bodySmall,
         )
     }
@@ -278,7 +293,18 @@ private fun LocationBlock(
             }
         }
     }
+    // Theo dõi: GPS máy camera chỉ chạy dày (1 phút/lần) trong thời gian này rồi tự dừng.
+    if (online && canTrack) {
+        if (trackLeftMin != null) {
+            OutlinedButton(onClick = { onTrack(0) }) { Text(stringResource(R.string.action_track_stop)) }
+        } else {
+            OutlinedButton(onClick = { onTrack(TRACK_MINUTES) }) { Text(stringResource(R.string.action_track, TRACK_MINUTES)) }
+        }
+    }
 }
+
+/** Mỗi lần bấm "Theo dõi" kéo dài bao lâu (phút). */
+private const val TRACK_MINUTES = 15
 
 @Composable
 private fun locationErrorText(code: String): String = stringResource(

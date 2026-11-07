@@ -49,6 +49,8 @@ enum class StreamQuality(val width: Int, val height: Int, val fps: Int, val jpeg
  *
  * @property sdp bản mô tả phiên WebRTC (SDP offer) của app Xem, kèm sẵn mọi ứng viên ICE (không trickle).
  * @property sessionId mã phiên WebRTC do app Xem tạo (dùng lại cho RTC_HANGUP).
+ * @property trackMinutes (UPDATE_LOCATION) theo dõi vị trí 1 phút/lần trong chừng ấy phút; 0 = dừng theo dõi;
+ *   null = chỉ lấy vị trí một lần.
  */
 @Serializable
 data class CommandParams(
@@ -58,11 +60,12 @@ data class CommandParams(
     val idleTimeoutSec: Int? = null,
     val sdp: String? = null,
     val sessionId: String? = null,
+    val trackMinutes: Int? = null,
 ) {
     /** Không in SDP (dài, chứa khoá ICE) ra log. */
     override fun toString(): String =
         "CommandParams(camera=$camera, flash=$flash, quality=$quality, idleTimeoutSec=$idleTimeoutSec, " +
-            "sdp=${sdp?.let { "${it.length} ký tự" }}, sessionId=$sessionId)"
+            "sdp=${sdp?.let { "${it.length} ký tự" }}, sessionId=$sessionId, trackMinutes=$trackMinutes)"
 }
 
 /**
@@ -89,7 +92,11 @@ enum class CommandProblem {
     SDP_REQUIRED,
     SDP_TOO_LARGE,
     SESSION_REQUIRED,
+    TRACK_MINUTES_OUT_OF_RANGE,
 }
+
+/** Thời gian theo dõi vị trí dài nhất một lần bấm (phút). */
+const val MAX_TRACK_MINUTES: Int = 120
 
 /** Mã phiên WebRTC: 8–64 ký tự chữ, số, gạch ngang (thường là UUID). */
 private val SESSION_ID = Regex("^[A-Za-z0-9-]{8,64}$")
@@ -117,7 +124,8 @@ fun Command.paramProblem(): CommandProblem? {
         }
         Action.RTC_HANGUP ->
             if (params.sessionId == null || !SESSION_ID.matches(params.sessionId)) CommandProblem.SESSION_REQUIRED else null
-        Action.UPDATE_LOCATION,
+        Action.UPDATE_LOCATION ->
+            params.trackMinutes?.takeIf { it !in 0..MAX_TRACK_MINUTES }?.let { CommandProblem.TRACK_MINUTES_OUT_OF_RANGE }
         Action.START_STREAM,
         Action.STOP_STREAM,
         Action.SWITCH_CAMERA, // camera = null nghĩa là đổi sang camera còn lại

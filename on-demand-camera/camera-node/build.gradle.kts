@@ -17,8 +17,8 @@ android {
         applicationId = "vn.cnldg.oncam.node"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 9
-        versionName = "0.8.1"
+        versionCode = 10
+        versionName = "0.9.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

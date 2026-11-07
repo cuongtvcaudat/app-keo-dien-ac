@@ -38,7 +38,12 @@
     <string name="setup_external_pass">Mật khẩu</string>
     <string name="setup_auto_start">Tự chạy khi khởi động lại máy</string>
     <string name="setup_share_location">Chia sẻ vị trí máy này với app Xem</string>
-    <string name="setup_share_location_hint">GPS/mạng, cập nhật 15 phút/lần và khi app Xem bấm “Cập nhật vị trí”. Xem được trên Google Maps. Cần cho phép quyền Vị trí.</string>
+    <string name="setup_share_location_hint">GPS/mạng, xem được trên Google Maps. App Xem có nút “Cập nhật vị trí” và “Theo dõi 15 phút” (1 phút/lần). GPS chỉ chạy vài giây mỗi lần lấy, không bật liên tục. Cần cho phép quyền Vị trí.</string>
+    <string name="setup_location_interval">Tự cập nhật vị trí:</string>
+    <string name="location_interval_off">Tắt (chỉ khi bấm)</string>
+    <string name="location_interval_15">15 phút</string>
+    <string name="location_interval_60">60 phút</string>
+    <string name="location_tracking">Đang theo dõi 1 phút/lần, còn %1$d phút.</string>
     <string name="setup_restart_note">Thay đổi có hiệu lực sau khi Dừng rồi Khởi động lại camera node.</string>
 
     <string name="problem_device_id">Mã camera không hợp lệ: chỉ dùng a-z, 0-9, - và _, tối đa 32 ký tự.</string>

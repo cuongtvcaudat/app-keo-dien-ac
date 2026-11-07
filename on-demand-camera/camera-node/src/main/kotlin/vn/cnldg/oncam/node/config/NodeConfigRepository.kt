@@ -79,6 +79,7 @@ class NodeConfigRepository @Inject constructor(
             putString(KEY_EXTERNAL_PASSWORD, config.externalPassword)
             putString(KEY_ORIENTATION, config.orientation.name)
             putBoolean(KEY_SHARE_LOCATION, config.shareLocation)
+            putInt(KEY_LOCATION_INTERVAL, config.locationIntervalMin)
         }
         _config.value = ConfigLoad.Loaded(config)
     }
@@ -109,6 +110,7 @@ class NodeConfigRepository @Inject constructor(
             orientation = runCatching { MountOrientation.valueOf(secure.getString(KEY_ORIENTATION, "").orEmpty()) }
                 .getOrDefault(MountOrientation.UP),
             shareLocation = secure.getBoolean(KEY_SHARE_LOCATION, false),
+            locationIntervalMin = secure.getInt(KEY_LOCATION_INTERVAL, 15),
         )
     } catch (e: Exception) {
         Timber.e(e, "Không đọc được cấu hình mã hoá")
@@ -146,6 +148,7 @@ class NodeConfigRepository @Inject constructor(
         const val KEY_EXTERNAL_PASSWORD = "external_password"
         const val KEY_ORIENTATION = "orientation"
         const val KEY_SHARE_LOCATION = "share_location"
+        const val KEY_LOCATION_INTERVAL = "location_interval_min"
         const val KEY_AUTO_START = "auto_start"
         const val KEY_NODE_ENABLED = "node_enabled"
     }

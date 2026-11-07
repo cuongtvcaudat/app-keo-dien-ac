@@ -182,6 +182,10 @@ class CameraClient(
     /** Yêu cầu camera lấy vị trí mới (trả lời ngay; vị trí mới đến qua trạng thái sau vài giây). */
     suspend fun updateLocation(): CommandResult = send(Action.UPDATE_LOCATION)
 
+    /** Theo dõi vị trí 1 phút/lần trong [minutes] phút (0 = dừng). Chỉ camera có `location.canTrack` mới hiểu. */
+    suspend fun trackLocation(minutes: Int): CommandResult =
+        send(Action.UPDATE_LOCATION, CommandParams(trackMinutes = minutes))
+
     /** Gửi lệnh [action] đã ký và chờ kết quả tối đa [timeoutMs]. */
     suspend fun send(action: Action, params: CommandParams = CommandParams(), timeoutMs: Long = 10_000): CommandResult =
         when (val r = exchange(action, params, timeoutMs)) {

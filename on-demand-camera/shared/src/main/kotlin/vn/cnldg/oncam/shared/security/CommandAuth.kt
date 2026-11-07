@@ -47,6 +47,8 @@ internal object CommandCanonical {
             fields += params.sessionId.orEmpty()
             fields += params.sdp?.let(::sha256Hex).orEmpty()
         }
+        // Theo dõi vị trí (0.9): cũng chỉ thêm khi có, nên lệnh cũ vẫn ký như cũ.
+        params.trackMinutes?.let { fields += "track:$it" }
         return fields.joinToString("|")
     }
 }

@@ -133,6 +133,9 @@
     <string name="action_open_maps">Mở Google Maps</string>
     <string name="action_map">Bản đồ</string>
     <string name="action_update_location">Cập nhật vị trí</string>
+    <string name="action_track">Theo dõi %1$d phút (1 phút/lần)</string>
+    <string name="action_track_stop">Dừng theo dõi</string>
+    <string name="location_tracking">Đang theo dõi 1 phút/lần, còn %1$d phút.</string>
     <string name="snapshot_saved">Đã lưu ảnh vào Thư viện (Pictures/OnCam).</string>
     <string name="snapshot_failed">Không tải hoặc lưu được ảnh.</string>
 

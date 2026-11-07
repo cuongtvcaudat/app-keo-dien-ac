@@ -156,7 +156,9 @@ Dùng để biết camera đang ở đâu (nhiều camera ở nhiều nơi) và 
 
 | Điều cần biết | Chi tiết |
 |---|---|
-| Tự cập nhật | Khi khởi động node, sau đó **15 phút/lần**, và mỗi lần bấm Cập nhật vị trí |
+| Tự cập nhật | Chọn trong Sửa cấu hình máy camera: **15 phút** (mặc định), **60 phút**, hoặc **Tắt (chỉ khi bấm)** |
+| Theo dõi (từ bản 0.9) | Máy xem bấm **Theo dõi 15 phút (1 phút/lần)** → máy camera lấy vị trí mỗi phút trong 15 phút rồi tự dừng; bấm lại để gia hạn, **Dừng theo dõi** để dừng ngay |
+| Pin | GPS **không bật liên tục**: mỗi lần lấy chỉ chạy vài giây (tối đa 30 giây) rồi tắt. Ước tính: tự cập nhật 15 phút/lần ≈ 1 mAh/giờ (< 1% pin/ngày); đang theo dõi 1 phút/lần ≈ 30 mAh/giờ (~0,6% pin/giờ, chỉ trong lúc theo dõi). Công tắc **Vị trí** trong Cài đặt cứ để bật — tự nó không tốn pin, và Android không cho app tự bật công tắc này |
 | Độ chính xác | GPS ngoài trời: 3–10 m. Trong nhà/dưới mái tôn: GPS yếu, app dùng Wi-Fi/mạng (sai số 20–500 m) |
 | Camera offline | App Xem **giữ vị trí cuối cùng** (lưu mã hoá trong máy xem), ghi rõ "Vị trí cuối (camera đang offline)" — vẫn mở bản đồ được |
 | Sau khi máy camera tự khởi động lại | Giống camera/micro: phải mở app OnCam Quay một lần. Muốn vị trí vẫn cập nhật mà không cần mở app: Cài đặt → Ứng dụng → OnCam Quay → Quyền → Vị trí → **Luôn cho phép** |

@@ -120,6 +120,22 @@ class ViewerToNodeTest {
     }
 
     @Test
+    fun `app Xem bat va dung theo doi vi tri`() = runBlocking<Unit> {
+        connect()
+        withTimeout(TIMEOUT_MS) { viewer.view.first { it.status?.location?.canTrack == true } }
+
+        assertEquals(CommandResult.Ok(null), viewer.trackLocation(15))
+        val until = withTimeout(TIMEOUT_MS) {
+            viewer.view.first { it.status?.location?.trackingUntil != null }
+        }.status!!.location!!.trackingUntil!!
+        val left = until - System.currentTimeMillis() / 1000
+        assertTrue(left in 14 * 60..15 * 60 + 1, "theo dõi 15 phút, còn $left giây") // +1: làm tròn lên giây
+
+        assertEquals(CommandResult.Ok(null), viewer.trackLocation(0))
+        withTimeout(TIMEOUT_MS) { viewer.view.first { it.status?.location?.let { l -> l.trackingUntil == null } == true } }
+    }
+
+    @Test
     fun `bat camera xem snapshot doi camera flash chat luong roi tat`() = runBlocking<Unit> {
         connect()
 

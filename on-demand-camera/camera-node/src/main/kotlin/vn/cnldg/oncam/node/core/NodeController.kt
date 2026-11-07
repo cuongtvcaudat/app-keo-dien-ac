@@ -98,7 +98,8 @@ class NodeController(
         if (cmd.action == Action.UPDATE_LOCATION) {
             // Trả lời ngay, lấy vị trí ở nền (GPS có thể mất 30 giây) → không chặn lệnh camera phía sau.
             location?.let {
-                it.requestUpdate()
+                val minutes = cmd.params.trackMinutes
+                if (minutes != null) it.track(minutes) else it.requestUpdate()
                 ActionOutcome.Done()
             } ?: ActionOutcome.Failed(CameraCodes.LOCATION_DISABLED)
         } else {

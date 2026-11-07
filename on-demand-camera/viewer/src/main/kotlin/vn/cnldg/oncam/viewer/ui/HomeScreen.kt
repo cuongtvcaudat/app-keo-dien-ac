@@ -53,6 +53,9 @@ interface CameraActions {
     /** Yêu cầu camera lấy vị trí mới. */
     fun updateLocation(entry: CameraEntry)
 
+    /** Theo dõi vị trí 1 phút/lần trong [minutes] phút (0 = dừng). */
+    fun trackLocation(entry: CameraEntry, minutes: Int)
+
     /** Sửa camera. */
     fun edit(entry: CameraEntry)
 
@@ -123,6 +126,7 @@ fun HomeScreen(
                         onSnapshot = { actions.snapshot(entry) },
                         onOpenLive = { actions.openLive(entry) },
                         onUpdateLocation = { actions.updateLocation(entry) },
+                        onTrackLocation = { minutes -> actions.trackLocation(entry, minutes) },
                         onEdit = { actions.edit(entry) },
                         onDelete = { actions.delete(entry) },
                     )

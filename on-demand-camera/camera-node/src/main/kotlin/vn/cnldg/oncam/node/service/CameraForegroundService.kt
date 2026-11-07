@@ -243,6 +243,7 @@ class CameraForegroundService : LifecycleService() {
                         runtime.locationAccess.value || granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
                     },
                     scope = work,
+                    intervalMs = config.locationIntervalMin.takeIf { it > 0 }?.let { it * 60_000L },
                     log = TimberLogSink,
                 )
             } else {

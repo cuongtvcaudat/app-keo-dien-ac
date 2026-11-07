@@ -36,10 +36,16 @@ data class GeoLocation(
  * @property point vị trí gần nhất lấy được (giữ lại kể cả khi lần lấy sau lỗi).
  * @property updating đang lấy vị trí mới (GPS có thể mất tới 30 giây).
  * @property error mã lỗi lần lấy gần nhất ([CameraCodes].LOCATION_*), null nếu thành công.
+ * @property canTrack máy camera hỗ trợ "Theo dõi" (bản ≥ 0.9) — app Xem chỉ hiện nút khi true.
+ * @property trackingUntil đang theo dõi 1 phút/lần tới thời điểm này (giây từ 1970, UTC); null = không theo dõi.
+ * @property intervalSec chu kỳ tự cập nhật khi không theo dõi (giây); null = tắt, chỉ lấy khi được yêu cầu.
  */
 @Serializable
 data class LocationStatus(
     val point: GeoLocation? = null,
     val updating: Boolean = false,
     val error: String? = null,
+    val canTrack: Boolean = false,
+    val trackingUntil: Long? = null,
+    val intervalSec: Int? = null,
 )

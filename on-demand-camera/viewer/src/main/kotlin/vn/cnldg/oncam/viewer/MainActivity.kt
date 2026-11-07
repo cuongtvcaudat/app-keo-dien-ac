@@ -173,6 +173,7 @@ private fun ViewerApp(vm: ViewerViewModel) {
             override fun delete(entry: CameraEntry) = vm.removeCamera(entry.saved.deviceId)
             override fun openLive(entry: CameraEntry) = vm.openLive(entry)
             override fun updateLocation(entry: CameraEntry) = vm.updateLocation(entry)
+            override fun trackLocation(entry: CameraEntry, minutes: Int) = vm.trackLocation(entry, minutes)
         }
     }
 

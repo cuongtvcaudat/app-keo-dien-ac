@@ -206,6 +206,10 @@ fun StatusScreen(
                             locationDetail(point.accuracyM, point.provider, nowSec - point.timestamp),
                         )
                     }
+                    loc?.trackingUntil?.let { until ->
+                        val left = ((until - nowSec + 59) / 60).coerceAtLeast(0).toInt()
+                        if (left > 0) Text(stringResource(R.string.location_tracking, left), style = MaterialTheme.typography.bodySmall)
+                    }
                     when {
                         !locationGranted -> Text(stringResource(R.string.location_no_permission), style = MaterialTheme.typography.bodySmall)
                         loc?.updating == true -> Text(stringResource(R.string.location_updating), style = MaterialTheme.typography.bodySmall)

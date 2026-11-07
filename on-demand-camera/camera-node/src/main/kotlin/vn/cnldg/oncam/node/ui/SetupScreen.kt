@@ -65,6 +65,7 @@ fun SetupScreen(
     var orientation by rememberSaveable { mutableStateOf(initial?.orientation ?: MountOrientation.UP) }
     var autoStart by rememberSaveable { mutableStateOf(initialAutoStart) }
     var shareLocation by rememberSaveable { mutableStateOf(initial?.shareLocation ?: false) }
+    var locationInterval by rememberSaveable { mutableStateOf(initial?.locationIntervalMin ?: 15) }
     var problems by remember { mutableStateOf(emptyList<ConfigProblem>()) }
 
     Column(
@@ -191,6 +192,21 @@ fun SetupScreen(
                 Text(stringResource(R.string.setup_share_location_hint), style = MaterialTheme.typography.bodySmall)
             }
         }
+        if (shareLocation) {
+            Text(stringResource(R.string.setup_location_interval), style = MaterialTheme.typography.bodyMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(0 to R.string.location_interval_off, 15 to R.string.location_interval_15, 60 to R.string.location_interval_60)
+                    .forEach { (minutes, label) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.selectable(selected = locationInterval == minutes, onClick = { locationInterval = minutes }),
+                        ) {
+                            RadioButton(selected = locationInterval == minutes, onClick = { locationInterval = minutes })
+                            Text(stringResource(label), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+            }
+        }
 
         problems.forEach { problem ->
             Text(
@@ -214,6 +230,7 @@ fun SetupScreen(
                     externalPassword = externalPass,
                     orientation = orientation,
                     shareLocation = shareLocation,
+                    locationIntervalMin = locationInterval,
                 )
                 problems = config.problems()
                 if (problems.isEmpty()) onSave(config, autoStart)
