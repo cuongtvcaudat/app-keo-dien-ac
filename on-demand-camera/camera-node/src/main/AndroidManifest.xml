@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Mạng: MQTT + broker nhúng trên IP Tailscale. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Foreground service: loại camera (mở camera khi có lệnh, Phase 3) + specialUse (Android 14+,
+         dùng khi service bị hệ thống khởi động lại từ nền — lúc đó Android cấm loại camera). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Phase 7 (WebRTC): gửi tiếng sân cho app Xem, phát tiếng app Xem nói ra loa. Micro chỉ mở khi có
+         phiên xem trực tiếp; loại foreground "microphone" giống loại camera: chỉ có khi app được mở trên màn hình. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Chia sẻ vị trí máy camera (tuỳ chọn, mặc định tắt). Loại foreground "location" chỉ dùng khi bật chia sẻ. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Không tự xin: người dùng có thể chọn "Luôn cho phép" trong quyền Vị trí để vị trí vẫn cập nhật sau khi máy
+         tự khởi động lại (lúc đó service chạy từ nền, không có loại "location"). App cài tay, không lên CH Play. -->
+    <uses-permission
+        android:name="android.permission.ACCESS_BACKGROUND_LOCATION"
+        tools:ignore="BackgroundLocation" />
+
+    <!-- Giữ CPU thức để ping MQTT đúng giờ khi màn hình tắt (máy camera luôn cắm sạc). -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Tự chạy lại sau khi khởi động máy (ColorOS cần bật thêm "Cho phép tự khởi chạy"). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Mở hộp thoại "bỏ tối ưu pin" trực tiếp. App cài APK riêng, không lên Google Play. -->
+    <uses-permission
+        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        tools:ignore="BatteryLife" />
+
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.location.gps"
+        android:required="false" />
+
+    <application
+        android:name=".CameraNodeApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.OnCamNode">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".service.CameraForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="camera|microphone|location|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Camera giám sát theo yêu cầu: luôn chờ lệnh MQTT, chỉ mở camera khi người dùng yêu cầu từ xa" />
+        </service>
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OnCam Quay</string>
+
+    <!-- Chung -->
+    <string name="action_save">Lưu</string>
+    <string name="action_cancel">Huỷ</string>
+    <string name="action_back">Quay lại</string>
+    <string name="action_copy">Sao chép</string>
+    <string name="value_none">—</string>
+    <string name="value_yes">Có</string>
+    <string name="value_no">Không</string>
+    <string name="value_percent">%1$d%%</string>
+    <string name="value_celsius">%1$.1f °C</string>
+    <string name="value_uptime">%1$d giờ %2$d phút</string>
+
+    <!-- Màn hình cấu hình -->
+    <string name="setup_title">Cấu hình máy quay</string>
+    <string name="setup_intro">Điện thoại này sẽ là camera đặt cố định. Nó luôn chờ lệnh và chỉ mở camera khi bạn gọi từ app OnCam Xem.</string>
+    <string name="setup_section_camera">Camera</string>
+    <string name="setup_default_name">Sân nhà</string>
+    <string name="setup_display_name">Tên hiển thị</string>
+    <string name="setup_device_id">Mã camera</string>
+    <string name="setup_device_id_hint">Chữ thường không dấu, số, dấu - hoặc _, tối đa 32 ký tự. Ví dụ: san-nha</string>
+    <string name="setup_section_secret">Token bí mật</string>
+    <string name="setup_secret_hint">Không cần chép token: sau khi lưu, bấm “Hiện mã QR” và quét bằng app OnCam Xem. Ai có token mới điều khiển được camera; tạo token mới thì phải quét QR lại trên máy xem.</string>
+    <string name="setup_secret">Token bí mật</string>
+    <string name="setup_secret_generate">Tạo token mới</string>
+    <string name="setup_section_broker">MQTT broker</string>
+    <string name="setup_broker_embedded">Broker trong máy này (khuyên dùng)</string>
+    <string name="setup_broker_embedded_desc">Không cần máy chủ riêng. Chỉ mở trên IP Tailscale, bắt buộc đăng nhập.</string>
+    <string name="setup_broker_external">Broker riêng</string>
+    <string name="setup_broker_external_desc">Mosquitto trên máy khác hoặc broker cloud.</string>
+    <string name="setup_port">Cổng broker</string>
+    <string name="setup_external_uri">Địa chỉ broker</string>
+    <string name="setup_external_uri_placeholder">100.x.y.z hoặc ssl://tên-miền:8883</string>
+    <string name="setup_external_user">Tên đăng nhập</string>
+    <string name="setup_external_pass">Mật khẩu</string>
+    <string name="setup_auto_start">Tự chạy khi khởi động lại máy</string>
+    <string name="setup_share_location">Chia sẻ vị trí máy này với app Xem</string>
+    <string name="setup_share_location_hint">GPS/mạng, xem được trên Google Maps. App Xem có nút “Cập nhật vị trí” và “Theo dõi 15 phút” (1 phút/lần). GPS chỉ chạy vài giây mỗi lần lấy, không bật liên tục. Cần cho phép quyền Vị trí.</string>
+    <string name="setup_location_interval">Tự cập nhật vị trí:</string>
+    <string name="location_interval_off">Tắt (chỉ khi bấm)</string>
+    <string name="location_interval_15">15 phút</string>
+    <string name="location_interval_60">60 phút</string>
+    <string name="location_tracking">Đang theo dõi 1 phút/lần, còn %1$d phút.</string>
+    <string name="setup_restart_note">Thay đổi có hiệu lực sau khi Dừng rồi Khởi động lại camera node.</string>
+
+    <string name="problem_device_id">Mã camera không hợp lệ: chỉ dùng a-z, 0-9, - và _, tối đa 32 ký tự.</string>
+    <string name="problem_display_name">Chưa nhập tên hiển thị.</string>
+    <string name="problem_secret">Token phải dài ít nhất 16 ký tự, không có khoảng trắng ở đầu/cuối.</string>
+    <string name="problem_port">Cổng phải trong khoảng 1024–65535.</string>
+    <string name="problem_external_uri">Địa chỉ broker chưa đúng: gõ IP (vd. 100.101.102.103), hoặc đầy đủ dạng tcp://IP:1883 / ssl://tên-miền:8883.</string>
+
+    <!-- Màn hình trạng thái -->
+    <string name="status_device_id">Mã camera: %1$s</string>
+    <string name="status_battery_warning">Ứng dụng chưa được bỏ tối ưu pin. Hệ thống có thể tắt camera bất cứ lúc nào.</string>
+    <string name="status_open_guide">Hướng dẫn chống tắt app</string>
+    <string name="status_edit_config">Sửa cấu hình</string>
+    <string name="status_section_node">Camera node</string>
+    <string name="status_running">Đang chạy, chờ lệnh</string>
+    <string name="status_stopped">Đã dừng</string>
+    <string name="status_start">Khởi động camera node</string>
+    <string name="status_stop">Dừng</string>
+    <string name="status_section_connection">Kết nối</string>
+    <string name="status_broker">Broker</string>
+    <string name="status_mqtt">MQTT</string>
+    <string name="status_disconnects">Số lần mất kết nối</string>
+    <string name="status_uptime">Chạy liên tục</string>
+    <string name="status_section_viewer">Nhập vào app OnCam Xem</string>
+    <string name="status_show_qr">Hiện mã QR cho app Xem</string>
+    <string name="status_qr_wait">Chờ có IP Tailscale mới tạo được mã QR.</string>
+    <string name="status_viewer_hint">Hoặc nhập tay 3 thông tin: địa chỉ broker, mã camera và token bí mật.</string>
+    <string name="action_close">Đóng</string>
+    <string name="qr_title">Quét bằng app OnCam Xem</string>
+    <string name="qr_steps">Trên máy xem: Thêm camera → Quét mã QR trên máy camera → Lưu.</string>
+    <string name="qr_warning">Mã này chứa token bí mật: không chụp màn hình, không gửi qua Zalo/Facebook. Tự ẩn sau %1$d giây.</string>
+    <string name="status_broker_address">Địa chỉ broker</string>
+    <string name="status_device_id_label">Mã camera</string>
+    <string name="status_copy_address">Sao chép địa chỉ</string>
+    <string name="status_copy_secret">Sao chép token</string>
+    <string name="status_section_device">Thiết bị</string>
+    <string name="status_battery">Pin</string>
+    <string name="status_charging">Đang sạc</string>
+    <string name="status_temperature">Nhiệt độ pin</string>
+    <string name="status_network">Mạng</string>
+    <string name="status_camera_access">Mở camera từ xa</string>
+    <string name="status_camera_access_no">Chưa — mở app này một lần</string>
+    <string name="status_section_location">Vị trí máy camera</string>
+    <string name="status_location_coords">Toạ độ</string>
+    <string name="status_location_detail">Chi tiết</string>
+    <string name="location_accuracy">±%1$d m</string>
+    <string name="location_source_gps">GPS</string>
+    <string name="location_source_network">Wi-Fi/mạng</string>
+    <string name="age_just_now">vừa xong</string>
+    <string name="age_minutes">%1$d phút trước</string>
+    <string name="age_hours">%1$d giờ trước</string>
+    <string name="age_days">%1$d ngày trước</string>
+    <string name="location_updating">Đang lấy vị trí (GPS có thể mất tới 30 giây)…</string>
+    <string name="location_none">Chưa có vị trí. Bấm “Cập nhật vị trí”.</string>
+    <string name="location_no_permission">Chưa cho phép quyền Vị trí.</string>
+    <string name="location_err_permission">Không lấy được vị trí: cần mở app này một lần (sau khi máy khởi động lại) hoặc chọn “Luôn cho phép” trong quyền Vị trí.</string>
+    <string name="location_err_off">Vị trí đang tắt: kéo thanh thông báo xuống và bật “Vị trí”.</string>
+    <string name="location_err_unavailable">Chưa bắt được vị trí (máy trong nhà kín hoặc chưa có vệ tinh). Thử lại sau.</string>
+    <string name="action_allow_location">Cho phép vị trí</string>
+    <string name="action_update_location">Cập nhật vị trí</string>
+    <string name="action_open_maps">Mở Google Maps</string>
+    <string name="status_mic_access">Micro (nghe/nói từ xa)</string>
+    <string name="status_mic_no_permission">Chưa cấp quyền</string>
+    <string name="status_mic_allow">Cho phép micro</string>
+    <string name="status_section_test">Kiểm tra</string>
+    <string name="status_self_test">Tự kiểm tra (PING)</string>
+    <string name="status_self_testing">Đang kiểm tra…</string>
+    <string name="status_last_command">Lệnh gần nhất</string>
+    <string name="status_last_command_ok">%1$s: thành công %2$s</string>
+    <string name="status_last_command_fail">%1$s: từ chối %2$s</string>
+
+    <string name="broker_external">Broker riêng</string>
+    <string name="broker_waiting_tailscale">Chờ Tailscale (chưa có IP 100.x.y.z)</string>
+    <string name="broker_running">Đang chạy tại %1$s:%2$d</string>
+    <string name="broker_failed">Lỗi: %1$s</string>
+    <string name="mqtt_idle">Chưa kết nối</string>
+    <string name="mqtt_connecting">Đang kết nối…</string>
+    <string name="mqtt_connected">Đã kết nối</string>
+    <string name="mqtt_disconnected">Mất kết nối, thử lại sau %1$d giây</string>
+    <string name="network_wifi">Wi-Fi</string>
+    <string name="network_cellular">Di động</string>
+    <string name="network_ethernet">Cáp mạng</string>
+    <string name="network_other">Khác (VPN)</string>
+    <string name="network_none">Không có mạng</string>
+
+    <string name="self_test_passed">✅ Thông suốt: lệnh đi vòng qua broker mất %1$d ms</string>
+    <string name="self_test_not_connected">❌ Chưa kết nối MQTT</string>
+    <string name="self_test_publish_failed">❌ Không gửi được lệnh tới broker</string>
+    <string name="self_test_timeout">❌ Gửi được nhưng không nhận lại sau 5 giây</string>
+    <string name="self_test_rejected">❌ Lệnh bị từ chối (kiểm tra đồng hồ máy)</string>
+
+    <!-- Notification -->
+    <string name="notif_channel_status">Trạng thái camera node</string>
+    <string name="notif_channel_status_desc">Thông báo thường trực khi camera node đang chạy</string>
+    <string name="notif_channel_alert">Cảnh báo</string>
+    <string name="notif_starting">Đang khởi động…</string>
+    <string name="notif_waiting_tailscale">Chờ Tailscale kết nối…</string>
+    <string name="notif_broker_failed">Không mở được broker, đang thử lại</string>
+    <string name="notif_listening">Camera node đang chờ lệnh</string>
+    <string name="notif_connecting">Đang kết nối broker…</string>
+    <string name="notif_disconnected">Mất kết nối, thử lại sau %1$d giây</string>
+    <string name="notif_action_stop">Dừng</string>
+    <string name="notif_cannot_start_title">Camera node đã dừng</string>
+    <string name="notif_cannot_start_text">Hệ thống không cho chạy lại từ nền. Chạm để mở app và khởi động lại.</string>
+
+    <!-- Hướng dẫn chống tắt app: chọn theo hãng (Build.MANUFACTURER) -->
+    <string name="guide_family_samsung">Samsung</string>
+    <string name="guide_family_coloros">Oppo/Realme</string>
+    <string name="guide_family_other">Hãng khác</string>
+    <string name="guide_title">Chống tắt app (Oppo / ColorOS)</string>
+    <string name="guide_intro">ColorOS tắt app chạy nền rất mạnh tay. Làm đủ 5 bước dưới đây để camera node chạy 24/7. Tên mục có thể khác đôi chút giữa ColorOS 11, 12 và 13.</string>
+    <string name="guide_step1_title">1. Bỏ tối ưu pin</string>
+    <string name="guide_step1_todo">Chưa làm. Bấm nút dưới và chọn “Cho phép”.</string>
+    <string name="guide_step1_done">✅ Đã bỏ tối ưu pin.</string>
+    <string name="guide_step1_button">Bỏ tối ưu pin</string>
+    <string name="guide_step2_title">2. Cho phép chạy nền và tự khởi chạy</string>
+    <string name="guide_step2_body">Mở Thông tin ứng dụng → Mức sử dụng pin (hoặc Pin) → bật “Cho phép hoạt động ở nền”, “Cho phép hoạt động ở nền trước” và “Cho phép tự khởi chạy”.</string>
+    <string name="guide_open_app_settings">Mở thông tin ứng dụng</string>
+    <string name="guide_step3_title">3. Khoá app trong đa nhiệm</string>
+    <string name="guide_step3_body">Mở màn hình đa nhiệm (vuốt từ dưới lên và giữ), chạm vào dấu ⋮ hoặc nhấn giữ thẻ OnCam Quay → chọn “Khoá”. Khi đó nút “Dọn tất cả” sẽ không tắt app.</string>
+    <string name="guide_step4_title">4. Làm tương tự cho Tailscale</string>
+    <string name="guide_step4_body">Lặp lại bước 1–3 cho app Tailscale. Thêm: Cài đặt → Kết nối khác → VPN → Tailscale → bật “VPN luôn bật”. Thiếu bước này, khởi động lại máy là camera mất kết nối. Trên trang quản trị login.tailscale.com → Machines → máy này → ⋯ → “Disable key expiry” để không bị đăng xuất sau 180 ngày.</string>
+    <string name="guide_step5_title">5. Nguồn điện và nhiệt</string>
+    <string name="guide_step5_body">Cắm sạc liên tục, đặt máy nơi thoáng và tránh nắng trực tiếp. Cắm sạc lâu ngày làm pin chai/phồng; kiểm tra pin định kỳ.</string>
+
+    <string name="guide_title_samsung">Chống tắt app (Samsung / One UI)</string>
+    <string name="guide_intro_samsung">One UI cho app chạy nền ổn định nếu đặt đúng. Làm đủ 6 bước dưới đây để camera chạy 24/7. Tên mục có thể khác đôi chút giữa One UI 5, 6 và 7.</string>
+    <string name="guide_samsung_step2_title">2. Pin: “Không hạn chế” và “Không bao giờ ngủ”</string>
+    <string name="guide_samsung_step2_body">Mở Thông tin ứng dụng → Pin → chọn “Không hạn chế”. Sau đó vào Cài đặt → Pin (hoặc Chăm sóc thiết bị → Pin) → Giới hạn sử dụng nền: thêm OnCam Quay và Tailscale vào “Ứng dụng không bao giờ ngủ”, và tắt “Đặt ứng dụng không dùng sang chế độ ngủ”.</string>
+    <string name="guide_samsung_step3_title">3. “Giữ mở” trong đa nhiệm</string>
+    <string name="guide_samsung_step3_body">Mở đa nhiệm (nút ||| hoặc vuốt lên và giữ), chạm biểu tượng OnCam Quay phía trên thẻ → “Giữ mở”. Khi đó nút “Đóng tất cả” không tắt app.</string>
+    <string name="guide_samsung_step4_title">4. Tailscale luôn bật</string>
+    <string name="guide_samsung_step4_body">Lặp lại bước 1–3 cho app Tailscale. Thêm: Cài đặt → Kết nối → Cài đặt kết nối khác → VPN → bánh răng cạnh Tailscale → bật “Luôn bật VPN”. Trên trang quản trị login.tailscale.com → Machines → máy này → ⋯ → “Disable key expiry” để không bị đăng xuất sau 180 ngày.</string>
+    <string name="guide_samsung_step5_title">5. Tắt tự khởi động lại theo lịch</string>
+    <string name="guide_samsung_step5_body">Cài đặt → Chăm sóc thiết bị → Tự động hoá (hoặc Tối ưu tự động) → tắt “Tự động khởi động lại vào giờ đã đặt”. App vẫn tự chạy lại sau khi máy khởi động, nhưng mỗi lần khởi động camera mất kết nối 1–2 phút.</string>
+    <string name="guide_samsung_step6_title">6. Nguồn điện và nhiệt</string>
+    <string name="guide_samsung_step6_body">Cắm sạc liên tục và bật Cài đặt → Pin → Bảo vệ pin (chọn mức dừng sạc ở 80% nếu có) để pin đỡ chai/phồng khi cắm 24/7. Đặt máy nơi thoáng, tránh nắng trực tiếp; app tự tắt camera khi máy quá 45 °C.</string>
+
+    <string name="guide_title_other">Chống tắt app (hướng dẫn chung)</string>
+    <string name="guide_intro_other">Mỗi hãng đặt tên mục khác nhau; tìm mục gần nghĩa nhất. Xem thêm trang dontkillmyapp.com theo đúng hãng máy.</string>
+    <string name="guide_other_step2_title">2. Cho chạy nền không giới hạn</string>
+    <string name="guide_other_step2_body">Mở Thông tin ứng dụng → Pin → chọn “Không hạn chế” (hoặc “Không tối ưu”), bật “Cho phép chạy nền” và “Tự khởi chạy” nếu có.</string>
+    <string name="guide_other_step3_title">3. Khoá app trong đa nhiệm</string>
+    <string name="guide_other_step3_body">Mở đa nhiệm, nhấn giữ thẻ OnCam Quay (hoặc chạm biểu tượng phía trên thẻ) → chọn “Khoá” / “Giữ mở”.</string>
+    <string name="guide_other_step4_title">4. Tailscale luôn bật</string>
+    <string name="guide_other_step4_body">Lặp lại bước 1–3 cho Tailscale. Thêm: Cài đặt → Mạng → VPN → Tailscale → bật “VPN luôn bật”. Trên login.tailscale.com chọn máy này → “Disable key expiry”.</string>
+
+    <!-- Camera (Phase 3) -->
+    <string name="camera_section">Camera</string>
+    <string name="camera_state">Trạng thái</string>
+    <string name="camera_state_off">Đang tắt</string>
+    <string name="camera_state_starting">Đang mở…</string>
+    <string name="camera_state_streaming">Đang phát video</string>
+    <string name="camera_state_error">Lỗi</string>
+    <string name="camera_viewers">Người đang xem</string>
+    <string name="camera_recording">Quay video</string>
+    <string name="camera_recording_on">● Đang quay</string>
+    <string name="camera_facing">Camera</string>
+    <string name="camera_front">Trước</string>
+    <string name="camera_back">Sau</string>
+    <string name="camera_quality">Chất lượng</string>
+    <string name="camera_flash">Đèn flash</string>
+    <string name="camera_stop">Tắt camera</string>
+    <string name="camera_start_test">Bật camera thử</string>
+    <string name="camera_start_test_hint">Camera tự tắt sau 60 giây nếu không có ai xem từ app OnCam Xem.</string>
+    <string name="camera_needs_app_open">Đang chờ quyền mở camera — đóng rồi mở lại app này.</string>
+    <string name="camera_preview_desc">Ảnh xem thử từ camera</string>
+    <string name="quality_low">Thấp (640×480, 10 hình/giây)</string>
+    <string name="quality_medium">Vừa (1280×720, 15 hình/giây)</string>
+    <string name="quality_high">Cao (1280×720, 30 hình/giây)</string>
+    <string name="code_needs_app_open">Cần mở app OnCam Quay trên máy camera một lần (máy vừa khởi động lại hoặc app bị hệ thống tắt).</string>
+    <string name="code_no_permission">Chưa cấp quyền Camera cho app.</string>
+    <string name="code_no_camera">Máy không có camera này.</string>
+    <string name="code_no_tailscale">Tailscale chưa kết nối nên không mở được luồng video.</string>
+    <string name="code_http_bind_failed">Không mở được cổng video 8080.</string>
+    <string name="code_open_failed">Không mở được camera.</string>
+    <string name="code_address_changed">IP Tailscale vừa đổi nên đã tắt camera; bật lại để xem tiếp.</string>
+    <string name="code_camera_error">Camera báo lỗi: %1$s</string>
+
+    <string name="setup_section_orientation">Hướng đặt máy</string>
+    <string name="setup_orientation_hint">Chọn đúng hướng để ảnh không bị nghiêng. Bấm “Bật camera thử” để kiểm tra.</string>
+    <string name="orientation_up">Dựng đứng, đầu máy hướng lên</string>
+    <string name="orientation_left">Nằm ngang, đầu máy hướng sang trái</string>
+    <string name="orientation_right">Nằm ngang, đầu máy hướng sang phải</string>
+    <string name="orientation_down">Lộn ngược, đầu máy hướng xuống</string>
+
+    <string name="notif_streaming">Đang phát video • %1$d người xem</string>
+    <string name="notif_recording">● Đang quay video (lưu trên máy này)</string>
+    <string name="notif_camera_starting">Đang mở camera…</string>
+    <string name="notif_action_stop_camera">Tắt camera</string>
+</resources>

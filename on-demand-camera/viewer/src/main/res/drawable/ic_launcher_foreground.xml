@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Biểu tượng con mắt (xem), nằm trong vùng an toàn 66dp của adaptive icon 108dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M24,54C34,38 74,38 84,54C74,70 34,70 24,54z M43,54a11,11 0,1 0,22 0a11,11 0,1 0,-22 0z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49,54a5,5 0,1 0,10 0a5,5 0,1 0,-10 0z" />
+</vector>
