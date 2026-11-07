@@ -141,7 +141,8 @@ kênh riêng tư của bạn, dán vào app Xem. Ô *Địa chỉ broker* chỉ 
 - Trong lúc có người nghe/nói, máy camera tự chuyển loa ngoài và **âm lượng đàm thoại tối đa**, xong thì trả lại như cũ.
 - ⚠️ Pháp lý: thu tiếng ở nơi có người khác là xử lý dữ liệu cá nhân (BLDS 2015 Điều 38 về bí mật đời tư;
   NĐ 13/2023/NĐ-CP). Chỉ hướng camera/micro vào khu vực nhà mình; nếu sân có người ngoài qua lại thường xuyên, nên
-  dán thông báo "Khu vực có camera ghi hình, ghi âm". App **không lưu** file ghi âm/ghi hình nào, chỉ phát trực tiếp.
+  dán thông báo "Khu vực có camera ghi hình, ghi âm". App chỉ lưu video khi bấm **Quay video** (mục dưới); xem
+  trực tiếp, nghe, nói đều không lưu lại.
 
 ### Vị trí máy camera trên Google Maps (từ bản 0.8)
 
@@ -165,6 +166,33 @@ Dùng để biết camera đang ở đâu (nhiều camera ở nhiều nơi) và 
 | Dữ liệu | Rất nhỏ (vài trăm byte mỗi lần), không ảnh hưởng gói 4G |
 
 ⚠️ Vị trí là dữ liệu cá nhân (NĐ 13/2023/NĐ-CP): chỉ bật trên máy của mình; ai có token camera thì xem được vị trí.
+
+### Quay video (từ bản 0.10, cả 2 app ≥ 0.10)
+
+Video **quay trên máy camera** (không phụ thuộc mạng lúc quay — mạng chập chờn clip vẫn đủ), xong thì **tự chép về
+Thư viện máy xem** (album *Movies/OnCam*, mở bằng Thư viện/Google Photos như video thường).
+
+1. Thẻ camera (hoặc màn hình xem trực tiếp) → **● Quay video**. Camera đang tắt thì tự bật.
+2. Đang quay: thẻ hiện **● Đang quay 01:23 / 10:00**, thông báo trên máy camera đổi thành *Đang quay video* (người
+   cầm máy camera luôn biết).
+3. Bấm **■ Dừng quay** (hoặc tự dừng sau 10 phút) → máy xem tự tải clip về và báo *Đã lưu 1 video (… MB)*.
+4. Bấm **Tải video về máy** để tải mọi clip chưa có (ví dụ lúc quay mà máy xem đang tắt app). Clip đã tải không tải lại.
+
+| Điều cần biết | Chi tiết |
+|---|---|
+| Chất lượng | 1280×720 (HD), 2 Mbit/s, có tiếng nếu micro máy camera được phép (thẻ ghi *không có tiếng* nếu không) |
+| Dung lượng | ≈ **15 MB/phút** → 1 clip 10 phút ≈ 150 MB. Cơ sở: (2 Mbit/s hình + ~0,1 Mbit/s tiếng) × 60 giây ÷ 8 |
+| Máy camera giữ tối đa | **2 GB** (≈ 2 giờ 10 phút video) trong bộ nhớ riêng của app; đầy thì **tự xoá clip cũ nhất** |
+| Tải về khi máy xem đi 4G | Chỉ tự tải clip ≤ 25 MB (~1,5 phút); clip dài hơn chờ bấm **Tải video về máy** hoặc tự tải khi máy xem về Wi-Fi |
+| Đường tải | Thẳng từ máy camera qua Tailscale (cổng 8081, chỉ mở ~10 phút mỗi lần tải, có xác thực) — không qua máy chủ nào |
+| Thời gian tải | Cùng Wi-Fi: 150 MB ≈ 15–30 giây. Qua 4G/Tailscale chuyển tiếp: có thể vài phút |
+| Gỡ app OnCam Quay | Xoá luôn các clip còn trên máy camera (clip đã chép về máy xem thì còn) |
+
+⚠️ Chưa thử trên máy thật:
+- **Đang xem trực tiếp có tiếng mà bấm quay**: 2 bên cùng dùng micro máy camera — trên một số máy, clip có thể không
+  có tiếng hoặc tiếng nghe trực tiếp bị ngắt. Nếu gặp, báo lại để em xử lý.
+- Lần đầu bấm quay, hình xem trực tiếp có thể **khựng ~1 giây** (camera gắn thêm bộ quay); đổi camera trước/sau hoặc
+  đổi chất lượng trong lúc quay sẽ **kết thúc clip** đang quay (clip đến lúc đó vẫn được lưu).
 
 ## 7. Dung lượng dữ liệu (ước tính)
 

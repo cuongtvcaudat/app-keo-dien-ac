@@ -47,6 +47,9 @@ fun CameraSection(
         val on = camera.state == CameraState.STREAMING || camera.state == CameraState.STARTING
         if (on) {
             InfoRow(stringResource(R.string.camera_viewers), camera.clients.toString())
+            if (camera.recording.active) {
+                InfoRow(stringResource(R.string.camera_recording), stringResource(R.string.camera_recording_on))
+            }
             InfoRow(
                 stringResource(R.string.camera_facing),
                 stringResource(if (camera.facing == CameraFacing.FRONT) R.string.camera_front else R.string.camera_back),

@@ -58,6 +58,15 @@ object CameraCodes {
     /** Không bắt được vị trí trong thời gian chờ (trong nhà kín, chưa có vệ tinh). */
     const val LOCATION_UNAVAILABLE: String = "LOCATION_UNAVAILABLE"
 
+    /** Không bắt đầu được việc quay (camera không hỗ trợ quay song song với luồng xem, hết bộ nhớ…). */
+    const val RECORDING_FAILED: String = "RECORDING_FAILED"
+
+    /** Máy camera hết bộ nhớ trong để lưu video. */
+    const val RECORDING_STORAGE_FULL: String = "RECORDING_STORAGE_FULL"
+
+    /** Máy camera bản này chưa hỗ trợ quay video. */
+    const val RECORDING_UNSUPPORTED: String = "RECORDING_UNSUPPORTED"
+
     /** Tiền tố thông điệp THERMAL_THROTTLE: "LOWERED:LOW:43.1" hoặc "STOPPED:45.2". */
     const val THERMAL_LOWERED: String = "LOWERED"
     const val THERMAL_STOPPED: String = "STOPPED"

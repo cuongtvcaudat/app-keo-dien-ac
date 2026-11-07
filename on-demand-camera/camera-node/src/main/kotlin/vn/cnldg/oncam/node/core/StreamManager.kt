@@ -1,6 +1,7 @@
 package vn.cnldg.oncam.node.core
 
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,8 +20,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import vn.cnldg.oncam.node.camera.FrameHub
 import vn.cnldg.oncam.node.camera.MjpegStreamer
+import vn.cnldg.oncam.node.camera.RecordingServer
 import vn.cnldg.oncam.node.mqtt.ActionOutcome
 import vn.cnldg.oncam.shared.LogSink
 import vn.cnldg.oncam.shared.OnCam
@@ -32,6 +35,7 @@ import vn.cnldg.oncam.shared.protocol.Command
 import vn.cnldg.oncam.shared.protocol.CommandParams
 import vn.cnldg.oncam.shared.protocol.DeviceEvent
 import vn.cnldg.oncam.shared.protocol.EventType
+import vn.cnldg.oncam.shared.protocol.Recordings
 import vn.cnldg.oncam.shared.protocol.StreamPaths
 import vn.cnldg.oncam.shared.protocol.StreamQuality
 import vn.cnldg.oncam.shared.security.EpochClock
@@ -53,6 +57,8 @@ import vn.cnldg.oncam.shared.security.StreamAuth
  *
  * @param cameraAllowed false nếu service không có loại foreground "camera" (bị khởi động lại từ nền).
  * @param rtc phiên WebRTC; null nếu máy không chạy được WebRTC → RTC_OFFER trả UNSUPPORTED.
+ * @param recordings thư mục video (0.10); null → không quay được. Đang quay được tính là người xem (camera không
+ *   tự tắt); tắt/đổi camera thì clip đang quay được đóng lại trước. Quay xong → mở cổng tải video 10 phút.
  */
 class StreamManager(
     private val camera: CameraPort,
@@ -65,6 +71,8 @@ class StreamManager(
     private val log: LogSink = LogSink.NONE,
     private val settings: Settings = Settings(),
     private val rtc: RtcPort? = null,
+    private val recordings: RecordingStore? = null,
+    private val audioAllowed: () -> Boolean = { rtc?.micReady() == true },
 ) : CameraSession {
 
     /**
@@ -80,6 +88,9 @@ class StreamManager(
         val thermalLowerCooldownMs: Long = 60_000,
         val lowerQualityAtC: Double = 42.0,
         val stopAtC: Double = 45.0,
+        val recordingPort: Int = vn.cnldg.oncam.shared.protocol.Recordings.PORT,
+        val recordingServerOpenMs: Long = 10 * 60_000L,
+        val recordingFinishWaitMs: Long = 5_000L,
     )
 
     private val mutex = Mutex()
@@ -96,6 +107,14 @@ class StreamManager(
 
     @Volatile
     private var idleReset = false
+
+    @Volatile
+    private var recordingDone: CompletableDeferred<Unit>? = null
+
+    private val serverLock = Any()
+    private var recordingServer: RecordingServer? = null
+    private var recordingServerHost: String? = null
+    private var recordingServerCloseJob: Job? = null
 
     init {
         scope.launch {
@@ -115,6 +134,8 @@ class StreamManager(
     override fun rtcAvailable(): Boolean = rtc != null
 
     override fun micReady(): Boolean = rtc?.micReady() == true
+
+    override fun recordingSupported(): Boolean = recordings != null
 
     override fun latestFrame(): ByteArray? = hub?.latest()
 
@@ -141,6 +162,13 @@ class StreamManager(
             }
             Action.PING -> ActionOutcome.Done() // CommandHandler đã trả lời PING trước khi tới đây
             Action.UPDATE_LOCATION -> ActionOutcome.Unsupported // NodeController xử lý (không liên quan camera)
+            Action.START_RECORDING -> startRecordingLocked(p)
+            Action.STOP_RECORDING -> {
+                stopRecordingLocked()
+                ActionOutcome.Done(_status.value.recording.lastFile)
+            }
+            Action.OPEN_RECORDINGS -> openRecordingServer()?.let { ActionOutcome.Done(it) }
+                ?: ActionOutcome.Failed(if (recordings == null) CameraCodes.RECORDING_UNSUPPORTED else CameraCodes.NO_TAILSCALE)
             Action.RTC_OFFER -> rtcOfferLocked(p)
             Action.RTC_HANGUP -> {
                 rtc?.hangup(checkNotNull(p.sessionId))
@@ -153,7 +181,10 @@ class StreamManager(
         if (_status.value.state != CameraState.OFF) stopLocked(EventType.CAMERA_STOPPED, reason)
     }
 
-    override suspend fun shutdown() = stopStreaming(CameraCodes.STOP_SHUTDOWN)
+    override suspend fun shutdown() {
+        stopStreaming(CameraCodes.STOP_SHUTDOWN)
+        closeRecordingServer()
+    }
 
     // --- bên dưới: chỉ gọi khi đang giữ mutex ---
 
@@ -222,6 +253,116 @@ class StreamManager(
         }
     }
 
+    private suspend fun startRecordingLocked(p: CommandParams): ActionOutcome {
+        val store = recordings ?: return ActionOutcome.Failed(CameraCodes.RECORDING_UNSUPPORTED)
+        if (_status.value.recording.active) return ActionOutcome.Done()
+        if (_status.value.state != CameraState.STREAMING) {
+            val started = startLocked(p.copy(maxSeconds = null))
+            if (started is ActionOutcome.Failed) return started
+        }
+        val file = store.newFile()
+        val maxSec = p.maxSeconds ?: Recordings.DEFAULT_MAX_SECONDS
+        val audio = audioAllowed()
+        val done = CompletableDeferred<Unit>()
+        recordingDone = done
+        val ok = camera.startRecording(file, maxSec * 1000L, audio) { outcome -> onRecordingFinished(outcome, done) }
+        if (!ok) {
+            recordingDone = null
+            _status.update { it.copy(recording = it.recording.copy(active = false, error = CameraCodes.RECORDING_FAILED)) }
+            return ActionOutcome.Failed(CameraCodes.RECORDING_FAILED)
+        }
+        _status.update {
+            it.copy(
+                recording = it.recording.copy(active = true, startedAt = clock.nowSec(), maxSeconds = maxSec, audio = audio, error = null),
+            )
+        }
+        idleReset = true
+        // Thêm luồng quay làm CameraX mở lại camera → đèn tắt; bật lại nếu đang bật.
+        if (_status.value.flashOn) camera.setTorch(true)
+        log.log(LogSink.Level.INFO, "Bắt đầu quay ${file.name} (tối đa ${maxSec}s, tiếng: $audio)", null)
+        return ActionOutcome.Done(file.name)
+    }
+
+    /** Dừng clip đang quay (nếu có) và chờ file ghi xong tối đa [Settings.recordingFinishWaitMs]. */
+    private suspend fun stopRecordingLocked() {
+        if (!_status.value.recording.active) return
+        val done = recordingDone
+        camera.stopRecording()
+        if (done != null) withTimeoutOrNull(settings.recordingFinishWaitMs) { done.await() }
+        if (_status.value.recording.active) {
+            // Camera không báo ghi xong kịp: vẫn coi là đã dừng (file có thể thiếu phần cuối).
+            log.log(LogSink.Level.WARN, "Không nhận được báo ghi xong video", null)
+            _status.update { it.copy(recording = it.recording.copy(active = false, startedAt = null)) }
+        }
+    }
+
+    /** Gọi từ luồng camera khi file ghi xong; không lấy mutex (stopRecordingLocked có thể đang chờ ở đây). */
+    private fun onRecordingFinished(outcome: RecordingOutcome, done: CompletableDeferred<Unit>) {
+        when (outcome) {
+            is RecordingOutcome.Saved -> {
+                recordings?.enforceLimit(keep = outcome.file)
+                _status.update {
+                    it.copy(
+                        recording = it.recording.copy(
+                            active = false,
+                            startedAt = null,
+                            audio = outcome.audio,
+                            lastFile = outcome.file.name,
+                            lastFileBytes = outcome.bytes,
+                            error = null,
+                        ),
+                    )
+                }
+                log.log(LogSink.Level.INFO, "Đã lưu ${outcome.file.name} (${outcome.bytes} byte)", null)
+                // Mở cổng tải để app Xem lấy clip ngay.
+                scope.launch(Dispatchers.IO) { openRecordingServer() }
+            }
+            is RecordingOutcome.Failed -> _status.update {
+                it.copy(recording = it.recording.copy(active = false, startedAt = null, error = outcome.code))
+            }
+        }
+        if (recordingDone === done) recordingDone = null
+        done.complete(Unit)
+    }
+
+    /**
+     * Mở (hoặc gia hạn) cổng tải video trên IP Tailscale trong [Settings.recordingServerOpenMs].
+     * @return địa chỉ gốc (http://ip:port), null nếu không quay được hoặc chưa có IP Tailscale.
+     */
+    private fun openRecordingServer(): String? {
+        val store = recordings ?: return null
+        val h = addressProvider() ?: return null
+        synchronized(serverLock) {
+            if (recordingServer == null || recordingServerHost != h) {
+                recordingServer?.stopServer()
+                val srv = RecordingServer(h, settings.recordingPort, auth, store, log)
+                try {
+                    srv.startServer()
+                } catch (e: IOException) {
+                    log.log(LogSink.Level.WARN, "Không mở được cổng tải video tại $h:${settings.recordingPort}", e)
+                    recordingServer = null
+                    return null
+                }
+                recordingServer = srv
+                recordingServerHost = h
+            }
+            recordingServerCloseJob?.cancel()
+            recordingServerCloseJob = scope.launch {
+                delay(settings.recordingServerOpenMs)
+                closeRecordingServer()
+            }
+            return "http://$h:${settings.recordingPort}"
+        }
+    }
+
+    private fun closeRecordingServer() = synchronized(serverLock) {
+        recordingServerCloseJob?.cancel()
+        recordingServerCloseJob = null
+        recordingServer?.stopServer()
+        recordingServer = null
+        recordingServerHost = null
+    }
+
     private fun failStart(code: String, state: CameraState = CameraState.OFF): ActionOutcome {
         _status.update { it.copy(state = state, error = code, streamUrl = null, flashOn = false) }
         emit(EventType.ERROR, code)
@@ -242,6 +383,7 @@ class StreamManager(
         hub = null
         host = null
         withContext(NonCancellable) {
+            stopRecordingLocked()
             rtc?.closeAll()
             srv?.let { withContext(Dispatchers.IO) { it.stopServer() } }
             camera.close()
@@ -285,6 +427,8 @@ class StreamManager(
      */
     private suspend fun reopenLocked(): ActionOutcome? {
         val currentHub = hub ?: return ActionOutcome.Failed(CameraCodes.CAMERA_OFF)
+        // Mở lại camera (đổi camera/chất lượng) làm đứt clip đang quay → đóng clip cho gọn trước.
+        stopRecordingLocked()
         val wasFlash = _status.value.flashOn
         val s = _status.value
         return when (val opened = camera.open(s.facing, s.quality, currentHub::publish)) {
@@ -309,7 +453,8 @@ class StreamManager(
         while (currentCoroutineContext().isActive) {
             delay(settings.checkIntervalMs)
             val nowMs = System.nanoTime() / 1_000_000
-            val clients = (server?.clientCount ?: 0) + (rtc?.sessions?.value ?: 0)
+            val recordingNow = if (_status.value.recording.active) 1 else 0
+            val clients = (server?.clientCount ?: 0) + (rtc?.sessions?.value ?: 0) + recordingNow
             _status.update { if (it.clients != clients) it.copy(clients = clients) else it }
 
             if (idleReset || clients > 0) {

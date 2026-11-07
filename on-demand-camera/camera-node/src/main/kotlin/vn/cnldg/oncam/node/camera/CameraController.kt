@@ -1,21 +1,32 @@
 package vn.cnldg.oncam.node.camera
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Size
 import android.view.Surface
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CameraState as XCameraState
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.FallbackStrategy
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Observer
 import com.google.common.util.concurrent.ListenableFuture
+import java.io.File
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -28,14 +39,14 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import vn.cnldg.oncam.node.core.CameraPort
-import vn.cnldg.oncam.node.core.YuvToNv21
 import vn.cnldg.oncam.node.core.MountOrientation
 import vn.cnldg.oncam.node.core.OpenResult
+import vn.cnldg.oncam.node.core.RecordingOutcome
+import vn.cnldg.oncam.node.core.YuvToNv21
 import vn.cnldg.oncam.shared.LogSink
 import vn.cnldg.oncam.shared.protocol.CameraCodes
 import vn.cnldg.oncam.shared.protocol.CameraFacing
 import vn.cnldg.oncam.shared.protocol.StreamQuality
-import androidx.camera.core.CameraState as XCameraState
 
 /**
  * Camera thật qua CameraX, chạy trong Foreground Service ([lifecycleOwner] = service).
@@ -57,6 +68,10 @@ class CameraController(
     private var provider: ProcessCameraProvider? = null
     private var camera: Camera? = null
     private var stateObserver: Observer<XCameraState>? = null
+    private var currentSelector: CameraSelector? = null
+    private var currentAnalysis: ImageAnalysis? = null
+    private var videoCapture: VideoCapture<Recorder>? = null
+    private var recording: Recording? = null
 
     /**
      * Nhận khung NV21 (đã xoay đúng chiều, đã giới hạn FPS) cho WebRTC (Phase 7): (dữ liệu, rộng, cao, thời điểm ns).
@@ -116,20 +131,110 @@ class CameraController(
             try {
                 detachObserver()
                 p.unbindAll()
+                videoCapture = null
                 val cam = p.bindToLifecycle(lifecycleOwner, sel, analysis)
-                camera = cam
-                val observer = Observer<XCameraState> { state -> onCameraState(state) }
-                cam.cameraInfo.cameraState.observe(lifecycleOwner, observer)
-                stateObserver = observer
+                attach(cam)
+                currentSelector = sel
+                currentAnalysis = analysis
                 log.log(LogSink.Level.INFO, "Đã mở camera $facing ở $quality", null)
                 OpenResult.Opened(hasFlash = cam.cameraInfo.hasFlashUnit())
             } catch (e: Exception) {
                 log.log(LogSink.Level.WARN, "Không mở được camera $facing", e)
                 p.unbindAll()
                 camera = null
+                currentSelector = null
+                currentAnalysis = null
                 OpenResult.Failed(CameraCodes.OPEN_FAILED)
             }
         }
+
+    /**
+     * Quay MP4 (H.264 720p ~2 Mbit/s + AAC nếu [withAudio]) bằng CameraX VideoCapture, chạy song song với luồng
+     * xem (ImageAnalysis). Lần đầu quay sẽ gắn thêm VideoCapture → CameraX mở lại camera (hình khựng ~1 giây).
+     * Máy không cho 2 luồng cùng lúc → trả false và giữ nguyên luồng xem.
+     */
+    @SuppressLint("MissingPermission") // đã kiểm quyền RECORD_AUDIO ngay trước withAudioEnabled()
+    override suspend fun startRecording(
+        file: File,
+        maxMs: Long,
+        withAudio: Boolean,
+        onFinished: (RecordingOutcome) -> Unit,
+    ): Boolean = withContext(Dispatchers.Main) {
+        val p = provider ?: return@withContext false
+        val sel = currentSelector ?: return@withContext false
+        val analysis = currentAnalysis ?: return@withContext false
+        if (recording != null) return@withContext false
+        val capture = videoCapture ?: run {
+            val recorder = Recorder.Builder()
+                .setQualitySelector(QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.HD)))
+                .setTargetVideoEncodingBitRate(VIDEO_BITRATE)
+                .build()
+            val vc = VideoCapture.Builder(recorder).setTargetRotation(surfaceRotation(orientation)).build()
+            try {
+                detachObserver()
+                p.unbindAll()
+                attach(p.bindToLifecycle(lifecycleOwner, sel, analysis, vc))
+                vc
+            } catch (e: Exception) {
+                log.log(LogSink.Level.WARN, "Máy không quay video song song với luồng xem được", e)
+                runCatching {
+                    p.unbindAll()
+                    attach(p.bindToLifecycle(lifecycleOwner, sel, analysis))
+                }
+                return@withContext false
+            }
+        }
+        videoCapture = capture
+        val audio = withAudio &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val options = FileOutputOptions.Builder(file).setDurationLimitMillis(maxMs).build()
+        val pending = capture.output.prepareRecording(context, options).let { if (audio) it.withAudioEnabled() else it }
+        recording = try {
+            pending.start(ContextCompat.getMainExecutor(context)) { event ->
+                if (event is VideoRecordEvent.Finalize) {
+                    recording = null
+                    onFinished(outcome(event, file, audio))
+                }
+            }
+        } catch (e: Exception) {
+            log.log(LogSink.Level.WARN, "Không bắt đầu quay được", e)
+            return@withContext false
+        }
+        true
+    }
+
+    override suspend fun stopRecording() = withContext(Dispatchers.Main) {
+        recording?.stop()
+        Unit
+    }
+
+    private fun outcome(event: VideoRecordEvent.Finalize, file: File, audio: Boolean): RecordingOutcome {
+        val len = if (file.exists()) file.length() else 0L
+        // Hết giờ / hết dung lượng đặt / camera đóng giữa chừng: file vẫn dùng được.
+        val usable = len > 0 && event.error in setOf(
+            VideoRecordEvent.Finalize.ERROR_NONE,
+            VideoRecordEvent.Finalize.ERROR_DURATION_LIMIT_REACHED,
+            VideoRecordEvent.Finalize.ERROR_FILE_SIZE_LIMIT_REACHED,
+            VideoRecordEvent.Finalize.ERROR_SOURCE_INACTIVE,
+        )
+        if (usable) return RecordingOutcome.Saved(file, len, audio)
+        log.log(LogSink.Level.WARN, "Quay video lỗi (mã ${event.error})", event.cause)
+        if (len == 0L) file.delete()
+        return RecordingOutcome.Failed(
+            if (event.error == VideoRecordEvent.Finalize.ERROR_INSUFFICIENT_STORAGE) {
+                CameraCodes.RECORDING_STORAGE_FULL
+            } else {
+                CameraCodes.RECORDING_FAILED
+            },
+        )
+    }
+
+    private fun attach(cam: Camera) {
+        camera = cam
+        val observer = Observer<XCameraState> { state -> onCameraState(state) }
+        cam.cameraInfo.cameraState.observe(lifecycleOwner, observer)
+        stateObserver = observer
+    }
 
     override suspend fun setTorch(on: Boolean): Boolean = withContext(Dispatchers.Main) {
         val cam = camera ?: return@withContext false
@@ -138,9 +243,13 @@ class CameraController(
     }
 
     override suspend fun close() = withContext(Dispatchers.Main) {
+        recording?.stop()
         detachObserver()
         provider?.unbindAll()
         camera = null
+        videoCapture = null
+        currentSelector = null
+        currentAnalysis = null
         log.log(LogSink.Level.INFO, "Đã nhả camera", null)
     }
 
@@ -230,6 +339,9 @@ class CameraController(
         }
     }
 }
+
+/** Bitrate video quay (bit/s): 720p 2 Mbit/s ≈ 15 MB/phút — đủ nét cho giám sát, nhẹ để tải qua 4G. */
+private const val VIDEO_BITRATE = 2_000_000
 
 /** Chờ ListenableFuture của CameraX mà không cần thêm thư viện. */
 private suspend fun <T> ListenableFuture<T>.await(): T = suspendCancellableCoroutine { cont ->

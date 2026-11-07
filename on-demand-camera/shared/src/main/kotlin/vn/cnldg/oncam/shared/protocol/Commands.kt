@@ -10,6 +10,9 @@ import vn.cnldg.oncam.shared.OnCam
  * 2 lệnh này → trả MALFORMED → app Xem quay về xem MJPEG.
  *
  * [UPDATE_LOCATION]: lấy vị trí mới ngay (GPS/mạng) và gửi lại trạng thái; chỉ khi máy camera bật chia sẻ vị trí.
+ *
+ * [START_RECORDING]/[STOP_RECORDING] (0.10): quay video MP4 trên máy camera (tự bật camera nếu đang tắt).
+ * [OPEN_RECORDINGS]: mở cổng tải video trên IP Tailscale ~10 phút, kết quả là địa chỉ (không cần bật camera).
  */
 @Serializable
 enum class Action {
@@ -23,6 +26,9 @@ enum class Action {
     RTC_OFFER,
     RTC_HANGUP,
     UPDATE_LOCATION,
+    START_RECORDING,
+    STOP_RECORDING,
+    OPEN_RECORDINGS,
 }
 
 /** Camera trước/sau của máy camera-node. */
@@ -51,6 +57,7 @@ enum class StreamQuality(val width: Int, val height: Int, val fps: Int, val jpeg
  * @property sessionId mã phiên WebRTC do app Xem tạo (dùng lại cho RTC_HANGUP).
  * @property trackMinutes (UPDATE_LOCATION) theo dõi vị trí 1 phút/lần trong chừng ấy phút; 0 = dừng theo dõi;
  *   null = chỉ lấy vị trí một lần.
+ * @property maxSeconds (START_RECORDING) độ dài tối đa của clip (giây); null = mặc định 10 phút.
  */
 @Serializable
 data class CommandParams(
@@ -61,11 +68,12 @@ data class CommandParams(
     val sdp: String? = null,
     val sessionId: String? = null,
     val trackMinutes: Int? = null,
+    val maxSeconds: Int? = null,
 ) {
     /** Không in SDP (dài, chứa khoá ICE) ra log. */
     override fun toString(): String =
         "CommandParams(camera=$camera, flash=$flash, quality=$quality, idleTimeoutSec=$idleTimeoutSec, " +
-            "sdp=${sdp?.let { "${it.length} ký tự" }}, sessionId=$sessionId, trackMinutes=$trackMinutes)"
+            "sdp=${sdp?.let { "${it.length} ký tự" }}, sessionId=$sessionId, trackMinutes=$trackMinutes, maxSeconds=$maxSeconds)"
 }
 
 /**
@@ -93,7 +101,11 @@ enum class CommandProblem {
     SDP_TOO_LARGE,
     SESSION_REQUIRED,
     TRACK_MINUTES_OUT_OF_RANGE,
+    RECORD_SECONDS_OUT_OF_RANGE,
 }
+
+/** Giới hạn độ dài một clip (giây): 5 giây – 30 phút. */
+val RECORD_SECONDS_RANGE: IntRange = 5..1_800
 
 /** Thời gian theo dõi vị trí dài nhất một lần bấm (phút). */
 const val MAX_TRACK_MINUTES: Int = 120
@@ -126,6 +138,10 @@ fun Command.paramProblem(): CommandProblem? {
             if (params.sessionId == null || !SESSION_ID.matches(params.sessionId)) CommandProblem.SESSION_REQUIRED else null
         Action.UPDATE_LOCATION ->
             params.trackMinutes?.takeIf { it !in 0..MAX_TRACK_MINUTES }?.let { CommandProblem.TRACK_MINUTES_OUT_OF_RANGE }
+        Action.START_RECORDING ->
+            params.maxSeconds?.takeIf { it !in RECORD_SECONDS_RANGE }?.let { CommandProblem.RECORD_SECONDS_OUT_OF_RANGE }
+        Action.STOP_RECORDING,
+        Action.OPEN_RECORDINGS,
         Action.START_STREAM,
         Action.STOP_STREAM,
         Action.SWITCH_CAMERA, // camera = null nghĩa là đổi sang camera còn lại

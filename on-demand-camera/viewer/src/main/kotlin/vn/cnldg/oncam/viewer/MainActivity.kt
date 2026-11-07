@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.launch
 import vn.cnldg.oncam.shared.protocol.StreamQuality
@@ -101,6 +102,7 @@ private fun ViewerApp(vm: ViewerViewModel) {
     val streamState by vm.streamState.collectAsStateWithLifecycle()
     val liveDeviceId by vm.liveDeviceId.collectAsStateWithLifecycle()
     val liveRtc by vm.liveRtc.collectAsStateWithLifecycle()
+    val downloading by vm.downloading.collectAsStateWithLifecycle()
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var screenName by rememberSaveable { mutableStateOf(HOME) }
     val live = liveDeviceId
@@ -120,6 +122,16 @@ private fun ViewerApp(vm: ViewerViewModel) {
                 UiMessage.SnapshotSaved -> context.getString(R.string.snapshot_saved)
                 UiMessage.SnapshotFailed -> context.getString(R.string.snapshot_failed)
                 is UiMessage.ClockSkew -> context.getString(R.string.clock_skew, msg.cameraName, msg.seconds)
+                is UiMessage.VideosSaved -> {
+                    val mb = String.format(Locale.US, "%.1f", msg.bytes / 1_048_576.0)
+                    if (msg.failed > 0) {
+                        context.getString(R.string.videos_saved_some_failed, msg.count, mb, msg.failed)
+                    } else {
+                        context.getString(R.string.videos_saved, msg.count, mb)
+                    }
+                }
+                UiMessage.NoNewVideos -> context.getString(R.string.videos_none_new)
+                UiMessage.VideosUnreachable -> context.getString(R.string.videos_unreachable)
             }
             if (text != null) snackbar.showSnackbar(text)
         }
@@ -174,6 +186,8 @@ private fun ViewerApp(vm: ViewerViewModel) {
             override fun openLive(entry: CameraEntry) = vm.openLive(entry)
             override fun updateLocation(entry: CameraEntry) = vm.updateLocation(entry)
             override fun trackLocation(entry: CameraEntry, minutes: Int) = vm.trackLocation(entry, minutes)
+            override fun toggleRecording(entry: CameraEntry) = vm.toggleRecording(entry)
+            override fun downloadVideos(entry: CameraEntry) = withStoragePermission { vm.downloadVideos(entry) }
         }
     }
 
@@ -203,6 +217,7 @@ private fun ViewerApp(vm: ViewerViewModel) {
                 onListen = vm::setListening,
                 onTalkEnable = enableTalk,
                 onTalk = vm::setTalking,
+                onToggleRecording = { entry?.let(vm::toggleRecording) },
             )
             SnackbarHost(snackbar, modifier = Modifier.align(Alignment.Center))
         }
@@ -218,6 +233,7 @@ private fun ViewerApp(vm: ViewerViewModel) {
             Screen.Home -> HomeScreen(
                 cameras = cameras,
                 busy = busy,
+                downloading = downloading,
                 lastSnapshot = lastSnapshot,
                 nameOf = vm::displayName,
                 actions = actions,

@@ -26,6 +26,7 @@ import vn.cnldg.oncam.shared.protocol.DeviceEvent
 import vn.cnldg.oncam.shared.protocol.DeviceStatus
 import vn.cnldg.oncam.shared.protocol.EventType
 import vn.cnldg.oncam.shared.protocol.GeoLocation
+import vn.cnldg.oncam.shared.protocol.RecordingStatus
 import vn.cnldg.oncam.shared.protocol.ProtocolJson
 import vn.cnldg.oncam.shared.protocol.StreamPaths
 import vn.cnldg.oncam.shared.protocol.Topics
@@ -182,7 +183,17 @@ class CameraClient(
     /** Yêu cầu camera lấy vị trí mới (trả lời ngay; vị trí mới đến qua trạng thái sau vài giây). */
     suspend fun updateLocation(): CommandResult = send(Action.UPDATE_LOCATION)
 
-    /** Theo dõi vị trí 1 phút/lần trong [minutes] phút (0 = dừng). Chỉ camera có `location.canTrack` mới hiểu. */
+    /** Bắt đầu quay video trên máy camera (tự bật camera nếu đang tắt); kết quả Ok mang tên file. */
+    suspend fun startRecording(maxSeconds: Int? = null): CommandResult =
+        send(Action.START_RECORDING, CommandParams(maxSeconds = maxSeconds, idleTimeoutSec = null))
+
+    /** Dừng quay; file hoàn tất sau ~1 giây, trạng thái [RecordingStatus.lastFile] đổi theo. */
+    suspend fun stopRecording(): CommandResult = send(Action.STOP_RECORDING)
+
+    /** Mở cổng tải video trên máy camera; trả về địa chỉ gốc (vd. http://100.x.y.z:8081) hoặc null nếu lỗi. */
+    suspend fun openRecordings(): String? = (send(Action.OPEN_RECORDINGS) as? CommandResult.Ok)?.message
+
+        /** Theo dõi vị trí 1 phút/lần trong [minutes] phút (0 = dừng). Chỉ camera có `location.canTrack` mới hiểu. */
     suspend fun trackLocation(minutes: Int): CommandResult =
         send(Action.UPDATE_LOCATION, CommandParams(trackMinutes = minutes))
 

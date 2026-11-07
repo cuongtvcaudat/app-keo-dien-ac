@@ -56,7 +56,45 @@ class FakeCameraPort(private val scope: CoroutineScope) : CameraPort {
         return true
     }
 
+    // --- quay video giả: ghi 1 KB rồi báo xong khi dừng / hết giờ / đóng camera ---
+    var recordingSupported = true
+    @Volatile var recordingFile: java.io.File? = null
+    @Volatile var recordingAudio = false
+    private var recordingCallback: ((RecordingOutcome) -> Unit)? = null
+
+    override suspend fun startRecording(
+        file: java.io.File,
+        maxMs: Long,
+        withAudio: Boolean,
+        onFinished: (RecordingOutcome) -> Unit,
+    ): Boolean {
+        if (!recordingSupported || opened == null) return false
+        file.writeBytes(ByteArray(1024) { 7 })
+        recordingFile = file
+        recordingAudio = withAudio
+        recordingCallback = onFinished
+        scope.launch {
+            delay(maxMs)
+            finishRecording(file)
+        }
+        return true
+    }
+
+    override suspend fun stopRecording() {
+        recordingFile?.let { finishRecording(it) }
+    }
+
+    @Synchronized
+    private fun finishRecording(file: java.io.File) {
+        if (recordingFile != file) return
+        val cb = recordingCallback
+        recordingFile = null
+        recordingCallback = null
+        cb?.invoke(RecordingOutcome.Saved(file, file.length(), recordingAudio))
+    }
+
     override suspend fun close() {
+        recordingFile?.let { finishRecording(it) } // CameraX đóng camera cũng hoàn tất clip
         producer?.cancel()
         producer = null
         opened = null

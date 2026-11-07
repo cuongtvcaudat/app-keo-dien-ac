@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -23,7 +24,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -40,6 +43,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import java.util.Locale
+import kotlinx.coroutines.delay
 import org.webrtc.EglBase
 import vn.cnldg.oncam.shared.protocol.CameraState
 import vn.cnldg.oncam.shared.protocol.StreamQuality
@@ -74,6 +78,7 @@ fun LiveViewScreen(
     onListen: (Boolean) -> Unit,
     onTalkEnable: (Boolean) -> Unit,
     onTalk: (Boolean) -> Unit,
+    onToggleRecording: () -> Unit,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -90,6 +95,15 @@ fun LiveViewScreen(
     val rtcVideo = rtc.video.takeIf { rtc.transport == LiveTransport.WEBRTC }
     val webrtc = rtcVideo != null && egl != null
     val playing = webrtc || stream.phase == StreamPhase.PLAYING
+    // Quay video (camera bản ≥ 0.10): đồng hồ đếm giây trong lúc quay.
+    val rec = status?.recording?.takeIf { online }
+    var nowSec by remember { mutableLongStateOf(System.currentTimeMillis() / 1000) }
+    LaunchedEffect(rec?.active) {
+        while (rec?.active == true) {
+            nowSec = System.currentTimeMillis() / 1000
+            delay(1_000)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -186,6 +200,21 @@ fun LiveViewScreen(
                         }
                         Button(onClick = onSnapshot, enabled = playing && !busy) {
                             Text(stringResource(R.string.action_snapshot))
+                        }
+                        if (rec != null) {
+                            if (rec.active) {
+                                Button(
+                                    onClick = onToggleRecording,
+                                    enabled = !busy,
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                ) {
+                                    Text(stringResource(R.string.action_record_stop, durationText(recordingElapsedSec(rec, nowSec))))
+                                }
+                            } else {
+                                OutlinedButton(onClick = onToggleRecording, enabled = !busy) {
+                                    Text(stringResource(R.string.action_record), color = Color.White)
+                                }
+                            }
                         }
                         // Vị trí máy camera (khi camera bật "Chia sẻ vị trí"): mở thẳng Google Maps.
                         entry?.view?.lastLocation?.let { point ->

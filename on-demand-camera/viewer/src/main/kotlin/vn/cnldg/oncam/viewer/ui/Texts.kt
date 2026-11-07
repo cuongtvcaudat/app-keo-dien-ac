@@ -10,10 +10,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import vn.cnldg.oncam.shared.client.CommandResult
 import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
 import vn.cnldg.oncam.shared.protocol.CameraCodes
 import vn.cnldg.oncam.shared.protocol.EventType
+import vn.cnldg.oncam.shared.protocol.RecordingStatus
 import vn.cnldg.oncam.shared.protocol.RejectReason
 import vn.cnldg.oncam.viewer.R
 
@@ -44,6 +46,9 @@ fun codeText(context: Context, code: String?): String {
         code == CameraCodes.LOCATION_NO_PERMISSION -> R.string.location_err_permission
         code == CameraCodes.LOCATION_OFF -> R.string.location_err_off
         code == CameraCodes.LOCATION_UNAVAILABLE -> R.string.location_err_unavailable
+        code == CameraCodes.RECORDING_FAILED -> R.string.code_recording_failed
+        code == CameraCodes.RECORDING_STORAGE_FULL -> R.string.code_recording_storage_full
+        code == CameraCodes.RECORDING_UNSUPPORTED -> R.string.code_recording_unsupported
         code == RejectReason.BAD_SIGNATURE.name -> R.string.code_bad_signature
         code == RejectReason.EXPIRED.name -> R.string.code_expired
         code == RejectReason.UNSUPPORTED.name -> R.string.code_unsupported
@@ -52,6 +57,22 @@ fun codeText(context: Context, code: String?): String {
         else -> return code
     }
     return context.getString(res)
+}
+
+/** Thời lượng "mm:ss" (hoặc "h:mm:ss" nếu ≥ 1 giờ). */
+fun durationText(seconds: Long): String {
+    val s = seconds.coerceAtLeast(0)
+    return if (s >= 3_600) {
+        String.format(Locale.US, "%d:%02d:%02d", s / 3_600, s / 60 % 60, s % 60)
+    } else {
+        String.format(Locale.US, "%02d:%02d", s / 60, s % 60)
+    }
+}
+
+/** Đã quay được bao lâu (giờ máy camera ghi lúc bắt đầu; không vượt độ dài tối đa của clip). */
+fun recordingElapsedSec(rec: RecordingStatus, nowSec: Long): Long {
+    val elapsed = rec.startedAt?.let { nowSec - it } ?: 0
+    return elapsed.coerceIn(0, (rec.maxSeconds ?: Int.MAX_VALUE).toLong())
 }
 
 /** Câu mô tả kết quả lệnh thất bại. */

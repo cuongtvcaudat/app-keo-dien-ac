@@ -342,7 +342,7 @@ class NodeController(
     private suspend fun publishCameraChanges(wrapper: MqttClientWrapper, cam: CameraSession) = coroutineScope {
         launch {
             cam.status
-                .map { listOf(it.state, it.facing, it.flashOn, it.quality, it.streamUrl, it.clients, it.error) }
+                .map { listOf(it.state, it.facing, it.flashOn, it.quality, it.streamUrl, it.clients, it.error, it.recording) }
                 .distinctUntilChanged()
                 .drop(1) // trạng thái ban đầu đã gửi khi kết nối
                 .collect {
@@ -418,6 +418,7 @@ class NodeController(
                 rtc = camera?.rtcAvailable() == true,
                 micReady = camera?.micReady(),
                 location = location?.status?.value,
+                recording = cam.recording.takeIf { camera?.recordingSupported() == true },
                 batteryPercent = d.batteryPercent,
                 charging = d.charging,
                 temperatureC = d.temperatureC,

@@ -83,6 +83,38 @@ class RtcProtocolTest {
     }
 
     @Test
+    fun `lenh quay video ky ca do dai clip va kiem gioi han`() {
+        val verifier = CommandVerifier(secret, "san-nha", clock)
+        val cmd = signer.sign("san-nha", Action.START_RECORDING, CommandParams(maxSeconds = 60, idleTimeoutSec = null))
+        assertEquals(CommandCheck.Accepted, verifier.verify(cmd))
+        assertNull(cmd.paramProblem())
+        // Sửa độ dài clip mà giữ chữ ký → bị từ chối.
+        assertEquals(
+            CommandCheck.Rejected(RejectReason.BAD_SIGNATURE),
+            verifier.verify(cmd.copy(params = cmd.params.copy(maxSeconds = 1800))),
+        )
+        assertEquals(
+            CommandProblem.RECORD_SECONDS_OUT_OF_RANGE,
+            signer.sign("san-nha", Action.START_RECORDING, CommandParams(maxSeconds = 4)).paramProblem(),
+        )
+        assertEquals(
+            CommandProblem.RECORD_SECONDS_OUT_OF_RANGE,
+            signer.sign("san-nha", Action.START_RECORDING, CommandParams(maxSeconds = 1801)).paramProblem(),
+        )
+        // Không chỉ định độ dài: chuỗi ký không có phần "rec:" (giống mọi lệnh cũ).
+        assertEquals(
+            "oncam-cmd-v1|san-nha|id-12345678|START_RECORDING|100||||",
+            CommandCanonical.of("san-nha", "id-12345678", Action.START_RECORDING, CommandParams(), 100),
+        )
+        assertTrue(
+            CommandCanonical.of("san-nha", "id-12345678", Action.START_RECORDING, CommandParams(maxSeconds = 60), 100)
+                .endsWith("|rec:60"),
+        )
+        assertNull(signer.sign("san-nha", Action.STOP_RECORDING, CommandParams()).paramProblem())
+        assertNull(signer.sign("san-nha", Action.OPEN_RECORDINGS, CommandParams()).paramProblem())
+    }
+
+    @Test
     fun `khong in SDP ra log`() {
         assertFalse(CommandParams(sdp = offer, sessionId = session).toString().contains("candidate"))
     }

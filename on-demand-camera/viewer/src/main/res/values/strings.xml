@@ -170,4 +170,19 @@
     <string name="settings_stop_on_leave">Tắt camera khi rời app</string>
     <string name="settings_stop_on_leave_hint">Khi thoát hoặc ẩn app này, tự tắt camera mà app đã bật.</string>
     <string name="settings_version">Phiên bản %1$s</string>
+
+    <!-- Quay video (0.10): quay trên máy camera, tự chép về Thư viện máy này -->
+    <string name="action_record">● Quay video</string>
+    <string name="action_record_stop">■ Dừng quay %1$s</string>
+    <string name="action_download_videos">Tải video về máy</string>
+    <string name="recording_active">● Đang quay %1$s / %2$s</string>
+    <string name="recording_active_no_audio">● Đang quay %1$s / %2$s (không có tiếng)</string>
+    <string name="videos_downloading">Đang tải video từ camera…</string>
+    <string name="videos_saved">Đã lưu %1$d video (%2$s MB) vào Thư viện (Movies/OnCam).</string>
+    <string name="videos_saved_some_failed">Đã lưu %1$d video (%2$s MB); %3$d video tải lỗi — bấm \"Tải video về máy\" để thử lại.</string>
+    <string name="videos_none_new">Camera không có video mới.</string>
+    <string name="videos_unreachable">Không mở được cổng tải video của camera (camera offline hoặc chưa bật Tailscale).</string>
+    <string name="code_recording_failed">Máy camera không quay được video.</string>
+    <string name="code_recording_storage_full">Máy camera hết bộ nhớ, đã dừng quay.</string>
+    <string name="code_recording_unsupported">Camera chưa hỗ trợ quay video (cần cập nhật app OnCam Quay ≥ 0.10).</string>
 </resources>

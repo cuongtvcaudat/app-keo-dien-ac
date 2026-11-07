@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -37,6 +38,8 @@ import vn.cnldg.oncam.shared.protocol.CameraFacing
 import vn.cnldg.oncam.shared.protocol.CameraState
 import vn.cnldg.oncam.shared.protocol.GeoLocation
 import vn.cnldg.oncam.shared.protocol.NetworkType
+import vn.cnldg.oncam.shared.protocol.RecordingStatus
+import vn.cnldg.oncam.shared.protocol.Recordings
 import vn.cnldg.oncam.shared.protocol.StreamQuality
 import vn.cnldg.oncam.viewer.R
 import vn.cnldg.oncam.viewer.mqtt.CameraEntry
@@ -51,6 +54,7 @@ fun CameraCard(
     entry: CameraEntry,
     name: String,
     busy: Boolean,
+    downloading: Boolean,
     nowMs: Long,
     lastSnapshot: ByteArray?,
     onToggleCamera: () -> Unit,
@@ -61,6 +65,8 @@ fun CameraCard(
     onOpenLive: () -> Unit,
     onUpdateLocation: () -> Unit,
     onTrackLocation: (Int) -> Unit,
+    onToggleRecording: () -> Unit,
+    onDownloadVideos: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -157,6 +163,17 @@ fun CameraCard(
                     Text(stringResource(R.string.action_snapshot))
                 }
             }
+            // Quay video (camera bản ≥ 0.10 mới gửi recording): clip lưu trên máy camera, dừng xong tự chép về máy này.
+            status?.recording?.takeIf { online }?.let { rec ->
+                RecordingBlock(
+                    rec = rec,
+                    nowSec = nowMs / 1000,
+                    busy = busy,
+                    downloading = downloading,
+                    onToggle = onToggleRecording,
+                    onDownload = onDownloadVideos,
+                )
+            }
             if (online) {
                 Text(stringResource(R.string.quality), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -233,6 +250,48 @@ private fun networkText(network: NetworkType?): String = stringResource(
         NetworkType.NONE, null -> R.string.network_none
     },
 )
+
+/** Đang quay bao lâu + nút Quay/Dừng + Tải video về máy. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecordingBlock(
+    rec: RecordingStatus,
+    nowSec: Long,
+    busy: Boolean,
+    downloading: Boolean,
+    onToggle: () -> Unit,
+    onDownload: () -> Unit,
+) {
+    val context = LocalContext.current
+    if (rec.active) {
+        val elapsed = durationText(recordingElapsedSec(rec, nowSec))
+        val max = durationText((rec.maxSeconds ?: Recordings.DEFAULT_MAX_SECONDS).toLong())
+        Text(
+            stringResource(if (rec.audio == false) R.string.recording_active_no_audio else R.string.recording_active, elapsed, max),
+            color = MaterialTheme.colorScheme.error,
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+    rec.error?.takeIf { !rec.active }?.let {
+        Text(codeText(context, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+    if (downloading) Text(stringResource(R.string.videos_downloading), style = MaterialTheme.typography.bodySmall)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (rec.active) {
+            Button(
+                onClick = onToggle,
+                enabled = !busy,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+            ) {
+                Text(stringResource(R.string.action_record_stop, durationText(recordingElapsedSec(rec, nowSec))))
+            }
+        } else {
+            OutlinedButton(onClick = onToggle, enabled = !busy) { Text(stringResource(R.string.action_record)) }
+        }
+        OutlinedButton(onClick = onDownload, enabled = !downloading) { Text(stringResource(R.string.action_download_videos)) }
+    }
+}
 
 /** Vị trí máy camera + nút mở Google Maps / cập nhật. */
 @Composable

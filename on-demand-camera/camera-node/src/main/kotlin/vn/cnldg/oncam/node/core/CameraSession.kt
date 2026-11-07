@@ -1,5 +1,6 @@
 package vn.cnldg.oncam.node.core
 
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import vn.cnldg.oncam.node.mqtt.ActionOutcome
@@ -8,6 +9,7 @@ import vn.cnldg.oncam.shared.protocol.CameraFacing
 import vn.cnldg.oncam.shared.protocol.CameraState
 import vn.cnldg.oncam.shared.protocol.Command
 import vn.cnldg.oncam.shared.protocol.DeviceEvent
+import vn.cnldg.oncam.shared.protocol.RecordingStatus
 import vn.cnldg.oncam.shared.protocol.StreamQuality
 
 /** Hướng đặt máy camera, để xoay ảnh cho đứng. [degrees] = góc máy bị xoay ngược chiều kim đồng hồ. */
@@ -40,6 +42,7 @@ data class CameraStatus(
     val streamUrl: String? = null,
     val clients: Int = 0,
     val error: String? = null,
+    val recording: RecordingStatus = RecordingStatus(),
 )
 
 /** Phần camera + stream mà [NodeController] điều khiển (cài đặt: [StreamManager]). */
@@ -58,6 +61,9 @@ interface CameraSession {
 
     /** Micro dùng được cho WebRTC (quyền + loại foreground service microphone). */
     fun micReady(): Boolean = false
+
+    /** Quay video được không (0.10). */
+    fun recordingSupported(): Boolean = false
 
     /** Thực hiện một lệnh camera đã qua kiểm tra chữ ký và tham số. */
     suspend fun perform(command: Command): ActionOutcome
@@ -103,4 +109,23 @@ interface CameraPort {
 
     /** Lỗi xảy ra khi camera đang chạy (mã CameraCodes). */
     val errors: Flow<String>
+
+    /**
+     * Bắt đầu quay video vào [file] khi camera đang mở (0.10). [onFinished] được gọi một lần khi file đã ghi xong
+     * (hết [maxMs], [stopRecording], camera đóng) hoặc lỗi. false = máy không quay được (không gọi [onFinished]).
+     */
+    suspend fun startRecording(file: File, maxMs: Long, withAudio: Boolean, onFinished: (RecordingOutcome) -> Unit): Boolean =
+        false
+
+    /** Dừng quay (file hoàn tất bất đồng bộ qua onFinished). */
+    suspend fun stopRecording() = Unit
+}
+
+/** Kết quả một lần quay. */
+sealed interface RecordingOutcome {
+    /** Đã ghi xong [file] ([bytes] byte, có tiếng hay không). */
+    data class Saved(val file: File, val bytes: Long, val audio: Boolean) : RecordingOutcome
+
+    /** Không ghi được; [code] là CameraCodes.RECORDING_*. */
+    data class Failed(val code: String) : RecordingOutcome
 }

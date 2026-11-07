@@ -40,6 +40,7 @@ import vn.cnldg.oncam.viewer.stream.SnapshotSaver
 import vn.cnldg.oncam.viewer.stream.StreamClient
 import vn.cnldg.oncam.viewer.stream.StreamSource
 import vn.cnldg.oncam.viewer.stream.StreamState
+import vn.cnldg.oncam.viewer.stream.VideoDownloader
 
 /** Thông báo ngắn hiện ở cuối màn hình (giao diện đổi sang câu tiếng Việt). */
 sealed interface UiMessage {
@@ -57,6 +58,15 @@ sealed interface UiMessage {
 
     /** Đồng hồ máy camera lệch quá giới hạn cho phép ([seconds] giây, dương = camera chạy nhanh). */
     data class ClockSkew(val cameraName: String, val seconds: Long) : UiMessage
+
+    /** Đã lưu [count] video ([bytes] byte) vào Thư viện; [failed] video tải lỗi. */
+    data class VideosSaved(val count: Int, val bytes: Long, val failed: Int) : UiMessage
+
+    /** Không có video mới để tải. */
+    data object NoNewVideos : UiMessage
+
+    /** Không mở được cổng tải video trên máy camera (offline / chưa có Tailscale). */
+    data object VideosUnreachable : UiMessage
 }
 
 /**
@@ -69,6 +79,7 @@ class ViewerViewModel @Inject constructor(
     private val settings: ViewerSettings,
     private val snapshots: SnapshotSaver,
     rtcProvider: RtcProvider,
+    private val videos: VideoDownloader,
 ) : ViewModel() {
 
     /** Danh sách camera kèm trạng thái; null khi đang đọc. */
@@ -120,7 +131,29 @@ class ViewerViewModel @Inject constructor(
     /** Thông báo cho người dùng. */
     val messages: SharedFlow<UiMessage> = _messages.asSharedFlow()
 
+    private val _downloading = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Các camera đang tải video về. */
+    val downloading: StateFlow<Set<String>> = _downloading.asStateFlow()
+
+    /** Clip đã tự tải (thành công hay không) trong lần mở app này: "deviceId/tên". */
+    private val autoTried = mutableSetOf<String>()
+
     init {
+        // Quay xong (clip mới trong trạng thái camera) → tự tải về Thư viện máy xem.
+        // Mỗi clip chỉ tự thử 1 lần mỗi lần mở app (lỗi thì người dùng bấm "Tải video" để thử lại).
+        viewModelScope.launch {
+            cameras.collect { list ->
+                list.orEmpty().forEach { entry ->
+                    val status = entry.view.status?.takeIf { entry.view.online } ?: return@forEach
+                    val rec = status.recording ?: return@forEach
+                    val name = rec.lastFile ?: return@forEach
+                    val id = entry.saved.deviceId
+                    if (videos.isDownloaded(id, name) || !videos.autoDownloadAllowed(rec.lastFileBytes)) return@forEach
+                    if (id !in _downloading.value && autoTried.add("$id/$name")) downloadVideos(entry, only = name)
+                }
+            }
+        }
         viewModelScope.launch {
             sender.notices.collect { notice ->
                 val name = cameras.value?.firstOrNull { it.saved.deviceId == notice.deviceId }?.let(::displayName)
@@ -152,6 +185,41 @@ class ViewerViewModel @Inject constructor(
         command(entry, Action.SET_FLASH, CommandParams(flash = entry.view.status?.flashOn != true))
     }
 
+    /** Bấm Quay / Dừng quay: video quay trên máy camera (tự bật camera nếu đang tắt), dừng thì tự tải về. */
+    fun toggleRecording(entry: CameraEntry) {
+        if (entry.view.status?.recording?.active == true) {
+            command(entry, Action.STOP_RECORDING)
+        } else {
+            command(entry, Action.START_RECORDING, CommandParams(idleTimeoutSec = settings.idleTimeoutSec.value))
+        }
+    }
+
+    /**
+     * Tải video từ máy camera về Thư viện: mọi clip chưa tải, hoặc chỉ [only].
+     * Không cần bật camera (máy camera chỉ mở cổng tải ~10 phút).
+     */
+    fun downloadVideos(entry: CameraEntry, only: String? = null) {
+        val id = entry.saved.deviceId
+        var marked = false
+        _downloading.update { if (id in it) it else it + id.also { marked = true } }
+        if (!marked) return
+        viewModelScope.launch {
+            try {
+                val client = sender.client(id)
+                val result = client?.let { videos.sync(it, only) }
+                _messages.emit(
+                    when {
+                        result == null || result.unreachable -> UiMessage.VideosUnreachable
+                        result.saved == 0 && result.failed == 0 -> UiMessage.NoNewVideos
+                        else -> UiMessage.VideosSaved(result.saved, result.bytes, result.failed)
+                    },
+                )
+            } finally {
+                _downloading.update { it - id }
+            }
+        }
+    }
+
     /** Yêu cầu camera lấy vị trí mới (GPS có thể mất tới 30 giây; vị trí mới hiện trên thẻ camera). */
     fun updateLocation(entry: CameraEntry) = command(entry, Action.UPDATE_LOCATION)
 
@@ -159,7 +227,7 @@ class ViewerViewModel @Inject constructor(
     fun trackLocation(entry: CameraEntry, minutes: Int) =
         command(entry, Action.UPDATE_LOCATION, CommandParams(trackMinutes = minutes))
 
-        /** Đổi chất lượng stream. */
+    /** Đổi chất lượng stream. */
     fun setQuality(entry: CameraEntry, quality: StreamQuality) {
         command(entry, Action.SET_QUALITY, CommandParams(quality = quality))
     }

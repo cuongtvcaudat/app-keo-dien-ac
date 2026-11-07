@@ -56,6 +56,12 @@ interface CameraActions {
     /** Theo dõi vị trí 1 phút/lần trong [minutes] phút (0 = dừng). */
     fun trackLocation(entry: CameraEntry, minutes: Int)
 
+    /** Quay video trên máy camera / dừng quay (dừng xong tự tải về). */
+    fun toggleRecording(entry: CameraEntry)
+
+    /** Tải các video chưa có từ máy camera về Thư viện. */
+    fun downloadVideos(entry: CameraEntry)
+
     /** Sửa camera. */
     fun edit(entry: CameraEntry)
 
@@ -68,6 +74,7 @@ interface CameraActions {
 fun HomeScreen(
     cameras: List<CameraEntry>?,
     busy: Set<String>,
+    downloading: Set<String>,
     lastSnapshot: Map<String, ByteArray>,
     nameOf: (CameraEntry) -> String,
     actions: CameraActions,
@@ -117,6 +124,7 @@ fun HomeScreen(
                         entry = entry,
                         name = nameOf(entry),
                         busy = entry.saved.deviceId in busy,
+                        downloading = entry.saved.deviceId in downloading,
                         nowMs = nowMs,
                         lastSnapshot = lastSnapshot[entry.saved.deviceId],
                         onToggleCamera = { actions.toggleCamera(entry) },
@@ -127,6 +135,8 @@ fun HomeScreen(
                         onOpenLive = { actions.openLive(entry) },
                         onUpdateLocation = { actions.updateLocation(entry) },
                         onTrackLocation = { minutes -> actions.trackLocation(entry, minutes) },
+                        onToggleRecording = { actions.toggleRecording(entry) },
+                        onDownloadVideos = { actions.downloadVideos(entry) },
                         onEdit = { actions.edit(entry) },
                         onDelete = { actions.delete(entry) },
                     )

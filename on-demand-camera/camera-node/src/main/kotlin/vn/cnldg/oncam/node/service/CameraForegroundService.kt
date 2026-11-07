@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Environment
 import android.os.PowerManager
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -33,6 +34,7 @@ import vn.cnldg.oncam.node.config.NodeConfigRepository
 import vn.cnldg.oncam.node.core.BrokerMode
 import vn.cnldg.oncam.node.core.LocationTracker
 import vn.cnldg.oncam.node.core.NodeController
+import vn.cnldg.oncam.node.core.RecordingStore
 import vn.cnldg.oncam.node.core.StreamManager
 import vn.cnldg.oncam.node.core.TailscaleIp
 import vn.cnldg.oncam.node.log.TimberLogSink
@@ -233,6 +235,11 @@ class CameraForegroundService : LifecycleService() {
                 deviceInfo = deviceInfo,
                 log = TimberLogSink,
                 rtc = cameraRtc?.let { NodeRtc(it, micAllowed) },
+                // Video lưu trong thư mục riêng của app (không cần quyền bộ nhớ), giữ tối đa 2 GB.
+                recordings = RecordingStore(
+                    File(getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: File(filesDir, "videos"), "OnCam"),
+                ),
+                audioAllowed = micAllowed,
             )
             // Chỉ xem WebRTC → không cần nén JPEG đủ số hình/giây (giữ 1 khung/giây cho chụp ảnh): máy đỡ nóng.
             cam.fullRateJpeg = { streams.mjpegClients() > 0 || (cameraRtc?.sessionCount?.value ?: 0) == 0 }
