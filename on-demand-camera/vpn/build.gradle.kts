@@ -1,7 +1,7 @@
 // Module :vpn — glue nhúng Tailscale. Dựng ĐỘC LẬP (settings.gradle.kts riêng) để
 // biên dịch đối chiếu libtailscale mà KHÔNG đụng build app chính. libtailscale.jar
 // (classes.jar rút từ libtailscale.aar) chỉ dùng lúc biên dịch (compileOnly).
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.library")
@@ -20,8 +20,11 @@ android {
     }
 }
 
-tasks.withType<KotlinCompile>().configureEach {
-    kotlinOptions { jvmTarget = "17" }
+// DSL mới của Kotlin 2.x (kotlinOptions cũ đã bỏ).
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+    }
 }
 
 dependencies {

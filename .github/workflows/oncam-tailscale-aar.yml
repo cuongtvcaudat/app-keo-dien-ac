@@ -105,7 +105,7 @@ jobs:
           cp tailscale-android/android/libs/aar_x/classes.jar oncam/on-demand-camera/vpn/libs/libtailscale.jar
           cd oncam/on-demand-camera
           chmod +x gradlew
-          ./gradlew -p vpn :assembleRelease --no-daemon --stacktrace
+          ./gradlew -p vpn :assembleRelease --no-daemon
 
       - name: Upload libtailscale.aar + API
         uses: actions/upload-artifact@v4
