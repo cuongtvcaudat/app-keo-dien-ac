@@ -1,9 +1,14 @@
 package vn.cnldg.oncam.viewer
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -28,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
@@ -36,9 +42,12 @@ import javax.inject.Inject
 import kotlinx.coroutines.launch
 import vn.cnldg.oncam.shared.protocol.MotionSensitivity
 import vn.cnldg.oncam.shared.protocol.StreamQuality
+import vn.cnldg.oncam.viewer.alert.AlertNotifier
+import vn.cnldg.oncam.viewer.alert.AlertWatchService
 import vn.cnldg.oncam.viewer.mqtt.CameraEntry
 import vn.cnldg.oncam.viewer.mqtt.CommandSender
 import vn.cnldg.oncam.viewer.ui.AddCameraScreen
+import vn.cnldg.oncam.viewer.ui.AlertOptionActions
 import vn.cnldg.oncam.viewer.ui.CameraActions
 import vn.cnldg.oncam.viewer.ui.HomeScreen
 import vn.cnldg.oncam.viewer.ui.LiveViewScreen
@@ -72,6 +81,8 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         sender.connectAll()
         vm.resumeLive()
+        // Đang bật "Nhận cảnh báo": bảo đảm dịch vụ nền đang chạy (lúc app hiện lên Android luôn cho phép khởi động).
+        if (vm.alertOptions.value.enabled) AlertWatchService.start(this)
     }
 
     override fun onStop() {
@@ -133,6 +144,8 @@ private fun ViewerApp(vm: ViewerViewModel) {
                 }
                 UiMessage.NoNewVideos -> context.getString(R.string.videos_none_new)
                 UiMessage.VideosUnreachable -> context.getString(R.string.videos_unreachable)
+                is UiMessage.Alert ->
+                    context.getString(R.string.alert_title, msg.cameraName, AlertNotifier.title(context, msg.alert))
             }
             if (text != null) snackbar.showSnackbar(text)
         }
@@ -158,6 +171,60 @@ private fun ViewerApp(vm: ViewerViewModel) {
     }
 
     val scope = rememberCoroutineScope()
+    // Nhận cảnh báo (0.12): bật thì xin quyền thông báo (Android 13+) rồi chạy dịch vụ nền; tắt thì dừng dịch vụ.
+    val alertOptions by vm.alertOptions.collectAsStateWithLifecycle()
+    val enableAlerts = {
+        vm.setAlertsEnabled(true)
+        AlertWatchService.start(context)
+        Unit
+    }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            enableAlerts()
+        } else {
+            scope.launch { snackbar.showSnackbar(context.getString(R.string.settings_alerts_no_permission)) }
+        }
+    }
+    val alertActions = remember(vm) {
+        object : AlertOptionActions {
+            override fun setEnabled(on: Boolean) {
+                val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED
+                when {
+                    !on -> {
+                        vm.setAlertsEnabled(false)
+                        AlertWatchService.stop(context)
+                    }
+                    needsPermission -> notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else -> enableAlerts()
+                }
+            }
+            override fun setMotion(on: Boolean) = vm.setNotifyMotion(on)
+            override fun setPower(on: Boolean) = vm.setNotifyPower(on)
+            override fun setHeat(on: Boolean) = vm.setNotifyHeat(on)
+            override fun canNotify(): Boolean {
+                val granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
+                return granted && NotificationManagerCompat.from(context).areNotificationsEnabled()
+            }
+            override fun openNotificationSettings() {
+                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                runCatching { context.startActivity(intent) }
+            }
+            override fun batteryExempt(): Boolean =
+                context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true
+
+            @SuppressLint("BatteryLife") // app cài APK riêng (không lên Google Play); cần để cảnh báo không trễ khi máy ngủ
+            override fun requestBatteryExemption() {
+                val direct = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
+                runCatching { context.startActivity(direct) }
+                    .onFailure { runCatching { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } }
+            }
+        }
+    }
     // Nói ra loa máy camera (Phase 7): xin quyền micro lúc bấm "Bật nói chuyện".
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -253,6 +320,8 @@ private fun ViewerApp(vm: ViewerViewModel) {
                 stopOnLeave = stopOnLeave,
                 onIdleTimeout = vm::setIdleTimeoutSec,
                 onStopOnLeave = vm::setStopOnLeave,
+                alerts = alertOptions,
+                alertActions = alertActions,
                 onBack = { screenName = HOME },
                 modifier = modifier,
             )

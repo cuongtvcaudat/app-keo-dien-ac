@@ -24,6 +24,15 @@ enum class BrokerMode {
  * @property shareLocation gửi vị trí máy (GPS/mạng) cho app Xem. Mặc định tắt.
  * @property locationIntervalMin chu kỳ tự cập nhật vị trí (phút): 15, 60, hoặc 0 = tắt (GPS chỉ chạy khi app Xem
  *   bấm "Cập nhật"/"Theo dõi").
+ * @property allowRecording cho app Xem quay video và bật canh chuyển động (0.12; tắt → app Xem không thấy 2 nút này).
+ * @property allowAudio cho app Xem nghe tiếng sân / nói ra loa (tắt → xem trực tiếp không tiếng, clip quay không tiếng).
+ * @property alertMotion báo khi có chuyển động (lúc đang canh).
+ * @property alertPower báo mất điện / có điện lại / pin yếu.
+ * @property alertHeat báo máy quá nóng.
+ * @property alertEmail gửi thêm email cho mỗi cảnh báo (dự phòng khi máy xem tắt app/mất mạng).
+ * @property emailFrom địa chỉ Gmail dùng để gửi.
+ * @property emailPassword **mật khẩu ứng dụng** Gmail (không phải mật khẩu Gmail); lưu mã hoá, không in ra log.
+ * @property emailTo người nhận, cách nhau dấu phẩy (tối đa 3).
  */
 data class NodeConfig(
     val deviceId: String,
@@ -37,7 +46,22 @@ data class NodeConfig(
     val orientation: MountOrientation = MountOrientation.UP,
     val shareLocation: Boolean = false,
     val locationIntervalMin: Int = 15,
+    val allowRecording: Boolean = true,
+    val allowAudio: Boolean = true,
+    val alertMotion: Boolean = true,
+    val alertPower: Boolean = true,
+    val alertHeat: Boolean = true,
+    val alertEmail: Boolean = false,
+    val emailFrom: String = "",
+    val emailPassword: String = "",
+    val emailTo: String = "",
 ) {
+    /** Loại cảnh báo đang bật. */
+    val alertSettings: AlertSettings get() = AlertSettings(motion = alertMotion, power = alertPower, heat = alertHeat)
+
+    /** Tài khoản gửi email cảnh báo; null nếu không bật hoặc cấu hình chưa hợp lệ. */
+    fun mailAccount(): MailAccount? = if (alertEmail) MailAccount.fromInput(emailFrom, emailPassword, emailTo) else null
+
     /** Danh sách lỗi cấu hình; rỗng nghĩa là hợp lệ. */
     fun problems(): List<ConfigProblem> = buildList {
         if (!DeviceIds.isValid(deviceId)) add(ConfigProblem.INVALID_DEVICE_ID)
@@ -45,6 +69,7 @@ data class NodeConfig(
         if (!SharedSecret.isAcceptable(secret)) add(ConfigProblem.WEAK_SECRET)
         if (brokerMode == BrokerMode.EMBEDDED && brokerPort !in 1024..65535) add(ConfigProblem.INVALID_PORT)
         if (brokerMode == BrokerMode.EXTERNAL && !BrokerAddress.isValid(externalUri)) add(ConfigProblem.INVALID_EXTERNAL_URI)
+        if (alertEmail && mailAccount() == null) add(ConfigProblem.INVALID_EMAIL)
     }
 
     /** Không in token/mật khẩu ra log. */
@@ -60,4 +85,5 @@ enum class ConfigProblem {
     WEAK_SECRET,
     INVALID_PORT,
     INVALID_EXTERNAL_URI,
+    INVALID_EMAIL,
 }

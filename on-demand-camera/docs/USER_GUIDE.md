@@ -225,6 +225,62 @@ tính** là chuyển động.
 - Máy camera **khởi động lại** (mất điện, cập nhật) thì **không tự canh lại** — phải mở app OnCam Quay rồi bật canh
   từ máy xem (giới hạn của Android với camera chạy nền).
 
+### Tuỳ chọn chức năng (từ bản 0.12)
+
+Mỗi chức năng có công tắc riêng — **không bật thì không chạy**:
+
+| Ở đâu | Tuỳ chọn | Mặc định | Tắt thì |
+|---|---|---|---|
+| Máy camera → Sửa cấu hình → **Tuỳ chọn chức năng** | Tự chạy khi khởi động lại máy | Bật | Phải mở app bấm Khởi động |
+| | Cho quay video và canh chuyển động | Bật | App Xem không có nút Quay video / Canh chuyển động |
+| | Cho nghe tiếng và nói ra loa | Bật | Xem không tiếng, clip không tiếng; micro không bao giờ mở |
+| | Chia sẻ vị trí | Tắt | App Xem không có Bản đồ |
+| Máy camera → Sửa cấu hình → **Cảnh báo** | Có chuyển động / Mất điện–pin yếu / Quá nóng | Bật | Không gửi loại đó |
+| | Gửi thêm email (Gmail) | Tắt | Chỉ báo qua app Xem |
+| Máy xem → Cài đặt → **Nhận cảnh báo** | Nhận cảnh báo (chạy nền) | Tắt | Chỉ thấy cảnh báo khi đang mở app |
+| | Từng loại: chuyển động / nguồn điện / quá nóng | Bật | Máy này không hiện loại đó |
+
+Đổi tuỳ chọn trên máy camera: bấm **Lưu** rồi **Dừng → Khởi động** node để áp dụng.
+
+### Cảnh báo tức thì kèm ảnh (từ bản 0.12, cả 2 app ≥ 0.12)
+
+| Cảnh báo | Khi nào | Tần suất tối đa |
+|---|---|---|
+| **Có chuyển động** | Đang bật Canh chuyển động và bắt đầu một clip | App: 1 lần/phút. Email: 1 lần/5 phút |
+| **Mất điện / bị rút nguồn** | Máy camera hết cắm nguồn **≥ 30 giây** | 1 lần mỗi lần mất |
+| **Đã có điện lại** | Cắm nguồn lại sau khi đã báo mất điện | 1 lần |
+| **Pin yếu** | Không cắm nguồn và pin ≤ 20 % | 1 lần (báo lại sau khi sạc lên ≥ 30 %) |
+| **Máy quá nóng** | Nhiệt độ pin ≥ 42 °C | 1 lần/30 phút |
+
+Cảnh báo kèm **ảnh lúc xảy ra** (nếu camera đang bật), pin, nhiệt độ, link Google Maps (nếu bật chia sẻ vị trí).
+
+**Kênh 1 — app Xem qua Tailscale (nhanh, ~1–2 giây):**
+1. Máy xem: **Cài đặt → Nhận cảnh báo** → bật → **Cho phép** thông báo.
+2. Bấm **Cho phép chạy nền (nên bật)** → *Cho phép*. Oppo: thêm Cài đặt → Pin → OnCam Xem → *Cho phép hoạt động
+   nền* và *Tự khởi chạy*; khoá app trong màn hình đa nhiệm.
+3. Tailscale trên máy xem phải **luôn bật** (bật *Always-on VPN* trong Cài đặt Android → VPN → Tailscale).
+4. Thanh thông báo có dòng *OnCam Xem đang chờ cảnh báo* (bắt buộc của Android khi chạy nền).
+
+**Kênh 2 — email (dự phòng khi máy xem tắt app / mất mạng / Android ngắt nền):**
+1. Tạo **một Gmail riêng cho camera** (không dùng Gmail chính), bật *Xác minh 2 bước*.
+2. Vào `myaccount.google.com/apppasswords` → tạo **mật khẩu ứng dụng** (16 ký tự).
+3. Máy camera: Sửa cấu hình → Cảnh báo → tick **Gửi thêm email (Gmail)** → nhập Gmail gửi, mật khẩu ứng dụng,
+   địa chỉ nhận (tối đa 3) → bấm **Gửi email thử** → thấy *Đã gửi* thì Lưu.
+
+⚠️ Rủi ro cần biết:
+- **Mất điện thường mất luôn Wi-Fi** → máy camera không còn đường ra mạng → **cả 2 kênh đều không báo được**, trừ
+  khi máy camera có SIM 4G (hoặc modem Wi-Fi có UPS). Khi đó app Xem chỉ thấy camera *Offline* sau ~20–30 giây.
+  Muốn chắc: lắp SIM data vào máy camera.
+- **Cảnh báo qua app có thể trễ** khi máy xem ngủ sâu (Doze) dù đã cho phép chạy nền — phụ thuộc hãng máy, **chưa đo
+  trên Oppo Reno15 F**. Email là đường dự phòng cho trường hợp này.
+- **Mật khẩu ứng dụng Gmail nằm trên máy camera** (lưu mã hoá bằng Android Keystore). Máy camera bị lấy trộm và mở
+  khoá được thì người đó gửi được mail từ Gmail này → dùng Gmail riêng, và **thu hồi mật khẩu ứng dụng** tại
+  `myaccount.google.com/apppasswords` ngay khi mất máy.
+- Gmail giới hạn ~500 thư/ngày; app tự giới hạn chuyển động 1 thư/5 phút (tối đa ~288 thư/ngày).
+- Ảnh trong email đi qua máy chủ Google (khác với kênh app chỉ đi trong Tailscale). Ảnh có người là dữ liệu cá nhân
+  (NĐ 13/2023/NĐ-CP) — chỉ gửi tới email của người trong nhà.
+- Dữ liệu 4G máy xem: mỗi cảnh báo kèm ảnh ≈ 40–80 KB (mức Thấp) → 60 cảnh báo/ngày ≈ 3–5 MB.
+
 ## 7. Dung lượng dữ liệu (ước tính)
 
 Máy camera ở nhà dùng Wi-Fi thì **máy xem đi 4G mới là bên tốn tiền**.

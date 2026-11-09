@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -14,14 +15,32 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import timber.log.Timber
 import vn.cnldg.oncam.node.config.ConfigLoad
 import vn.cnldg.oncam.node.config.NodeConfigRepository
+import vn.cnldg.oncam.node.core.MailAccount
+import vn.cnldg.oncam.node.core.MailMessage
 import vn.cnldg.oncam.node.core.NodeConfig
 import vn.cnldg.oncam.node.core.NodeState
+import vn.cnldg.oncam.node.core.SmtpException
+import vn.cnldg.oncam.node.core.SmtpMailer
 import vn.cnldg.oncam.node.service.NodeRuntime
 import vn.cnldg.oncam.shared.protocol.Action
 import vn.cnldg.oncam.shared.protocol.CommandParams
 import vn.cnldg.oncam.shared.security.SharedSecret
+
+/** Kết quả nút "Gửi email thử". */
+sealed interface EmailTest {
+    /** Đang gửi. */
+    data object Sending : EmailTest
+
+    /** Máy chủ đã nhận. */
+    data object Sent : EmailTest
+
+    /** Lỗi; [smtpCode] = mã máy chủ trả (535 = sai mật khẩu ứng dụng), null = lỗi mạng. */
+    data class Failed(val smtpCode: Int?) : EmailTest
+}
 
 /**
  * ViewModel của camera-node: đọc cấu hình và trạng thái chạy, không giữ tham chiếu tới Service.
@@ -75,6 +94,36 @@ class NodeViewModel @Inject constructor(
             repository.save(config)
             repository.setAutoStart(autoStart)
             onSaved()
+        }
+    }
+
+    private val _emailTest = MutableStateFlow<EmailTest?>(null)
+
+    /** Trạng thái lần "Gửi email thử" gần nhất (null = chưa thử). */
+    val emailTest: StateFlow<EmailTest?> = _emailTest.asStateFlow()
+
+    /** Gửi một email thử bằng tài khoản đang nhập (chưa cần lưu cấu hình). */
+    fun testEmail(account: MailAccount, cameraName: String) {
+        if (_emailTest.value == EmailTest.Sending) return
+        _emailTest.value = EmailTest.Sending
+        viewModelScope.launch {
+            _emailTest.value = withContext(Dispatchers.IO) {
+                try {
+                    SmtpMailer(account).send(
+                        MailMessage(
+                            subject = "[OnCam] Email thử từ $cameraName",
+                            body = "Nhận được email này nghĩa là cảnh báo qua email của camera \"$cameraName\" đã hoạt động.\n" +
+                                "— Gửi tự động từ OnCam Quay.",
+                        ),
+                    )
+                    EmailTest.Sent
+                } catch (e: SmtpException) {
+                    EmailTest.Failed(e.code)
+                } catch (e: Exception) {
+                    Timber.w(e, "Gửi email thử lỗi")
+                    EmailTest.Failed(null)
+                }
+            }
         }
     }
 

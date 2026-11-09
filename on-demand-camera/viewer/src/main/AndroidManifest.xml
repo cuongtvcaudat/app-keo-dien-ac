@@ -14,6 +14,18 @@
     <uses-feature
         android:name="android.hardware.microphone"
         android:required="false" />
+    <!--
+      Nhận cảnh báo (0.12, mặc định tắt): dịch vụ nền giữ kết nối tới camera + hiện thông báo kèm ảnh.
+      specialUse: Android 14+ bắt buộc khai loại; app cài APK riêng, không lên Google Play.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Mở thẳng hộp thoại "bỏ tối ưu pin" để cảnh báo không bị trễ khi máy ngủ. -->
+    <uses-permission
+        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        tools:ignore="BatteryLife" />
     <!-- Chỉ dùng khi bấm "Quét mã QR" (thư viện quét tự hỏi quyền lúc đó). Máy không có camera vẫn cài được. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature
@@ -43,6 +55,25 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".alert.AlertWatchService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Giữ kết nối MQTT tới camera của chính người dùng (qua VPN Tailscale) để nhận cảnh báo an ninh tức thì" />
+        </service>
+
+        <receiver
+            android:name=".alert.BootReceiver"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Màn hình quét QR của zxing-android-embedded: mặc định nằm ngang, cho xoay theo tay cầm. -->
         <activity

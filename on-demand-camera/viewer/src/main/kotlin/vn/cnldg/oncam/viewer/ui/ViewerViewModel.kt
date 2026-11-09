@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -25,6 +26,7 @@ import vn.cnldg.oncam.shared.protocol.Action
 import vn.cnldg.oncam.shared.protocol.CameraFacing
 import vn.cnldg.oncam.shared.protocol.CameraState
 import vn.cnldg.oncam.shared.protocol.CommandParams
+import vn.cnldg.oncam.shared.protocol.DeviceAlert
 import vn.cnldg.oncam.shared.protocol.DeviceEvent
 import vn.cnldg.oncam.shared.protocol.MotionSensitivity
 import vn.cnldg.oncam.shared.protocol.StreamQuality
@@ -68,6 +70,9 @@ sealed interface UiMessage {
 
     /** Không mở được cổng tải video trên máy camera (offline / chưa có Tailscale). */
     data object VideosUnreachable : UiMessage
+
+    /** Cảnh báo từ camera (khi chưa bật thông báo nền). */
+    data class Alert(val cameraName: String, val alert: DeviceAlert) : UiMessage
 }
 
 /**
@@ -92,6 +97,16 @@ class ViewerViewModel @Inject constructor(
 
     /** Tắt camera khi rời app. */
     val stopOnLeave: StateFlow<Boolean> = settings.stopOnLeave
+
+    /** Các công tắc cảnh báo (nhận cảnh báo nền + từng loại). */
+    val alertOptions: StateFlow<AlertOptions> =
+        combine(settings.alertsEnabled, settings.notifyMotion, settings.notifyPower, settings.notifyHeat) { on, m, p, h ->
+            AlertOptions(on, m, p, h)
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            AlertOptions(settings.alertsEnabled.value, settings.notifyMotion.value, settings.notifyPower.value, settings.notifyHeat.value),
+        )
 
     private val _busy = MutableStateFlow<Set<String>>(emptySet())
 
@@ -153,6 +168,12 @@ class ViewerViewModel @Inject constructor(
                     if (videos.isDownloaded(id, name) || !videos.autoDownloadAllowed(rec.lastFileBytes)) return@forEach
                     if (id !in _downloading.value && autoTried.add("$id/$name")) downloadVideos(entry, only = name)
                 }
+            }
+        }
+        // Cảnh báo tới lúc app đang mở mà chưa bật "Nhận cảnh báo" (không có thông báo Android) → báo ở cuối màn hình.
+        viewModelScope.launch {
+            sender.alerts.collect { a ->
+                if (!settings.alertsEnabled.value && settings.wants(a.alert.type)) _messages.emit(UiMessage.Alert(a.name, a.alert))
             }
         }
         viewModelScope.launch {
@@ -419,6 +440,18 @@ class ViewerViewModel @Inject constructor(
 
     /** Đặt thời gian chờ tự tắt. */
     fun setIdleTimeoutSec(value: Int) = settings.setIdleTimeoutSec(value)
+
+    /** Bật/tắt nhận cảnh báo (màn hình lo xin quyền thông báo và chạy/dừng dịch vụ nền). */
+    fun setAlertsEnabled(value: Boolean) = settings.setAlertsEnabled(value)
+
+    /** Bật/tắt từng loại cảnh báo. */
+    fun setNotifyMotion(value: Boolean) = settings.setNotifyMotion(value)
+
+    /** Bật/tắt cảnh báo nguồn điện. */
+    fun setNotifyPower(value: Boolean) = settings.setNotifyPower(value)
+
+    /** Bật/tắt cảnh báo quá nhiệt. */
+    fun setNotifyHeat(value: Boolean) = settings.setNotifyHeat(value)
 
     /** Bật/tắt "tắt camera khi rời app". */
     fun setStopOnLeave(value: Boolean) = settings.setStopOnLeave(value)

@@ -29,6 +29,7 @@ class DeviceInfoReader @Inject constructor(
         val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         val status = battery?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
         val tenthsC = battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE) ?: Int.MIN_VALUE
+        val plugged = battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1
 
         return DeviceSnapshot(
             batteryPercent = if (level >= 0 && scale > 0) level * 100 / scale else null,
@@ -39,6 +40,8 @@ class DeviceInfoReader @Inject constructor(
             },
             temperatureC = if (tenthsC == Int.MIN_VALUE) null else tenthsC / 10.0,
             network = networkType(),
+            // Cảnh báo mất điện dựa vào đây (không dựa vào "đang sạc": bảo vệ pin 85 % ngừng sạc khi vẫn cắm).
+            plugged = if (plugged < 0) null else plugged != 0,
         )
     }
 

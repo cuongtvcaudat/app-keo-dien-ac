@@ -61,7 +61,8 @@ class EmbeddedBroker(
         setProperty(IConfig.DATA_PATH_PROPERTY_NAME, dataDir.absolutePath)
         setProperty(IConfig.ALLOW_ANONYMOUS_PROPERTY_NAME, "false")
         setProperty(IConfig.ENABLE_TELEMETRY_NAME, "false")
-        // Mặc định Moquette bỏ tin > 8 092 byte; lệnh RTC_OFFER mang SDP 4–10 KB (Phase 7).
+        // Mặc định Moquette bỏ tin > 8 092 byte; lệnh RTC_OFFER mang SDP 4–10 KB (Phase 7), cảnh báo kèm ảnh
+        // JPEG ≤ 200 KB (≈ 270 KB sau base64, bản 0.12).
         setProperty(IConfig.NETTY_MAX_BYTES_PROPERTY_NAME, MAX_MESSAGE_BYTES.toString())
     }
 
@@ -83,7 +84,10 @@ class EmbeddedBroker(
     internal companion object {
         private const val DISABLED = "disabled"
 
-        /** Tin MQTT lớn nhất broker nhận (64 KB, đủ cho SDP offer + JSON). */
-        const val MAX_MESSAGE_BYTES: Int = 65_536
+        /**
+         * Tin MQTT lớn nhất broker nhận: 512 KB — đủ cho cảnh báo kèm ảnh (MAX_ALERT_SNAPSHOT_BYTES = 200 KB,
+         * base64 ≈ 270 KB) + JSON. Broker bắt buộc đăng nhập nên người ngoài không gửi được tin lớn.
+         */
+        const val MAX_MESSAGE_BYTES: Int = 512 * 1024
     }
 }

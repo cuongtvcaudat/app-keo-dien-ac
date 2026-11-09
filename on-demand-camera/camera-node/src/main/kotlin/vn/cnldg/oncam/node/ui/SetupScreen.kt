@@ -29,10 +29,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import vn.cnldg.oncam.node.R
 import vn.cnldg.oncam.node.core.BrokerMode
 import vn.cnldg.oncam.node.core.ConfigProblem
+import vn.cnldg.oncam.node.core.MailAccount
 import vn.cnldg.oncam.node.core.MountOrientation
 import vn.cnldg.oncam.node.core.NodeConfig
 import vn.cnldg.oncam.shared.OnCam
@@ -49,6 +51,8 @@ fun SetupScreen(
     initial: NodeConfig?,
     initialAutoStart: Boolean,
     generateSecret: () -> String,
+    emailTest: EmailTest?,
+    onTestEmail: (MailAccount, String) -> Unit,
     onSave: (NodeConfig, Boolean) -> Unit,
     onCancel: (() -> Unit)?,
     modifier: Modifier = Modifier,
@@ -66,6 +70,15 @@ fun SetupScreen(
     var autoStart by rememberSaveable { mutableStateOf(initialAutoStart) }
     var shareLocation by rememberSaveable { mutableStateOf(initial?.shareLocation ?: false) }
     var locationInterval by rememberSaveable { mutableStateOf(initial?.locationIntervalMin ?: 15) }
+    var allowRecording by rememberSaveable { mutableStateOf(initial?.allowRecording ?: true) }
+    var allowAudio by rememberSaveable { mutableStateOf(initial?.allowAudio ?: true) }
+    var alertMotion by rememberSaveable { mutableStateOf(initial?.alertMotion ?: true) }
+    var alertPower by rememberSaveable { mutableStateOf(initial?.alertPower ?: true) }
+    var alertHeat by rememberSaveable { mutableStateOf(initial?.alertHeat ?: true) }
+    var alertEmail by rememberSaveable { mutableStateOf(initial?.alertEmail ?: false) }
+    var emailFrom by rememberSaveable { mutableStateOf(initial?.emailFrom.orEmpty()) }
+    var emailPassword by rememberSaveable { mutableStateOf(initial?.emailPassword.orEmpty()) }
+    var emailTo by rememberSaveable { mutableStateOf(initial?.emailTo.orEmpty()) }
     var problems by remember { mutableStateOf(emptyList<ConfigProblem>()) }
 
     Column(
@@ -181,30 +194,115 @@ fun SetupScreen(
             }
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = autoStart, onCheckedChange = { autoStart = it })
-            Text(stringResource(R.string.setup_auto_start), style = MaterialTheme.typography.bodyMedium)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = shareLocation, onCheckedChange = { shareLocation = it })
-            Column {
-                Text(stringResource(R.string.setup_share_location), style = MaterialTheme.typography.bodyMedium)
-                Text(stringResource(R.string.setup_share_location_hint), style = MaterialTheme.typography.bodySmall)
+        // Tuỳ chọn chức năng: chủ máy camera quyết định app Xem được dùng những gì.
+        SectionCard(title = stringResource(R.string.setup_section_features)) {
+            Text(stringResource(R.string.setup_features_hint), style = MaterialTheme.typography.bodySmall)
+            OptionRow(autoStart, { autoStart = it }, stringResource(R.string.setup_auto_start))
+            OptionRow(
+                allowRecording,
+                { allowRecording = it },
+                stringResource(R.string.setup_allow_recording),
+                stringResource(R.string.setup_allow_recording_hint),
+            )
+            OptionRow(
+                allowAudio,
+                { allowAudio = it },
+                stringResource(R.string.setup_allow_audio),
+                stringResource(R.string.setup_allow_audio_hint),
+            )
+            OptionRow(
+                shareLocation,
+                { shareLocation = it },
+                stringResource(R.string.setup_share_location),
+                stringResource(R.string.setup_share_location_hint),
+            )
+            if (shareLocation) {
+                Text(stringResource(R.string.setup_location_interval), style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf(0 to R.string.location_interval_off, 15 to R.string.location_interval_15, 60 to R.string.location_interval_60)
+                        .forEach { (minutes, label) ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.selectable(selected = locationInterval == minutes, onClick = { locationInterval = minutes }),
+                            ) {
+                                RadioButton(selected = locationInterval == minutes, onClick = { locationInterval = minutes })
+                                Text(stringResource(label), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                }
             }
         }
-        if (shareLocation) {
-            Text(stringResource(R.string.setup_location_interval), style = MaterialTheme.typography.bodyMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(0 to R.string.location_interval_off, 15 to R.string.location_interval_15, 60 to R.string.location_interval_60)
-                    .forEach { (minutes, label) ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.selectable(selected = locationInterval == minutes, onClick = { locationInterval = minutes }),
-                        ) {
-                            RadioButton(selected = locationInterval == minutes, onClick = { locationInterval = minutes })
-                            Text(stringResource(label), style = MaterialTheme.typography.bodySmall)
-                        }
+
+        SectionCard(title = stringResource(R.string.setup_section_alerts)) {
+            Text(stringResource(R.string.setup_alerts_hint), style = MaterialTheme.typography.bodySmall)
+            OptionRow(
+                alertMotion && allowRecording,
+                { alertMotion = it },
+                stringResource(R.string.setup_alert_motion),
+                stringResource(R.string.setup_alert_motion_hint),
+                enabled = allowRecording,
+            )
+            OptionRow(alertPower, { alertPower = it }, stringResource(R.string.setup_alert_power), stringResource(R.string.setup_alert_power_hint))
+            OptionRow(alertHeat, { alertHeat = it }, stringResource(R.string.setup_alert_heat), stringResource(R.string.setup_alert_heat_hint))
+            OptionRow(alertEmail, { alertEmail = it }, stringResource(R.string.setup_alert_email), stringResource(R.string.setup_alert_email_hint))
+            if (alertEmail) {
+                val emailError = ConfigProblem.INVALID_EMAIL in problems
+                OutlinedTextField(
+                    value = emailFrom,
+                    onValueChange = { emailFrom = it.trim() },
+                    label = { Text(stringResource(R.string.setup_email_from)) },
+                    singleLine = true,
+                    isError = emailError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = emailPassword,
+                    onValueChange = { emailPassword = it },
+                    label = { Text(stringResource(R.string.setup_email_password)) },
+                    supportingText = { Text(stringResource(R.string.setup_email_password_hint)) },
+                    singleLine = true,
+                    isError = emailError,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = emailTo,
+                    onValueChange = { emailTo = it },
+                    label = { Text(stringResource(R.string.setup_email_to)) },
+                    supportingText = { Text(stringResource(R.string.setup_email_to_hint)) },
+                    singleLine = true,
+                    isError = emailError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val draft = MailAccount.fromInput(emailFrom, emailPassword, emailTo)
+                OutlinedButton(
+                    onClick = { draft?.let { onTestEmail(it, displayName.trim()) } },
+                    enabled = draft != null && emailTest != EmailTest.Sending,
+                ) { Text(stringResource(R.string.setup_email_test)) }
+                when (emailTest) {
+                    EmailTest.Sending -> Text(stringResource(R.string.setup_email_sending), style = MaterialTheme.typography.bodySmall)
+                    EmailTest.Sent -> Text(
+                        stringResource(R.string.setup_email_sent),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    is EmailTest.Failed -> {
+                        val code = emailTest.smtpCode
+                        Text(
+                            when {
+                                code == null -> stringResource(R.string.setup_email_failed_network)
+                                code in 530..535 -> stringResource(R.string.setup_email_failed_auth)
+                                else -> stringResource(R.string.setup_email_failed_code, code)
+                            },
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
+                    null -> Unit
+                }
             }
         }
 
@@ -231,6 +329,15 @@ fun SetupScreen(
                     orientation = orientation,
                     shareLocation = shareLocation,
                     locationIntervalMin = locationInterval,
+                    allowRecording = allowRecording,
+                    allowAudio = allowAudio,
+                    alertMotion = alertMotion,
+                    alertPower = alertPower,
+                    alertHeat = alertHeat,
+                    alertEmail = alertEmail,
+                    emailFrom = emailFrom,
+                    emailPassword = emailPassword,
+                    emailTo = emailTo.trim(),
                 )
                 problems = config.problems()
                 if (problems.isEmpty()) onSave(config, autoStart)
@@ -241,6 +348,26 @@ fun SetupScreen(
         }
         if (initial != null) {
             Text(stringResource(R.string.setup_restart_note), style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/** Một ô chọn bật/tắt chức năng kèm dòng giải thích. */
+@Composable
+private fun OptionRow(
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+    title: String,
+    hint: String? = null,
+    enabled: Boolean = true,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = checked, onCheckedChange = onChange, enabled = enabled)
+        Column {
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+            if (hint != null) {
+                Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
@@ -274,6 +401,7 @@ private fun ConfigProblem.messageRes(): Int = when (this) {
     ConfigProblem.WEAK_SECRET -> R.string.problem_secret
     ConfigProblem.INVALID_PORT -> R.string.problem_port
     ConfigProblem.INVALID_EXTERNAL_URI -> R.string.problem_external_uri
+    ConfigProblem.INVALID_EMAIL -> R.string.problem_email
 }
 
 private const val DEFAULT_DEVICE_ID = "san-nha"

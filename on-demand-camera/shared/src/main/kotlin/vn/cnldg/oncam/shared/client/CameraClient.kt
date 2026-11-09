@@ -1,6 +1,7 @@
 package vn.cnldg.oncam.shared.client
 
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -22,6 +23,7 @@ import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
 import vn.cnldg.oncam.shared.mqtt.OutgoingMessage
 import vn.cnldg.oncam.shared.protocol.Action
 import vn.cnldg.oncam.shared.protocol.CommandParams
+import vn.cnldg.oncam.shared.protocol.DeviceAlert
 import vn.cnldg.oncam.shared.protocol.DeviceEvent
 import vn.cnldg.oncam.shared.protocol.DeviceStatus
 import vn.cnldg.oncam.shared.protocol.EventType
@@ -31,6 +33,7 @@ import vn.cnldg.oncam.shared.protocol.RecordingStatus
 import vn.cnldg.oncam.shared.protocol.ProtocolJson
 import vn.cnldg.oncam.shared.protocol.StreamPaths
 import vn.cnldg.oncam.shared.protocol.Topics
+import vn.cnldg.oncam.shared.security.AlertAuth
 import vn.cnldg.oncam.shared.security.BrokerCredentials
 import vn.cnldg.oncam.shared.security.CommandSigner
 import vn.cnldg.oncam.shared.security.EpochClock
@@ -124,6 +127,8 @@ class CameraClient(
     private val rtcAuth = RtcAuth(endpoint.secret, endpoint.deviceId)
     private val statusTopic = Topics.status(endpoint.deviceId)
     private val eventTopic = Topics.event(endpoint.deviceId)
+    private val alertTopic = Topics.alert(endpoint.deviceId)
+    private val alertAuth = AlertAuth(endpoint.secret, endpoint.deviceId)
 
     private val mqtt = MqttClientWrapper(
         config = MqttConfig(
@@ -148,6 +153,11 @@ class CameraClient(
     /** Sự kiện từ camera (trừ COMMAND_RESULT đã được trả về qua [send]). */
     val events: SharedFlow<DeviceEvent> = _events.asSharedFlow()
 
+    private val _alerts = MutableSharedFlow<DeviceAlert>(extraBufferCapacity = 8)
+
+    /** Cảnh báo từ camera (0.12), đã kiểm chữ ký; bỏ cảnh báo cũ hơn [MAX_ALERT_AGE_MS] (gửi lại/kẻ phát lại). */
+    val alerts: SharedFlow<DeviceAlert> = _alerts.asSharedFlow()
+
     private val _clock = MutableStateFlow<ClockSync?>(null)
 
     /** Kết quả đồng bộ giờ gần nhất (null khi chưa đo). */
@@ -164,6 +174,7 @@ class CameraClient(
         scope.launch {
             mqtt.subscribe(statusTopic, Topics.QOS_STATUS)
             mqtt.subscribe(eventTopic, Topics.QOS_EVENT)
+            mqtt.subscribe(alertTopic, Topics.QOS_ALERT)
         }
         mqtt.start()
     }
@@ -201,7 +212,7 @@ class CameraClient(
     suspend fun setMotion(on: Boolean, sensitivity: MotionSensitivity? = null, idleTimeoutSec: Int? = null): CommandResult =
         send(Action.SET_MOTION, CommandParams(motion = on, sensitivity = sensitivity, idleTimeoutSec = idleTimeoutSec))
 
-        /** Theo dõi vị trí 1 phút/lần trong [minutes] phút (0 = dừng). Chỉ camera có `location.canTrack` mới hiểu. */
+    /** Theo dõi vị trí 1 phút/lần trong [minutes] phút (0 = dừng). Chỉ camera có `location.canTrack` mới hiểu. */
     suspend fun trackLocation(minutes: Int): CommandResult =
         send(Action.UPDATE_LOCATION, CommandParams(trackMinutes = minutes))
 
@@ -295,6 +306,10 @@ class CameraClient(
     /** Mã lỗi khi answer không có chữ ký đúng (dùng trong [CommandResult.Rejected]). */
     companion object {
         const val BAD_ANSWER_SIGNATURE: String = "BAD_ANSWER_SIGNATURE"
+
+        /** Cảnh báo cũ hơn chừng này (theo giờ 2 máy, lệch tối đa 60 giây) thì bỏ. */
+        const val MAX_ALERT_AGE_MS: Long = 10 * 60_000L
+        private const val SEEN_ALERTS = 32
     }
 
     /** URL ảnh chụp (khi camera đang phát), suy từ streamUrl trong trạng thái. */
@@ -324,6 +339,24 @@ class CameraClient(
                     _events.tryEmit(event)
                 }
             }
+            alertTopic -> ProtocolJson.decodeAlert(msg.payload)?.let(::onAlert)
         }
+    }
+
+    private val seenAlerts = ArrayDeque<String>()
+
+    private fun onAlert(alert: DeviceAlert) {
+        if (!alertAuth.verify(alert)) {
+            log.log(LogSink.Level.WARN, "Bỏ cảnh báo sai chữ ký từ ${endpoint.deviceId}", null)
+            return
+        }
+        if (abs(nowMs() - alert.timestampMs) > MAX_ALERT_AGE_MS) return // cũ (gửi lại sau khi nối lại) hoặc phát lại
+        val key = "${alert.type}/${alert.timestampMs}"
+        synchronized(seenAlerts) {
+            if (key in seenAlerts) return // QoS 1 có thể gửi trùng
+            seenAlerts.addLast(key)
+            if (seenAlerts.size > SEEN_ALERTS) seenAlerts.removeFirst()
+        }
+        _alerts.tryEmit(alert)
     }
 }

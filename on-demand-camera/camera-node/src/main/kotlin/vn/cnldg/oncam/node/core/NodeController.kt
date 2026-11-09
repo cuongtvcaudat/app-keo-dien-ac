@@ -62,6 +62,8 @@ import vn.cnldg.oncam.shared.security.RtcAuth
  * @param addressProvider trả về IP Tailscale hiện tại (null nếu chưa bật Tailscale).
  * @param camera phần camera + stream (Phase 3); null → các lệnh camera trả về "chưa hỗ trợ".
  * @param location theo dõi vị trí khi bật "Chia sẻ vị trí"; null → không gửi vị trí, UPDATE_LOCATION bị từ chối.
+ * @param alerts cảnh báo (0.12): được nuôi bằng thông tin máy mỗi [Timing.alertCheckMs]; cảnh báo đã ký được
+ *   publish lên topic alert khi đang nối broker (email do [AlertManager] tự gửi, không cần broker).
  */
 class NodeController(
     private val config: NodeConfig,
@@ -74,6 +76,7 @@ class NodeController(
     private val timing: Timing = Timing(),
     private val camera: CameraSession? = null,
     private val location: LocationTracker? = null,
+    private val alerts: AlertManager? = null,
 ) {
     /** Các mốc thời gian (rút ngắn được trong test). */
     data class Timing(
@@ -81,6 +84,7 @@ class NodeController(
         val addressCheckMs: Long = 15_000,
         val keepAliveSec: Int = 15,
         val maxReconnectDelayMs: Long = 10_000,
+        val alertCheckMs: Long = 10_000,
     )
 
     private val _state = MutableStateFlow(NodeState())
@@ -115,6 +119,7 @@ class NodeController(
     private var mainJob: Job? = null
     private var cameraJob: Job? = null
     private var locationJob: Job? = null
+    private var alertJob: Job? = null
 
     init {
         require(config.problems().isEmpty()) { "Cấu hình không hợp lệ: ${config.problems()}" }
@@ -141,6 +146,15 @@ class NodeController(
         camera?.let { cam ->
             cameraJob = scope.launch { cam.status.collect { s -> _state.update { it.copy(camera = s) } } }
         }
+        alerts?.let { a ->
+            // Chạy cả khi mất kết nối broker: mất điện thường kéo theo mất Wi-Fi, email vẫn đi được bằng 4G.
+            alertJob = scope.launch {
+                while (true) {
+                    a.onDevice(deviceInfo.snapshot())
+                    delay(timing.alertCheckMs)
+                }
+            }
+        }
     }
 
     /** Báo mạng vừa thay đổi: kiểm tra lại IP Tailscale và thử kết nối MQTT lại ngay. */
@@ -157,6 +171,8 @@ class NodeController(
         cameraJob = null
         locationJob?.cancel()
         locationJob = null
+        alertJob?.cancel()
+        alertJob = null
         val wrapper = mqtt
         if (wrapper != null && wrapper.state.value == MqttConnectionState.Connected) {
             wrapper.publish(statusMessage(online = false))
@@ -275,6 +291,7 @@ class NodeController(
                 launch { heartbeat(wrapper) },
                 camera?.let { cam -> launch { publishCameraChanges(wrapper, cam) } },
                 location?.let { t -> launch { publishLocationChanges(wrapper, t) } },
+                alerts?.let { a -> launch { publishAlerts(wrapper, a) } },
             )
             wrapper.subscribe(cmdTopic, Topics.QOS_COMMAND) // ghi nhớ, tự áp dụng mỗi lần kết nối
             wrapper.start()
@@ -353,6 +370,17 @@ class NodeController(
             cam.events.collect { event ->
                 wrapper.publish(
                     OutgoingMessage(Topics.event(config.deviceId), ProtocolJson.encodeEvent(event), Topics.QOS_EVENT, false),
+                )
+            }
+        }
+    }
+
+    /** Cảnh báo đã ký → topic alert (QoS 1, không retain). Mất kết nối thì bỏ (app Xem cũng bỏ cảnh báo cũ). */
+    private suspend fun publishAlerts(wrapper: MqttClientWrapper, a: AlertManager) {
+        a.outgoing.collect { alert ->
+            if (wrapper.state.value == MqttConnectionState.Connected) {
+                wrapper.publish(
+                    OutgoingMessage(Topics.alert(config.deviceId), ProtocolJson.encodeAlert(alert), Topics.QOS_ALERT, false),
                 )
             }
         }

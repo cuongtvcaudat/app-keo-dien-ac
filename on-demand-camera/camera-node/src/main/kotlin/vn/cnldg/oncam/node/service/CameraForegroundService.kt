@@ -31,10 +31,12 @@ import timber.log.Timber
 import vn.cnldg.oncam.node.broker.EmbeddedBroker
 import vn.cnldg.oncam.node.camera.CameraController
 import vn.cnldg.oncam.node.config.NodeConfigRepository
+import vn.cnldg.oncam.node.core.AlertManager
 import vn.cnldg.oncam.node.core.BrokerMode
 import vn.cnldg.oncam.node.core.LocationTracker
 import vn.cnldg.oncam.node.core.NodeController
 import vn.cnldg.oncam.node.core.RecordingStore
+import vn.cnldg.oncam.node.core.SmtpMailer
 import vn.cnldg.oncam.node.core.StreamManager
 import vn.cnldg.oncam.node.core.TailscaleIp
 import vn.cnldg.oncam.node.log.TimberLogSink
@@ -47,6 +49,7 @@ import vn.cnldg.oncam.rtc.CameraRtc
 import vn.cnldg.oncam.rtc.RtcEngine
 import vn.cnldg.oncam.shared.protocol.CameraState
 import vn.cnldg.oncam.shared.rtc.TailscaleAddress
+import vn.cnldg.oncam.shared.security.AlertAuth
 import vn.cnldg.oncam.shared.security.StreamAuth
 
 /**
@@ -213,7 +216,8 @@ class CameraForegroundService : LifecycleService() {
             }
             val cam = CameraController(applicationContext, this@CameraForegroundService, config.orientation, TimberLogSink)
             // WebRTC (Phase 7): máy không nạp được thư viện thì vẫn chạy MJPEG như bản 0.6.
-            val micAllowed = { runtime.micAccess.value && granted(Manifest.permission.RECORD_AUDIO) }
+            // Tuỳ chọn "Cho nghe/nói" tắt → coi như không có micro (xem không tiếng, clip không tiếng).
+            val micAllowed = { config.allowAudio && runtime.micAccess.value && granted(Manifest.permission.RECORD_AUDIO) }
             val engine = RtcEngine.create(applicationContext, TimberLogSink, forViewer = false)
             val cameraRtc = engine?.let {
                 CameraRtc(
@@ -226,6 +230,7 @@ class CameraForegroundService : LifecycleService() {
                 )
             }
             cameraRtc?.let { r -> cam.rawFrameSink = r::onFrame }
+            var alertsRef: AlertManager? = null
             val streams = StreamManager(
                 camera = cam,
                 auth = StreamAuth(config.secret, config.deviceId),
@@ -236,10 +241,14 @@ class CameraForegroundService : LifecycleService() {
                 log = TimberLogSink,
                 rtc = cameraRtc?.let { NodeRtc(it, micAllowed) },
                 // Video lưu trong thư mục riêng của app (không cần quyền bộ nhớ), giữ tối đa 2 GB.
-                recordings = RecordingStore(
-                    File(getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: File(filesDir, "videos"), "OnCam"),
-                ),
+                // Tuỳ chọn "Cho quay video" tắt → không quay, không canh chuyển động (app Xem ẩn 2 nút này).
+                recordings = if (config.allowRecording) {
+                    RecordingStore(File(getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: File(filesDir, "videos"), "OnCam"))
+                } else {
+                    null
+                },
                 audioAllowed = micAllowed,
+                onMotionClip = { clip -> alertsRef?.onMotion(clip) },
             )
             // Chỉ xem WebRTC → không cần nén JPEG đủ số hình/giây (giữ 1 khung/giây cho chụp ảnh): máy đỡ nóng.
             // JPEG đủ tốc độ chỉ khi có người xem MJPEG (hoặc chưa ai xem WebRTC); đang canh chuyển động mà không ai
@@ -260,6 +269,20 @@ class CameraForegroundService : LifecycleService() {
             } else {
                 null
             }
+            // Cảnh báo (0.12): qua MQTT cho app Xem + email dự phòng (nếu bật). Loại nào báo do cấu hình quyết định.
+            val mailer = config.mailAccount()?.let { SmtpMailer(it) }
+            val alertManager = AlertManager(
+                deviceId = config.deviceId,
+                auth = AlertAuth(config.secret, config.deviceId),
+                scope = work,
+                settings = { config.alertSettings },
+                cameraName = { config.displayName },
+                snapshot = streams::latestFrame,
+                mapsUrl = { tracker?.status?.value?.point?.mapsUrl() },
+                mailer = mailer?.let { m -> m::send },
+                log = TimberLogSink,
+            )
+            alertsRef = alertManager
             val c = NodeController(
                 config = config,
                 scope = work,
@@ -269,6 +292,7 @@ class CameraForegroundService : LifecycleService() {
                 log = TimberLogSink,
                 camera = streams,
                 location = tracker,
+                alerts = alertManager,
             )
             withContext(Dispatchers.Main) {
                 controller = c

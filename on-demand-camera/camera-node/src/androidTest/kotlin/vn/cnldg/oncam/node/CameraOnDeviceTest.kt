@@ -2,19 +2,24 @@ package vn.cnldg.oncam.node
 
 import android.Manifest
 import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
+import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,6 +35,7 @@ import vn.cnldg.oncam.node.camera.CameraController
 import vn.cnldg.oncam.node.core.DeviceSnapshot
 import vn.cnldg.oncam.node.core.MountOrientation
 import vn.cnldg.oncam.node.core.OpenResult
+import vn.cnldg.oncam.node.core.RecordingOutcome
 import vn.cnldg.oncam.node.core.StreamManager
 import vn.cnldg.oncam.node.mqtt.ActionOutcome
 import vn.cnldg.oncam.shared.protocol.Action
@@ -88,6 +94,57 @@ class CameraOnDeviceTest {
         val countAfterClose = frames.size
         delay(1_000)
         assertTrue(frames.size <= countAfterClose + 1, "Đã nhả camera thì không còn khung mới")
+    }
+
+    /**
+     * Quay video thật (0.10) song song với luồng xem: file MP4 đọc được, luồng xem không đứng, kênh Y vẫn tới bộ
+     * phát hiện chuyển động (0.11). Không thu tiếng (test không có quyền micro).
+     */
+    @Test
+    fun quayVideoThatSongSongVoiLuongXem() = runBlocking<Unit> {
+        val frames = AtomicInteger()
+        val luma = AtomicInteger()
+        assertIs<OpenResult.Opened>(camera.open(CameraFacing.BACK, StreamQuality.LOW) { frames.incrementAndGet() })
+        camera.setLumaSink { y, stride, w, h -> if (stride >= w && y.limit() >= stride * (h - 1) + w) luma.incrementAndGet() }
+        withTimeout(20_000) { while (frames.get() < 3) delay(100) }
+
+        val file = File(context.cacheDir, "oncam-test-${System.nanoTime()}.mp4")
+        val done = CompletableDeferred<RecordingOutcome>()
+        try {
+            assertTrue(camera.prepareRecording(), "gắn được bộ quay cạnh luồng xem")
+            assertTrue(
+                camera.startRecording(file, maxMs = 60_000, withAudio = false) { done.complete(it) },
+                "bắt đầu quay được",
+            )
+            val before = frames.get()
+            delay(4_000)
+            assertTrue(frames.get() > before, "luồng xem vẫn chạy khi đang quay")
+            assertTrue(luma.get() > 0, "kênh Y tới bộ phát hiện chuyển động")
+            camera.stopRecording()
+            val saved = assertIs<RecordingOutcome.Saved>(withTimeout(20_000) { done.await() })
+            assertFalse(saved.audio)
+            assertTrue(saved.bytes > 10_000, "file chỉ ${saved.bytes} byte")
+
+            val meta = MediaMetadataRetriever()
+            try {
+                meta.setDataSource(file.absolutePath)
+                val durationMs = assertNotNull(meta.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)).toLong()
+                val w = meta.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                val h = meta.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                assertEquals("yes", meta.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO))
+                assertTrue(durationMs >= 1_500, "clip chỉ dài $durationMs ms")
+                Log.i(
+                    "OnCamBench",
+                    "Quay thử trên Android: ${w}x$h, $durationMs ms, ${saved.bytes} byte " +
+                        "(~${saved.bytes * 8 / durationMs} kbit/s), khung xem trong lúc quay: ${frames.get() - before}",
+                )
+            } finally {
+                meta.release()
+            }
+        } finally {
+            camera.setLumaSink(null)
+            file.delete()
+        }
     }
 
     @Test

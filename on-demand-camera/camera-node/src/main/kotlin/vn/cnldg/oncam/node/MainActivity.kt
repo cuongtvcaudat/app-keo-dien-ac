@@ -86,6 +86,7 @@ private fun NodeApp(modifier: Modifier = Modifier, vm: NodeViewModel = hiltViewM
     val cameraAccess by vm.cameraAccess.collectAsStateWithLifecycle()
     val micAccess by vm.micAccess.collectAsStateWithLifecycle()
     val selfTesting by vm.selfTesting.collectAsStateWithLifecycle()
+    val emailTest by vm.emailTest.collectAsStateWithLifecycle()
     var screen by rememberSaveable { mutableStateOf(Screen.STATUS) }
 
     // Xin quyền Camera + Micro + Thông báo (spec mục 7.1 bước 3) rồi mới khởi động service.
@@ -127,6 +128,8 @@ private fun NodeApp(modifier: Modifier = Modifier, vm: NodeViewModel = hiltViewM
             initial = null,
             initialAutoStart = autoStart,
             generateSecret = vm::generateSecret,
+            emailTest = emailTest,
+            onTestEmail = vm::testEmail,
             onSave = { cfg, auto -> vm.save(cfg, auto) { screen = Screen.STATUS } },
             onCancel = null,
             modifier = modifier,
@@ -136,6 +139,8 @@ private fun NodeApp(modifier: Modifier = Modifier, vm: NodeViewModel = hiltViewM
                 initial = load.config,
                 initialAutoStart = autoStart,
                 generateSecret = vm::generateSecret,
+                emailTest = emailTest,
+                onTestEmail = vm::testEmail,
                 onSave = { cfg, auto -> vm.save(cfg, auto) { screen = Screen.STATUS } },
                 onCancel = { screen = Screen.STATUS },
                 modifier = modifier,

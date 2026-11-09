@@ -80,6 +80,15 @@ class NodeConfigRepository @Inject constructor(
             putString(KEY_ORIENTATION, config.orientation.name)
             putBoolean(KEY_SHARE_LOCATION, config.shareLocation)
             putInt(KEY_LOCATION_INTERVAL, config.locationIntervalMin)
+            putBoolean(KEY_ALLOW_RECORDING, config.allowRecording)
+            putBoolean(KEY_ALLOW_AUDIO, config.allowAudio)
+            putBoolean(KEY_ALERT_MOTION, config.alertMotion)
+            putBoolean(KEY_ALERT_POWER, config.alertPower)
+            putBoolean(KEY_ALERT_HEAT, config.alertHeat)
+            putBoolean(KEY_ALERT_EMAIL, config.alertEmail)
+            putString(KEY_EMAIL_FROM, config.emailFrom)
+            putString(KEY_EMAIL_PASSWORD, config.emailPassword)
+            putString(KEY_EMAIL_TO, config.emailTo)
         }
         _config.value = ConfigLoad.Loaded(config)
     }
@@ -111,6 +120,15 @@ class NodeConfigRepository @Inject constructor(
                 .getOrDefault(MountOrientation.UP),
             shareLocation = secure.getBoolean(KEY_SHARE_LOCATION, false),
             locationIntervalMin = secure.getInt(KEY_LOCATION_INTERVAL, 15),
+            allowRecording = secure.getBoolean(KEY_ALLOW_RECORDING, true),
+            allowAudio = secure.getBoolean(KEY_ALLOW_AUDIO, true),
+            alertMotion = secure.getBoolean(KEY_ALERT_MOTION, true),
+            alertPower = secure.getBoolean(KEY_ALERT_POWER, true),
+            alertHeat = secure.getBoolean(KEY_ALERT_HEAT, true),
+            alertEmail = secure.getBoolean(KEY_ALERT_EMAIL, false),
+            emailFrom = secure.getString(KEY_EMAIL_FROM, "").orEmpty(),
+            emailPassword = secure.getString(KEY_EMAIL_PASSWORD, "").orEmpty(),
+            emailTo = secure.getString(KEY_EMAIL_TO, "").orEmpty(),
         )
     } catch (e: Exception) {
         Timber.e(e, "Không đọc được cấu hình mã hoá")
@@ -149,6 +167,15 @@ class NodeConfigRepository @Inject constructor(
         const val KEY_ORIENTATION = "orientation"
         const val KEY_SHARE_LOCATION = "share_location"
         const val KEY_LOCATION_INTERVAL = "location_interval_min"
+        const val KEY_ALLOW_RECORDING = "allow_recording"
+        const val KEY_ALLOW_AUDIO = "allow_audio"
+        const val KEY_ALERT_MOTION = "alert_motion"
+        const val KEY_ALERT_POWER = "alert_power"
+        const val KEY_ALERT_HEAT = "alert_heat"
+        const val KEY_ALERT_EMAIL = "alert_email"
+        const val KEY_EMAIL_FROM = "email_from"
+        const val KEY_EMAIL_PASSWORD = "email_password"
+        const val KEY_EMAIL_TO = "email_to"
         const val KEY_AUTO_START = "auto_start"
         const val KEY_NODE_ENABLED = "node_enabled"
     }

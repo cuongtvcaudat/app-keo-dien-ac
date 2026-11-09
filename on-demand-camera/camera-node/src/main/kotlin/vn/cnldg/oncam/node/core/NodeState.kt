@@ -11,6 +11,8 @@ data class DeviceSnapshot(
     val charging: Boolean? = null,
     val temperatureC: Double? = null,
     val network: NetworkType? = null,
+    /** Đang cắm nguồn (sạc/USB), kể cả khi đã đầy hoặc "Bảo vệ pin" ngừng sạc; null = không đọc được. */
+    val plugged: Boolean? = null,
 )
 
 /** Nguồn đọc [DeviceSnapshot] (Android: BatteryManager + ConnectivityManager). */

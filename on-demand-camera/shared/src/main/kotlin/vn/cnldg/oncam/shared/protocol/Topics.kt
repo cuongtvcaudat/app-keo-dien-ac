@@ -3,7 +3,7 @@ package vn.cnldg.oncam.shared.protocol
 /**
  * Tên topic MQTT và mức QoS dùng trong OnCam.
  *
- * Cấu trúc: `camera/{deviceId}/cmd | status | event`.
+ * Cấu trúc: `camera/{deviceId}/cmd | status | event | alert`.
  */
 object Topics {
     const val ROOT: String = "camera"
@@ -24,6 +24,9 @@ object Topics {
     /** QoS 0 cho sự kiện: nhẹ, không retain; trạng thái thật luôn nằm ở topic status. */
     const val QOS_EVENT: Int = 0
 
+    /** QoS 1 cho cảnh báo (0.12): không retain, nhưng không để rơi khi mạng chập chờn. */
+    const val QOS_ALERT: Int = 1
+
     /** QoS 1 cho LWT để viewer chắc chắn nhận được thông báo offline. */
     const val QOS_WILL: Int = 1
 
@@ -35,6 +38,9 @@ object Topics {
 
     /** Topic sự kiện của một camera. */
     fun event(deviceId: String): String = build(deviceId, Kind.EVENT)
+
+    /** Topic cảnh báo của một camera. */
+    fun alert(deviceId: String): String = build(deviceId, Kind.ALERT)
 
     /** Phân tích topic thành (deviceId, loại). Trả về null nếu không đúng cấu trúc OnCam. */
     fun parse(topic: String): Parsed? {
@@ -54,6 +60,7 @@ object Topics {
         COMMAND("cmd"),
         STATUS("status"),
         EVENT("event"),
+        ALERT("alert"),
     }
 
     /** Kết quả [parse]. */

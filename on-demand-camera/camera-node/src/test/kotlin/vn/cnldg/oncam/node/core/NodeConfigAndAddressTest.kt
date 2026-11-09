@@ -74,7 +74,7 @@ class NodeConfigAndAddressTest {
         assertEquals("false", props.getProperty("persistence_enabled"))
         assertEquals("disabled", props.getProperty("websocket_port"))
         assertEquals("100.101.102.103", props.getProperty("host"))
-        assertEquals("65536", props.getProperty("netty.mqtt.message_size"), "SDP WebRTC dài hơn mức mặc định 8 092 byte")
+        assertEquals("524288", props.getProperty("netty.mqtt.message_size"), "SDP WebRTC + cảnh báo kèm ảnh dài hơn mức mặc định 8 092 byte")
     }
 
     private fun ip(a: Int, b: Int, c: Int, d: Int) = byteArrayOf(a.toByte(), b.toByte(), c.toByte(), d.toByte())

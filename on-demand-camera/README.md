@@ -37,6 +37,7 @@ Kiến trúc: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 7+ | Tối ưu máy camera (JPEG chỉ khi cần, ưu tiên nén phần cứng, chuyển màu nhanh 4,3 lần trên ART); hiện chuẩn nén + kbit/s thật; **vị trí máy camera trên Google Maps** (giữ vị trí cuối khi camera offline) | 🧪 đã qua test, chờ thử trên máy thật |
 | 8.1 | **Quay video** trên máy camera (HD, tối đa 10 phút/clip, giữ 2 GB), tự chép về Thư viện máy xem qua Tailscale | 🧪 đã qua test, chờ thử trên máy thật |
 | 8.2 | **Canh chuyển động**: có người/xe là máy camera tự quay clip (30 s sau khi hết chuyển động, ≤ 2 phút/clip), lọc đổi ánh sáng, 3 mức độ nhạy, tự chép về máy xem | 🧪 đã qua test, chờ thử trên máy thật |
+| 8.3 | **Cảnh báo tức thì kèm ảnh** (chuyển động, mất điện, pin yếu, quá nóng) qua app Xem (Tailscale, chạy nền) + **email dự phòng**; **tuỳ chọn bật/tắt từng chức năng** trên cả 2 app | 🧪 đã qua test, chờ thử trên máy thật |
 
 ## Cấu trúc
 

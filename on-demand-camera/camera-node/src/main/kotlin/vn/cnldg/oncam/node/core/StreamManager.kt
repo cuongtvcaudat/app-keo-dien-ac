@@ -66,6 +66,7 @@ import vn.cnldg.oncam.shared.security.StreamAuth
  *   MOTION_ARMED), [MotionDetector] xem kênh Y; có chuyển động → quay clip, dừng sau [Settings.motionClipMs] kể từ
  *   lần chuyển động cuối (tối đa [Settings.motionMaxClipSec] giây/clip, còn chuyển động thì quay clip tiếp).
  *   Camera bị tắt vì lý do khác (quá nhiệt, lỗi, nút trên máy camera) → tự tắt canh, báo MOTION_STOPPED.
+ *   Mỗi clip do chuyển động bắt đầu → gọi [onMotionClip] (tên file) để gửi cảnh báo.
  */
 class StreamManager(
     private val camera: CameraPort,
@@ -80,6 +81,7 @@ class StreamManager(
     private val rtc: RtcPort? = null,
     private val recordings: RecordingStore? = null,
     private val audioAllowed: () -> Boolean = { rtc?.micReady() == true },
+    private val onMotionClip: (String?) -> Unit = {},
 ) : CameraSession {
 
     /**
@@ -439,8 +441,12 @@ class StreamManager(
                         _status.update { it.copy(motion = it.motion.copy(lastMotionAt = nowSec)) }
                     }
                     if (!recording) {
-                        motionClip = startRecordingLocked(CommandParams(maxSeconds = settings.motionMaxClipSec)) is ActionOutcome.Done
-                        if (motionClip) log.log(LogSink.Level.INFO, "Có chuyển động → quay clip", null)
+                        val started = startRecordingLocked(CommandParams(maxSeconds = settings.motionMaxClipSec))
+                        motionClip = started is ActionOutcome.Done
+                        if (started is ActionOutcome.Done) {
+                            log.log(LogSink.Level.INFO, "Có chuyển động → quay clip", null)
+                            onMotionClip(started.message) // cảnh báo (0.12): AlertManager tự giới hạn tần suất
+                        }
                     }
                 } else if (motionClip && recording && monoMs() - lastMotionMs >= settings.motionClipMs) {
                     stopRecordingLocked()

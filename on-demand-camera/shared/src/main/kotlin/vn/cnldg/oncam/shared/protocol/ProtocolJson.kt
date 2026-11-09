@@ -35,6 +35,12 @@ object ProtocolJson {
     /** JSON → sự kiện, null nếu không đọc được. */
     fun decodeEvent(text: String): DeviceEvent? = decode { json.decodeFromString(DeviceEvent.serializer(), text) }
 
+    /** Cảnh báo → JSON. */
+    fun encodeAlert(alert: DeviceAlert): String = json.encodeToString(DeviceAlert.serializer(), alert)
+
+    /** JSON → cảnh báo, null nếu không đọc được (vd. loại cảnh báo mới mà bản này chưa biết). */
+    fun decodeAlert(text: String): DeviceAlert? = decode { json.decodeFromString(DeviceAlert.serializer(), text) }
+
     /** Danh sách clip → JSON. */
     fun encodeRecordings(list: List<RecordingInfo>): String =
         json.encodeToString(kotlinx.serialization.builtins.ListSerializer(RecordingInfo.serializer()), list)
@@ -43,7 +49,7 @@ object ProtocolJson {
     fun decodeRecordings(text: String): List<RecordingInfo>? =
         decode { json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(RecordingInfo.serializer()), text) }
 
-        /**
+    /**
      * Mã lệnh trong một payload không đọc được thành [Command] (vd. lệnh mới mà bản này chưa biết):
      * để trả MALFORMED kèm đúng mã, app Xem khỏi chờ tới hết giờ.
      */
