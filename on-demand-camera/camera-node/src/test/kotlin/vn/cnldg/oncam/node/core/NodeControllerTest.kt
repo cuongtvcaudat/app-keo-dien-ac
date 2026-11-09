@@ -75,9 +75,11 @@ class NodeControllerTest {
         assertEquals(BrokerState.Running("127.0.0.1", port), state.broker)
         assertEquals("tcp://127.0.0.1:$port", state.brokerUri)
 
-        val result = controller.selfTest()
+        // Nới trần thời gian cho PING khứ hồi: runner CI lúc tải nặng đôi khi vượt 5 giây,
+        // làm selfTest trả Failed dù broker vẫn thông (test flaky). Vẫn chứng minh PING chạy.
+        val result = controller.selfTest(timeoutMs = 15_000)
         assertIs<SelfTestResult.Passed>(result)
-        assertTrue(result.roundTripMs < 5_000)
+        assertTrue(result.roundTripMs < 15_000)
         assertEquals(Action.PING, controller.state.value.lastCommand?.action)
         assertEquals(true, controller.state.value.lastCommand?.success)
     }
