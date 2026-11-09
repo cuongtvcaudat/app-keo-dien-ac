@@ -69,10 +69,31 @@ jobs:
           make libtailscale
           ls -lh android/libs/libtailscale.aar
 
-      - name: Upload libtailscale.aar
+      - name: Trích API Java của AAR (để viết glue cho đúng chữ ký)
+        working-directory: tailscale-android
+        run: |
+          set -eux
+          cd android/libs
+          mkdir -p aar_x && (cd aar_x && unzip -o ../libtailscale.aar >/dev/null)
+          ls -R aar_x | head -40
+          mkdir -p cj && (cd cj && unzip -o ../aar_x/classes.jar >/dev/null)
+          # Liệt kê mọi lớp + chữ ký public (API mà Kotlin sẽ gọi).
+          : > ../../../libtailscale-api.txt
+          find cj -name '*.class' | sed 's#cj/##;s#/#.#g;s#\.class$##' | sort > ../../../libtailscale-classes.txt
+          while read -r cls; do
+            echo "==== $cls ====" >> ../../../libtailscale-api.txt
+            javap -classpath cj -public "$cls" >> ../../../libtailscale-api.txt 2>/dev/null || true
+          done < ../../../libtailscale-classes.txt
+          echo "=== Tổng số lớp ==="; wc -l ../../../libtailscale-classes.txt
+          echo "=== Các lớp libtailscale ==="; grep -i 'libtailscale\|tailscale' ../../../libtailscale-classes.txt | head -60 || true
+
+      - name: Upload libtailscale.aar + API
         uses: actions/upload-artifact@v4
         with:
           name: libtailscale-aar
-          path: tailscale-android/android/libs/libtailscale.aar
+          path: |
+            tailscale-android/android/libs/libtailscale.aar
+            libtailscale-api.txt
+            libtailscale-classes.txt
           if-no-files-found: error
           retention-days: 14

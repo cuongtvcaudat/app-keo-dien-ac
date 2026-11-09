@@ -117,3 +117,30 @@ Code lõi 2 app **không phải viết lại**, chỉ đổi cách đóng gói.
 
 Mỗi bước 1 commit, CI phải xanh; bước 2 và 4 chờ anh xác nhận chạy được trên máy
 thật rồi mới đi tiếp.
+
+## 9. Phụ lục — API thật của libtailscale.aar (khảo sát 2026-11-09)
+
+Đã xác nhận **CI dựng được `libtailscale.aar`** (workflow `oncam-tailscale-aar.yml`,
+tag tailscale-android `1.104.5`, BSD-3-Clause). API mà AAR phơi ra (gói Go
+`libtailscale`) cho thấy nhúng = **đóng vai app Tailscale**, không phải gọi 1 hàm:
+
+| Thành phần | Bên nào viết | Nội dung |
+|---|---|---|
+| `Start(dataDir, directFileRoot, hwAttestationPref, appCtx) Application` | gọi | Điểm vào; trả về `Application` để điều khiển |
+| `AppContext` (~30 hàm) | **OnCam tự viết** | Log, `EncryptToPref/DecryptFromPref`, `GetOSVersion/SDKInt/DeviceName`, `GetInterfacesAsJson`, `GetSyspolicy*`, `BindSocketToNetwork(fd)`, `GetUserCACertsPEM`, hardware-attestation… |
+| `IPNService` | **OnCam tự viết** | Bọc `VpnService`: `Protect(fd)`, `NewBuilder()`, `DisconnectVPN()`, `UpdateVpnStatus()` |
+| `VPNServiceBuilder` | **OnCam tự viết** | Bọc `VpnService.Builder`: `SetMTU/AddDNSServer/AddRoute/AddAddress/Establish()` |
+| `ParcelFileDescriptor` | **OnCam tự viết** | `Detach()` lấy fd tun |
+| Đăng nhập auth key | gọi | `Application.CallLocalAPI(..., "/localapi/v0/prefs")` + login (LocalAPI HTTP nội bộ) |
+| Trạng thái | gọi | `WatchNotifications(mask, cb)` → biết `NeedsLogin` / `Running` |
+| `RequestVPN(service)` / `ServiceDisconnect(service)` | gọi | Go yêu cầu lập/huỷ VPN |
+
+**Hệ quả cập nhật kế hoạch:**
+- Bước 2 (lớp `OncamVpn`) thực chất là **port lớp VPN của tailscale-android**
+  (`App.kt`, `IPNService.kt`, `VpnServiceBuilder`, client LocalAPI) vào OnCam —
+  nhiều trăm dòng, **chỉ xác nhận đúng trên máy thật**.
+- Thêm bước **1b**: in API Java của AAR (javap) để viết glue đúng chữ ký. Và cân
+  nhắc tham khảo trực tiếp các file Kotlin tương ứng trong tailscale-android
+  (cùng BSD-3-Clause) thay vì viết lại từ đầu.
+- Khi wiring vào app: để build chính không phụ thuộc AAR cho tới khi glue xong,
+  module `:vpn` tạm **compile trong workflow AAR riêng**, chưa `include` vào app.
