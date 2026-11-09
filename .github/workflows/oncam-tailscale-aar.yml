@@ -49,9 +49,9 @@ jobs:
           path: oncam
           fetch-depth: 1
 
-      - name: Cache libtailscale.aar (khỏi dựng lại mỗi lần)
+      - name: Khôi phục cache libtailscale.aar (khỏi dựng lại mỗi lần)
         id: aarcache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: tailscale-android/android/libs/libtailscale.aar
           key: libtailscale-aar-${{ env.TS_ANDROID_REF }}-ndk${{ env.NDK_VERSION }}
@@ -76,6 +76,13 @@ jobs:
           set -eux
           make libtailscale
           ls -lh android/libs/libtailscale.aar
+
+      - name: Lưu cache libtailscale.aar (ngay sau khi dựng)
+        if: steps.aarcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: tailscale-android/android/libs/libtailscale.aar
+          key: libtailscale-aar-${{ env.TS_ANDROID_REF }}-ndk${{ env.NDK_VERSION }}
 
       - name: Dựng APK thử (:app) có nhúng Tailscale
         run: |

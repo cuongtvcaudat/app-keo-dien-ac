@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
 import android.text.InputType
-import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
@@ -66,7 +65,6 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
             )
-            setGravity(Gravity.TOP)
             addView(root)
         }
         setContentView(scroll)
