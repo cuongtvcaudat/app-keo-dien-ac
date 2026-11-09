@@ -51,7 +51,8 @@ jobs:
       - name: Cài đúng Android NDK ${{ env.NDK_VERSION }}
         run: |
           set -eux
-          yes | sdkmanager --install "ndk;${NDK_VERSION}" >/dev/null
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --install "ndk;${NDK_VERSION}" >/dev/null
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
           # Makefile chọn "ndk cao nhất" dưới ANDROID_HOME → gỡ các NDK khác để nó chọn đúng 23.
           for d in "${ANDROID_HOME}/ndk/"*; do
