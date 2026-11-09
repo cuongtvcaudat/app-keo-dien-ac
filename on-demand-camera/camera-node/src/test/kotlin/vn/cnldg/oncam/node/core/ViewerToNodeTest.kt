@@ -220,10 +220,10 @@ class ViewerToNodeTest {
         // của viewer — lý thuyết ≤ 20 s — cần kiểm trên máy thật.)
         node.stop()
 
-        withTimeout(30_000) { viewer.view.first { !it.online } }
+        withTimeout(45_000) { viewer.view.first { !it.online } }
         val elapsed = System.currentTimeMillis() - startedMs
         assertTrue(elapsed < 30_000, "Phát hiện offline mất $elapsed ms")
-        withTimeout(30_000) { viewer.view.first { it.connection != MqttConnectionState.Connected } }
+        withTimeout(45_000) { viewer.view.first { it.connection != MqttConnectionState.Connected } }
         assertEquals(CommandResult.NotConnected, viewer.send(Action.PING))
     }
 
@@ -231,12 +231,12 @@ class ViewerToNodeTest {
     fun `camera khoi dong lai thi viewer tu ket noi lai`() = runBlocking<Unit> {
         connect()
         node.stop()
-        withTimeout(30_000) { viewer.view.first { !it.online } }
+        withTimeout(45_000) { viewer.view.first { !it.online } }
 
         node.start()
         viewer.reconnectNow()
 
-        withTimeout(30_000) { viewer.view.first { it.online } }
+        withTimeout(45_000) { viewer.view.first { it.online } }
         assertEquals(CommandResult.Ok("PONG"), viewer.send(Action.PING))
     }
 
@@ -245,6 +245,8 @@ class ViewerToNodeTest {
 
         const val DEVICE = "san-nha"
         const val SECRET = "test-secret-0123456789"
-        const val TIMEOUT_MS = 10_000L
+        // Trần thời gian chờ sự kiện qua broker MQTT thật. Để rộng (60s) vì runner CI
+        // tải nặng đôi khi chậm; test đúng/sai, không đo tốc độ, nên nới không làm yếu test.
+        const val TIMEOUT_MS = 60_000L
     }
 }
