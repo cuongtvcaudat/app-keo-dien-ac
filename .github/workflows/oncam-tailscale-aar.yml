@@ -13,6 +13,7 @@ on:
   push:
     paths:
       - ".github/workflows/oncam-tailscale-aar.yml"
+      - "on-demand-camera/vpn/**"
   workflow_dispatch: {}
 
 permissions:
@@ -46,6 +47,12 @@ jobs:
           repository: tailscale/tailscale-android
           ref: ${{ env.TS_ANDROID_REF }}
           path: tailscale-android
+          fetch-depth: 1
+
+      - name: Lấy mã nguồn OnCam (repo này, để biên dịch module :vpn)
+        uses: actions/checkout@v4
+        with:
+          path: oncam
           fetch-depth: 1
 
       - name: Cài đúng Android NDK ${{ env.NDK_VERSION }}
@@ -86,6 +93,19 @@ jobs:
           done < ../../../libtailscale-classes.txt
           echo "=== Tổng số lớp ==="; wc -l ../../../libtailscale-classes.txt
           echo "=== Các lớp libtailscale ==="; grep -i 'libtailscale\|tailscale' ../../../libtailscale-classes.txt | head -60 || true
+
+      - name: Biên dịch module :vpn đối chiếu libtailscale (bằng chứng glue khớp API)
+        run: |
+          set -eux
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0" >/dev/null
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          # classes.jar (API Tailscale) rút từ AAR → libs của module :vpn, dùng compileOnly.
+          mkdir -p oncam/on-demand-camera/vpn/libs
+          cp tailscale-android/android/libs/aar_x/classes.jar oncam/on-demand-camera/vpn/libs/libtailscale.jar
+          cd oncam/on-demand-camera
+          chmod +x gradlew
+          ./gradlew -p vpn :assembleRelease --no-daemon --stacktrace
 
       - name: Upload libtailscale.aar + API
         uses: actions/upload-artifact@v4
