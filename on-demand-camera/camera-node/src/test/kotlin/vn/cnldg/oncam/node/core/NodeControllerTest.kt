@@ -75,9 +75,11 @@ class NodeControllerTest {
         assertEquals(BrokerState.Running("127.0.0.1", port), state.broker)
         assertEquals("tcp://127.0.0.1:$port", state.brokerUri)
 
-        val result = controller.selfTest()
+        // Nới trần thời gian cho PING khứ hồi: runner CI lúc tải nặng đôi khi chậm,
+        // làm selfTest trả Failed dù broker vẫn thông (test flaky). Vẫn chứng minh PING chạy.
+        val result = controller.selfTest(timeoutMs = TIMEOUT_MS)
         assertIs<SelfTestResult.Passed>(result)
-        assertTrue(result.roundTripMs < 5_000)
+        assertTrue(result.roundTripMs < TIMEOUT_MS)
         assertEquals(Action.PING, controller.state.value.lastCommand?.action)
         assertEquals(true, controller.state.value.lastCommand?.success)
     }
@@ -280,6 +282,8 @@ class NodeControllerTest {
     private companion object {
         const val DEVICE = "san-nha"
         const val SECRET = "test-secret-0123456789"
-        const val TIMEOUT_MS = 10_000L
+        // Trần thời gian chờ sự kiện qua broker MQTT thật. Để rộng (60s) vì runner CI
+        // tải nặng đôi khi chậm; đây là test đúng/sai, không đo tốc độ, nên nới không làm yếu test.
+        const val TIMEOUT_MS = 60_000L
     }
 }

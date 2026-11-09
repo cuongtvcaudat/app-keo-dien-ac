@@ -1,0 +1,138 @@
+# Bước 1 — nhúng VPN: dựng libtailscale.aar + APK THỬ (OnCam VPN Test) để kiểm trên máy thật.
+#
+# Tách riêng workflow build chính (oncam-android.yml) → app 0.11 không bị ảnh hưởng.
+# Luồng: dựng libtailscale.aar (BSD-3, cache theo tag) → dựng APK thử (:app) → đăng Release
+# `oncam-vpn-test` để tải thẳng .apk về điện thoại.
+name: OnCam VPN (libtailscale.aar + APK thử)
+
+on:
+  push:
+    paths:
+      - ".github/workflows/oncam-tailscale-aar.yml"
+      - "on-demand-camera/vpn/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+env:
+  TS_ANDROID_REF: "1.104.5-t788384763-gd8673104f"
+  NDK_VERSION: "23.1.7779620"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Cài JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cài Go (cho gomobile)
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Lấy mã nguồn tailscale-android (ghim tag)
+        uses: actions/checkout@v4
+        with:
+          repository: tailscale/tailscale-android
+          ref: ${{ env.TS_ANDROID_REF }}
+          path: tailscale-android
+          fetch-depth: 1
+
+      - name: Lấy mã nguồn OnCam (repo này)
+        uses: actions/checkout@v4
+        with:
+          path: oncam
+          fetch-depth: 1
+
+      - name: Khôi phục cache libtailscale.aar (khỏi dựng lại mỗi lần)
+        id: aarcache
+        uses: actions/cache/restore@v4
+        with:
+          path: tailscale-android/android/libs/libtailscale.aar
+          key: libtailscale-aar-${{ env.TS_ANDROID_REF }}-ndk${{ env.NDK_VERSION }}
+
+      - name: Cài NDK ${{ env.NDK_VERSION }} (chỉ khi phải dựng AAR)
+        if: steps.aarcache.outputs.cache-hit != 'true'
+        run: |
+          set -eux
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --install "ndk;${NDK_VERSION}" >/dev/null
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          for d in "${ANDROID_HOME}/ndk/"*; do
+            case "$d" in */${NDK_VERSION}) : ;; *) rm -rf "$d" ;; esac
+          done
+
+      - name: Dựng libtailscale.aar (make libtailscale)
+        if: steps.aarcache.outputs.cache-hit != 'true'
+        working-directory: tailscale-android
+        env:
+          GOTOOLCHAIN: auto
+        run: |
+          set -eux
+          make libtailscale
+          ls -lh android/libs/libtailscale.aar
+
+      - name: Lưu cache libtailscale.aar (ngay sau khi dựng)
+        if: steps.aarcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: tailscale-android/android/libs/libtailscale.aar
+          key: libtailscale-aar-${{ env.TS_ANDROID_REF }}-ndk${{ env.NDK_VERSION }}
+
+      - name: Dựng APK thử (:app) có nhúng Tailscale
+        run: |
+          set -eux
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0" >/dev/null
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          mkdir -p oncam/on-demand-camera/vpn/libs
+          cp tailscale-android/android/libs/libtailscale.aar oncam/on-demand-camera/vpn/libs/libtailscale.aar
+          cd oncam/on-demand-camera
+          chmod +x gradlew
+          ./gradlew -p vpn :app:assembleDebug --no-daemon
+          cp vpn/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/OnCam-VPN-Test.apk"
+          ( cd "$GITHUB_WORKSPACE" && sha256sum OnCam-VPN-Test.apk > SHA256SUMS.txt )
+
+      - name: Upload APK thử (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: oncam-vpn-test-apk
+          path: |
+            OnCam-VPN-Test.apk
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Đăng Release oncam-vpn-test (tải thẳng .apk)
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: oncam-vpn-test
+        run: |
+          set -eux
+          short="${GITHUB_SHA::7}"
+          {
+            echo "APK THỬ nhúng Tailscale (không phải app OnCam thật) — commit $short, $(date -u +'%Y-%m-%d %H:%M UTC')."
+            echo
+            echo "Cách thử: cài **OnCam-VPN-Test.apk** → mở app → dán Tailscale auth key → **Kết nối**"
+            echo "→ cho phép VPN → mở Tailscale admin console (Machines) xem thiết bị có join không."
+            echo
+            echo "SHA-256:"; echo '```'; cat SHA256SUMS.txt; echo '```'
+          } > notes.md
+          for i in 1 2 3 4; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release delete "$TAG" --yes --cleanup-tag || { sleep $((i * 10)); continue; }
+            fi
+            if gh release create "$TAG" OnCam-VPN-Test.apk SHA256SUMS.txt \
+              --target "$GITHUB_SHA" --title "OnCam VPN Test (APK thử)" --notes-file notes.md --prerelease; then
+              exit 0
+            fi
+            sleep $((i * 10))
+          done
+          echo "::error::Không đăng được release sau 4 lần thử"; exit 1

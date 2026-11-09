@@ -1,0 +1,14 @@
+Module :vpn của OnCam nhúng Tailscale.
+
+Một phần mã nguồn (lớp bọc VpnService.Builder và các hook AppContext) được phỏng
+theo dự án tailscale-android:
+
+  https://github.com/tailscale/tailscale-android
+  Copyright (c) Tailscale Inc & AUTHORS
+  Giấy phép: BSD-3-Clause
+
+Thư viện libtailscale.aar dựng từ cùng dự án (tag ghim trong
+.github/workflows/oncam-tailscale-aar.yml) cũng theo BSD-3-Clause.
+
+Nghĩa vụ BSD-3: giữ lại thông báo bản quyền và giấy phép này; không dùng tên
+Tailscale/các tác giả để quảng bá nếu chưa được phép.
