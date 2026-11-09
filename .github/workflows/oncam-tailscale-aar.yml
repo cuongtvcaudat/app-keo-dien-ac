@@ -1,13 +1,9 @@
-# Bước 1 (thử nghiệm) — dựng libtailscale.aar để sau này nhúng VPN vào OnCam.
+# Bước 1 — nhúng VPN: dựng libtailscale.aar + APK THỬ (OnCam VPN Test) để kiểm trên máy thật.
 #
-# Workflow NÀY TÁCH RIÊNG workflow build chính (oncam-android.yml): nó chỉ chạy khi
-# đụng vào chính file này, nên build app đang xanh không bị ảnh hưởng. Mục tiêu duy nhất:
-# xác nhận CI có dựng được AAR Tailscale (gomobile + NDK) hay không, rồi upload làm artifact.
-#
-# AAR dựng từ repo tailscale/tailscale-android (giấy phép BSD-3-Clause), ghim tag cố định.
-# Tham chiếu: Makefile target `libtailscale` chạy gomobile bind -target android -androidapi 26
-# trên gói ./libtailscale, cần Go (pinned qua ./tool/go) + Android NDK.
-name: OnCam build libtailscale.aar (thử nghiệm bước 1)
+# Tách riêng workflow build chính (oncam-android.yml) → app 0.11 không bị ảnh hưởng.
+# Luồng: dựng libtailscale.aar (BSD-3, cache theo tag) → dựng APK thử (:app) → đăng Release
+# `oncam-vpn-test` để tải thẳng .apk về điện thoại.
+name: OnCam VPN (libtailscale.aar + APK thử)
 
 on:
   push:
@@ -17,16 +13,14 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
 
 env:
-  # Ghim phiên bản tailscale-android (BSD-3-Clause). Đổi tại đây khi nâng cấp.
   TS_ANDROID_REF: "1.104.5-t788384763-gd8673104f"
-  # NDK mà Makefile của tailscale-android dùng (linker flags đặc thù NDK 23).
   NDK_VERSION: "23.1.7779620"
 
 jobs:
-  build-aar:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -36,7 +30,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Cài Go (để gomobile chạy; tailscale tự tải toolchain đúng qua GOTOOLCHAIN)
+      - name: Cài Go (cho gomobile)
         uses: actions/setup-go@v5
         with:
           go-version: "1.24"
@@ -49,25 +43,32 @@ jobs:
           path: tailscale-android
           fetch-depth: 1
 
-      - name: Lấy mã nguồn OnCam (repo này, để biên dịch module :vpn)
+      - name: Lấy mã nguồn OnCam (repo này)
         uses: actions/checkout@v4
         with:
           path: oncam
           fetch-depth: 1
 
-      - name: Cài đúng Android NDK ${{ env.NDK_VERSION }}
+      - name: Cache libtailscale.aar (khỏi dựng lại mỗi lần)
+        id: aarcache
+        uses: actions/cache@v4
+        with:
+          path: tailscale-android/android/libs/libtailscale.aar
+          key: libtailscale-aar-${{ env.TS_ANDROID_REF }}-ndk${{ env.NDK_VERSION }}
+
+      - name: Cài NDK ${{ env.NDK_VERSION }} (chỉ khi phải dựng AAR)
+        if: steps.aarcache.outputs.cache-hit != 'true'
         run: |
           set -eux
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --install "ndk;${NDK_VERSION}" >/dev/null
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
-          # Makefile chọn "ndk cao nhất" dưới ANDROID_HOME → gỡ các NDK khác để nó chọn đúng 23.
           for d in "${ANDROID_HOME}/ndk/"*; do
             case "$d" in */${NDK_VERSION}) : ;; *) rm -rf "$d" ;; esac
           done
-          ls -1 "${ANDROID_HOME}/ndk"
 
       - name: Dựng libtailscale.aar (make libtailscale)
+        if: steps.aarcache.outputs.cache-hit != 'true'
         working-directory: tailscale-android
         env:
           GOTOOLCHAIN: auto
@@ -76,44 +77,55 @@ jobs:
           make libtailscale
           ls -lh android/libs/libtailscale.aar
 
-      - name: Trích API Java của AAR (để viết glue cho đúng chữ ký)
-        working-directory: tailscale-android
-        run: |
-          set -eux
-          cd android/libs
-          mkdir -p aar_x && (cd aar_x && unzip -o ../libtailscale.aar >/dev/null)
-          ls -R aar_x | head -40
-          mkdir -p cj && (cd cj && unzip -o ../aar_x/classes.jar >/dev/null)
-          # Liệt kê mọi lớp + chữ ký public (API mà Kotlin sẽ gọi).
-          : > ../../../libtailscale-api.txt
-          find cj -name '*.class' | sed 's#cj/##;s#/#.#g;s#\.class$##' | sort > ../../../libtailscale-classes.txt
-          while read -r cls; do
-            echo "==== $cls ====" >> ../../../libtailscale-api.txt
-            javap -classpath cj -public "$cls" >> ../../../libtailscale-api.txt 2>/dev/null || true
-          done < ../../../libtailscale-classes.txt
-          echo "=== Tổng số lớp ==="; wc -l ../../../libtailscale-classes.txt
-          echo "=== Các lớp libtailscale ==="; grep -i 'libtailscale\|tailscale' ../../../libtailscale-classes.txt | head -60 || true
-
-      - name: Biên dịch module :vpn đối chiếu libtailscale (bằng chứng glue khớp API)
+      - name: Dựng APK thử (:app) có nhúng Tailscale
         run: |
           set -eux
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0" >/dev/null
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          # classes.jar (API Tailscale) rút từ AAR → libs của module :vpn, dùng compileOnly.
           mkdir -p oncam/on-demand-camera/vpn/libs
-          cp tailscale-android/android/libs/aar_x/classes.jar oncam/on-demand-camera/vpn/libs/libtailscale.jar
+          cp tailscale-android/android/libs/libtailscale.aar oncam/on-demand-camera/vpn/libs/libtailscale.aar
           cd oncam/on-demand-camera
           chmod +x gradlew
-          ./gradlew -p vpn :assembleRelease --no-daemon
+          ./gradlew -p vpn :app:assembleDebug --no-daemon
+          cp vpn/app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/OnCam-VPN-Test.apk"
+          ( cd "$GITHUB_WORKSPACE" && sha256sum OnCam-VPN-Test.apk > SHA256SUMS.txt )
 
-      - name: Upload libtailscale.aar + API
+      - name: Upload APK thử (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: libtailscale-aar
+          name: oncam-vpn-test-apk
           path: |
-            tailscale-android/android/libs/libtailscale.aar
-            libtailscale-api.txt
-            libtailscale-classes.txt
+            OnCam-VPN-Test.apk
+            SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
+
+      - name: Đăng Release oncam-vpn-test (tải thẳng .apk)
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: oncam-vpn-test
+        run: |
+          set -eux
+          short="${GITHUB_SHA::7}"
+          {
+            echo "APK THỬ nhúng Tailscale (không phải app OnCam thật) — commit $short, $(date -u +'%Y-%m-%d %H:%M UTC')."
+            echo
+            echo "Cách thử: cài **OnCam-VPN-Test.apk** → mở app → dán Tailscale auth key → **Kết nối**"
+            echo "→ cho phép VPN → mở Tailscale admin console (Machines) xem thiết bị có join không."
+            echo
+            echo "SHA-256:"; echo '```'; cat SHA256SUMS.txt; echo '```'
+          } > notes.md
+          for i in 1 2 3 4; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release delete "$TAG" --yes --cleanup-tag || { sleep $((i * 10)); continue; }
+            fi
+            if gh release create "$TAG" OnCam-VPN-Test.apk SHA256SUMS.txt \
+              --target "$GITHUB_SHA" --title "OnCam VPN Test (APK thử)" --notes-file notes.md --prerelease; then
+              exit 0
+            fi
+            sleep $((i * 10))
+          done
+          echo "::error::Không đăng được release sau 4 lần thử"; exit 1
