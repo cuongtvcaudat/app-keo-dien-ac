@@ -26,3 +26,5 @@ include(":shared")
 include(":rtc")
 include(":camera-node")
 include(":viewer")
+// App gộp (0.13): 1 APK, mở lên chọn vai trò Camera / Máy xem. camera-node và viewer giờ là thư viện.
+include(":app")

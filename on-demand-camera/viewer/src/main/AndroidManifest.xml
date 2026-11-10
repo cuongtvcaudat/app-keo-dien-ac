@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Thư viện vai trò MÁY XEM: quyền + service/receiver/activity trộn vào app gộp :app. Không khai báo Application/launcher.
+     networkSecurityConfig (cho phép HTTP tới IP Tailscale) đặt ở :app vì là thuộc tính cấp ứng dụng. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
@@ -32,29 +34,13 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
-    <!--
-      networkSecurityConfig: cho phép HTTP không mã hoá tới camera (http://100.x.y.z:8080).
-      Đường truyền đã được Tailscale (WireGuard) mã hoá ở tầng mạng; luồng video còn bắt buộc header xác thực.
-    -->
-    <application
-        android:name=".ViewerApp"
-        android:allowBackup="false"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:networkSecurityConfig="@xml/network_security_config"
-        android:roundIcon="@mipmap/ic_launcher"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.OnCamViewer">
+    <application>
 
+        <!-- Giao diện vai trò Máy xem; mở từ RootActivity của app gộp (không phải launcher). -->
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTask">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:exported="false"
+            android:launchMode="singleTask" />
 
         <service
             android:name=".alert.AlertWatchService"

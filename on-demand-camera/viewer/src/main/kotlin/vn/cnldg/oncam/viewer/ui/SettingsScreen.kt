@@ -23,11 +23,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
-import vn.cnldg.oncam.viewer.BuildConfig
 import vn.cnldg.oncam.viewer.R
 
 /** Các công tắc cảnh báo của máy xem. */
@@ -156,7 +156,11 @@ fun SettingsScreen(
             }
         }
 
-        Text(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall)
+        val context = LocalContext.current
+        val versionName = remember {
+            runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: ""
+        }
+        Text(stringResource(R.string.settings_version, versionName), style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = onBack) { Text(stringResource(R.string.action_back)) }
     }
 }

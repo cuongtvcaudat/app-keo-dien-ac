@@ -1,24 +1,22 @@
 #!/usr/bin/env bash
-# Chạy thử APK release trên emulator: cài, mở màn hình chính, chờ 8 giây, kiểm tra app còn sống và không crash.
+# Chạy thử APK release trên emulator: cài, mở màn hình chọn vai trò, chờ 8 giây, kiểm tra app còn sống không crash.
 # (Test tự động chạy trên bản debug; bước này bắt lỗi chỉ xảy ra ở bản release.)
 set -euo pipefail
 
-smoke() {
-  local pkg="$1" apk="$2"
-  adb install -r "$apk"
-  adb logcat -c
-  adb shell am start -W -n "$pkg/.MainActivity"
-  sleep 8
-  local crashes
-  crashes="$(adb logcat -d -s AndroidRuntime:E || true)"
-  if grep -q "FATAL EXCEPTION" <<<"$crashes" || ! adb shell pidof "$pkg" >/dev/null; then
-    echo "::error::$pkg (release) bị dừng sau khi mở"
-    echo "$crashes" | tail -60
-    exit 1
-  fi
-  echo "OK: $pkg (release) chạy ổn sau 8 giây"
-  adb shell am force-stop "$pkg"
-}
+pkg="vn.cnldg.oncam"
+apk="app/build/outputs/apk/release/app-release.apk"
+activity="vn.cnldg.oncam.app.RootActivity"
 
-smoke vn.cnldg.oncam.node camera-node/build/outputs/apk/release/camera-node-release.apk
-smoke vn.cnldg.oncam.viewer viewer/build/outputs/apk/release/viewer-release.apk
+adb install -r "$apk"
+adb logcat -c
+# Mở màn hình chọn vai trò (chưa chọn vai trò → RootActivity hiện lựa chọn và ở lại, không crash).
+adb shell am start -W -n "$pkg/$activity"
+sleep 8
+crashes="$(adb logcat -d -s AndroidRuntime:E || true)"
+if grep -q "FATAL EXCEPTION" <<<"$crashes" || ! adb shell pidof "$pkg" >/dev/null; then
+  echo "::error::$pkg (release) bị dừng sau khi mở"
+  echo "$crashes" | tail -60
+  exit 1
+fi
+echo "OK: $pkg (release) chạy ổn sau 8 giây"
+adb shell am force-stop "$pkg"

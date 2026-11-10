@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// App chạy trên điện thoại cũ (camera node).
+// Vai trò CAMERA (0.13: là thư viện của app gộp :app). Giữ namespace + tài nguyên riêng; đóng gói APK do :app lo.
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
@@ -14,44 +14,8 @@ android {
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "vn.cnldg.oncam.node"
         minSdk = libs.versions.minSdk.get().toInt()
-        targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 13
-        versionName = "0.12.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    signingConfigs {
-        getByName("debug") {
-            // Khoá ký dùng chung cho cả debug và release, mật khẩu là giá trị mặc định công khai "android"
-            // (không phải bí mật): APK build ở các lần CI khác nhau cài đè lên nhau được, không phải gỡ app.
-            // Đánh đổi (chủ dự án đã chọn): ai có repo cũng ký được APK cùng chữ ký → chỉ cài APK từ trang Release
-            // của repo này. Xem docs/ARCHITECTURE.md (D30).
-            storeFile = rootProject.file("keystore/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
-        }
-    }
-
-    buildTypes {
-        debug {
-            // Thư viện native WebRTC (~11 MB mỗi kiến trúc CPU): debug thêm x86_64 để chạy test trên emulator.
-            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
-        }
-        release {
-            // Điện thoại thật đều là ARM; bỏ x86/x86_64 cho APK nhẹ hơn. CI chạy thử bản release trên emulator
-            // x86_64 thì truyền -Poncam.releaseAbis=x86_64 (APK đó chỉ để thử, không đăng).
-            val abis = (project.findProperty("oncam.releaseAbis") as String?)?.split(',')
-                ?: listOf("arm64-v8a", "armeabi-v7a")
-            ndk { abiFilters += abis }
-            // Bản dùng thật: không debuggable, không ghi log (Timber chỉ bật ở debug).
-            signingConfig = signingConfigs.getByName("debug")
-            // Chưa bật R8 (thu gọn mã): broker Moquette/Netty nạp lớp bằng reflection, thu gọn sai sẽ lỗi lúc chạy
-            // trên máy thật mà test JVM không phát hiện được. Bật khi có test chạy trên bản release (D31).
-            isMinifyEnabled = false
-        }
     }
 
     compileOptions {
@@ -62,23 +26,6 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-
-    packaging {
-        // Nén thư viện native trong APK (tải về nhẹ hơn ~60%; Android giải nén khi cài).
-        jniLibs { useLegacyPackaging = true }
-        resources {
-            // Netty/H2 (thư viện của broker Moquette) có các file META-INF trùng tên hoặc chỉ dùng cho JVM.
-            excludes += setOf(
-                "META-INF/io.netty.versions.properties",
-                "META-INF/INDEX.LIST",
-                "META-INF/DEPENDENCIES",
-                "META-INF/LICENSE*",
-                "META-INF/NOTICE*",
-                "META-INF/native-image/**",
-                "META-INF/versions/**",
-            )
-        }
     }
 }
 

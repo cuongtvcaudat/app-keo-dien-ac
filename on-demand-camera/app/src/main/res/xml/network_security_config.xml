@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  App Xem chỉ kết nối HTTP tới camera-node qua IP Tailscale (100.64.0.0/10). Android không cho khai báo
-  theo dải IP, nên cho phép cleartext ở mức chung. An toàn vì: (1) Tailscale mã hoá đầu-cuối bằng WireGuard;
+  Vai trò Máy xem chỉ kết nối HTTP tới camera qua IP Tailscale (100.64.0.0/10). Android không cho khai báo theo
+  dải IP nên cho phép cleartext ở mức chung. An toàn vì: (1) Tailscale mã hoá đầu-cuối bằng WireGuard;
   (2) mọi request video/ảnh đều phải có header X-OnCam-Auth (HMAC, hết hạn sau 60 giây).
 -->
 <network-security-config xmlns:tools="http://schemas.android.com/tools">

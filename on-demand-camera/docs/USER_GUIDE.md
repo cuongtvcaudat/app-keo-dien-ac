@@ -16,14 +16,20 @@ Thứ tự làm lần đầu (khoảng 20 phút): **Cài app → Tailscale → C
 
 ## 1. Tải và cài app
 
-Tải thẳng file `.apk` bằng trình duyệt trên điện thoại (không cần máy tính, không phải giải nén):
+Từ bản 0.13 chỉ còn **một app duy nhất** (`OnCam.apk`) cài cho **cả 2 máy**; mở lần đầu thì **chọn vai trò**:
 
-| App | Link tải (luôn là bản mới nhất) |
+| Bước | Làm gì |
 |---|---|
-| OnCam Quay — cài lên máy CAMERA | https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/download/oncam-latest/OnCam-Quay.apk |
-| OnCam Xem — cài lên máy XEM | https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/download/oncam-latest/OnCam-Xem.apk |
+| 1 | Tải `OnCam.apk` về **cả 2 máy**: https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/download/oncam-latest/OnCam.apk |
+| 2 | Trên **máy đặt tại chỗ cần trông** (Galaxy A54): mở OnCam → chọn **📷 Máy CAMERA** |
+| 3 | Trên **máy cầm theo người** (Oppo Reno15 F): mở OnCam → chọn **📱 Máy XEM** |
+
+Chọn vai trò **một lần**. Muốn đổi: Cài đặt điện thoại → Ứng dụng → OnCam → **Xoá dữ liệu** rồi mở lại.
 
 Trang ghi chú phiên bản: https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/tag/oncam-latest
+
+> ⚠️ Nếu máy đang có **bản cũ** (2 app riêng *OnCam Quay* / *OnCam Xem*): app gộp là app mới (mã gói khác), không
+> cài đè được — **gỡ 2 app cũ**, cài `OnCam.apk`, rồi cấu hình lại (máy camera tạo lại mã QR, máy xem quét lại).
 
 Lần đầu cài, Android hỏi **"Cài ứng dụng không rõ nguồn gốc"**:
 
@@ -33,10 +39,9 @@ Lần đầu cài, Android hỏi **"Cài ứng dụng không rõ nguồn gốc"*
 | Oppo | Bấm **Cài đặt** → bật **Cho phép** cho trình duyệt/Quản lý tệp → quay lại → **Cài đặt** |
 
 - Nếu hiện **Play Protect cảnh báo**: bấm **Chi tiết khác → Vẫn cài đặt** (app không có trên CH Play nên Google chưa biết).
-- **Cập nhật**: tải lại đúng link trên rồi cài đè. Không mất cấu hình, không mất token.
-- Cài đè báo **"Ứng dụng chưa được cài đặt"**: máy đang có bản thử nghiệm cũ ký bằng khoá khác (trước khi dự án dùng
-  khoá chung) → **gỡ bản cũ một lần** rồi cài lại.
-- Chỉ cài APK từ đúng 2 link trên. Khoá ký của dự án là khoá dùng chung công khai (xem `keystore/README.md`).
+- **Cập nhật** (từ 0.13 trở đi): tải lại đúng link `OnCam.apk` rồi cài đè. Không mất cấu hình, không mất token, giữ nguyên vai trò đã chọn.
+- Cài đè báo **"Ứng dụng chưa được cài đặt"**: máy đang có bản ký bằng khoá khác → **gỡ bản cũ một lần** rồi cài lại.
+- Chỉ cài APK từ đúng link trên. Khoá ký của dự án là khoá dùng chung công khai (xem `keystore/README.md`).
 
 ## 2. Cài Tailscale trên cả 2 máy
 

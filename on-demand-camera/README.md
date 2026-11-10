@@ -2,22 +2,22 @@
 
 Biến điện thoại Android cũ thành camera đặt ở sân nhà. Máy cũ **luôn nghe lệnh** nhưng **chỉ mở camera khi được gọi** từ điện thoại xem, xem xong tự tắt để giảm nóng, hao pin và băng thông.
 
-| App | Cài trên | Package |
+Từ 0.13 là **một app duy nhất** (`vn.cnldg.oncam`): mở lên chọn vai trò.
+
+| Module | Vai trò | Ghi chú |
 |---|---|---|
-| `camera-node` — **OnCam Quay** | Điện thoại cũ đặt ở sân | `vn.cnldg.oncam.node` |
-| `viewer` — **OnCam Xem** | Điện thoại chính | `vn.cnldg.oncam.viewer` |
-| `shared` | (thư viện dùng chung) | `vn.cnldg.oncam.shared` |
+| `app` | **OnCam** (APK gộp) | Chọn vai trò Camera / Máy xem |
+| `camera-node` | thư viện vai trò Camera | `vn.cnldg.oncam.node` |
+| `viewer` | thư viện vai trò Máy xem | `vn.cnldg.oncam.viewer` |
+| `rtc` / `shared` | thư viện dùng chung | WebRTC / giao thức |
 
 ## Tải app (bản mới nhất)
 
-| App | Cài lên | Link tải thẳng file .apk |
-|---|---|---|
-| **OnCam Quay** | Máy làm camera | https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/download/oncam-latest/OnCam-Quay.apk |
-| **OnCam Xem** | Máy dùng để xem | https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/download/oncam-latest/OnCam-Xem.apk |
+**Một app cho cả 2 máy** — cài xong mở lên chọn vai trò:
 
-Quét bằng camera điện thoại:
-
-![Mã QR tải OnCam Quay và OnCam Xem](docs/img/oncam-tai-app-qr.png)
+| Cài lên | Link tải thẳng file .apk |
+|---|---|
+| Cả 2 máy (chọn vai trò khi mở) | https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/download/oncam-latest/OnCam.apk |
 
 Hướng dẫn từ A–Z: [docs/USER_GUIDE.md](docs/USER_GUIDE.md) · Tailscale: [docs/SETUP_TAILSCALE.md](docs/SETUP_TAILSCALE.md) ·
 Kiến trúc: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -38,6 +38,7 @@ Kiến trúc: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 8.1 | **Quay video** trên máy camera (HD, tối đa 10 phút/clip, giữ 2 GB), tự chép về Thư viện máy xem qua Tailscale | 🧪 đã qua test, chờ thử trên máy thật |
 | 8.2 | **Canh chuyển động**: có người/xe là máy camera tự quay clip (30 s sau khi hết chuyển động, ≤ 2 phút/clip), lọc đổi ánh sáng, 3 mức độ nhạy, tự chép về máy xem | 🧪 đã qua test, chờ thử trên máy thật |
 | 8.3 | **Cảnh báo tức thì kèm ảnh** (chuyển động, mất điện, pin yếu, quá nóng) qua app Xem (Tailscale, chạy nền) + **email dự phòng**; **tuỳ chọn bật/tắt từng chức năng** trên cả 2 app | 🧪 đã qua test, chờ thử trên máy thật |
+| 9.0 | **Gộp 2 app thành 1** (`OnCam.apk`): mở lên chọn vai trò Camera / Máy xem; mặc định tắt tiếng khi xem; quyền "chỉ xem" qua QR | 🧪 đã qua test, chờ thử trên máy thật |
 
 ## Cấu trúc
 
@@ -47,9 +48,10 @@ on-demand-camera/
 ├── ci/              # Script kiểm tra APK release dùng trong GitHub Actions
 ├── keystore/        # Khoá ký dùng chung (công khai, xem README trong đó)
 ├── shared/          # Kotlin/JVM thuần: giao thức + MQTT client
-├── rtc/             # Thư viện Android: WebRTC dùng chung cho 2 app (Phase 7)
-├── camera-node/     # App Android cho máy quay
-└── viewer/          # App Android cho máy xem
+├── rtc/             # Thư viện Android: WebRTC dùng chung (Phase 7)
+├── camera-node/     # Thư viện vai trò Camera
+├── viewer/          # Thư viện vai trò Máy xem
+└── app/             # App gộp (1 APK): chọn vai trò Camera / Máy xem
 ```
 
 ## Build
@@ -62,7 +64,7 @@ Mỗi lần push thay đổi trong `on-demand-camera/`, workflow [`OnCam Android
 |---|---|
 | **build** | `./gradlew build` (biên dịch, unit test, lint, APK debug + release); kiểm APK release ký đúng khoá, không debuggable, đúng phiên bản (`ci/check-apk.sh`) |
 | **emulator** | Test của camera-node và viewer trên emulator Android 13 (API 33, camera sau giả lập); mở thử 2 APK release xem có crash không (`ci/smoke-release.sh`) |
-| **release** | Khi 2 job trên đạt: đăng `OnCam-Quay.apk`, `OnCam-Xem.apk` lên Release [`oncam-latest`](https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/tag/oncam-latest) (thay bản cũ, link giữ nguyên) |
+| **release** | Khi 2 job trên đạt: đăng `OnCam.apk` (app gộp) lên Release [`oncam-latest`](https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/tag/oncam-latest) (thay bản cũ, link giữ nguyên) |
 
 - APK release và debug đều ký bằng khoá chung trong [`keystore/`](keystore/README.md) (D23, D30) → **cài đè được, không phải gỡ app**.
 - APK debug (có log, dùng khi gỡ lỗi) vẫn có trong mục **Artifacts** của từng lần chạy: `oncam-debug-apk` (file .zip).
@@ -75,8 +77,7 @@ Yêu cầu: JDK 17+, Android SDK (cài qua Android Studio), platform API 36.
 cd on-demand-camera
 ./gradlew build                 # biên dịch + test + lint
 ./gradlew :shared:test          # chỉ chạy test module shared (~30 giây)
-./gradlew :camera-node:installDebug   # cài thẳng qua USB (bật USB debugging)
-./gradlew :viewer:installDebug
+./gradlew :app:installDebug          # cài app gộp qua USB (bật USB debugging)
 ```
 
 ## Phiên bản chính
