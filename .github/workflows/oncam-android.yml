@@ -5,7 +5,7 @@
 # - Job "emulator": chạy test của rtc, camera-node và viewer trên emulator Android 13 (API 33)
 #   (camera sau giả lập) để kiểm chứng broker MQTT nhúng + CameraX + MJPEG + WebRTC chạy được trên Android,
 #   rồi mở thử 2 APK release xem có crash không.
-# - Job "release": khi 2 job trên đạt (chỉ với push), đăng 2 APK release lên GitHub Release `oncam-latest`
+# - Job "release": khi 2 job trên đạt (chỉ với push), đăng 1 APK gộp (OnCam.apk) lên GitHub Release `oncam-latest`
 #   → link tải cố định, tải thẳng file .apk trên điện thoại (không phải giải nén zip).
 name: OnCam Android build
 
@@ -55,12 +55,10 @@ jobs:
 
       - name: Kiểm tra APK release và đổi tên dễ hiểu
         run: |
-          version="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' camera-node/build.gradle.kts)"
+          version="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)"
           mkdir -p dist
-          cp camera-node/build/outputs/apk/release/camera-node-release.apk dist/OnCam-Quay.apk
-          cp viewer/build/outputs/apk/release/viewer-release.apk dist/OnCam-Xem.apk
-          ci/check-apk.sh dist/OnCam-Quay.apk vn.cnldg.oncam.node "$version"
-          ci/check-apk.sh dist/OnCam-Xem.apk vn.cnldg.oncam.viewer "$version"
+          cp app/build/outputs/apk/release/app-release.apk dist/OnCam.apk
+          ci/check-apk.sh dist/OnCam.apk vn.cnldg.oncam "$version"
           (cd dist && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
           echo "$version" > dist/VERSION
 
@@ -77,8 +75,7 @@ jobs:
         with:
           name: oncam-debug-apk
           path: |
-            on-demand-camera/camera-node/build/outputs/apk/debug/*.apk
-            on-demand-camera/viewer/build/outputs/apk/debug/*.apk
+            on-demand-camera/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -126,7 +123,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -camera-front none
           working-directory: on-demand-camera
-          script: adb logcat -G 16M; ./gradlew :rtc:connectedDebugAndroidTest :camera-node:connectedDebugAndroidTest :viewer:connectedDebugAndroidTest :camera-node:assembleRelease :viewer:assembleRelease -Poncam.releaseAbis=x86_64 --stacktrace --console=plain && (adb logcat -d -s OnCamBench:I || true) && ci/smoke-release.sh
+          script: adb logcat -G 16M; ./gradlew :rtc:connectedDebugAndroidTest :camera-node:connectedDebugAndroidTest :viewer:connectedDebugAndroidTest :app:assembleRelease -Poncam.releaseAbis=x86_64 --stacktrace --console=plain && (adb logcat -d -s OnCamBench:I || true) && ci/smoke-release.sh
 
       - name: Tải lên kết quả test emulator
         if: always()
@@ -165,10 +162,9 @@ jobs:
           {
             echo "Bản mới nhất của OnCam: **$version** (commit $short, nhánh ${GITHUB_REF_NAME}, $(date -u +'%Y-%m-%d %H:%M UTC'))."
             echo
-            echo "- **OnCam-Quay.apk** — cài lên máy làm camera."
-            echo "- **OnCam-Xem.apk** — cài lên máy dùng để xem."
+            echo "- **OnCam.apk** — cài lên CẢ HAI máy; mở lên chọn vai trò: Camera (đặt tại chỗ) hoặc Máy xem."
             echo
-            echo "Cài đè lên bản cũ được, không mất cấu hình. Hướng dẫn: on-demand-camera/docs/USER_GUIDE.md."
+            echo "Từ 0.13 là app GỘP (1 app). Nếu máy đang có bản cũ OnCam Quay / OnCam Xem (app riêng), gỡ đi rồi cài OnCam.apk và cấu hình lại. Hướng dẫn: on-demand-camera/docs/USER_GUIDE.md."
             echo
             echo "SHA-256:"
             echo '```'
@@ -182,7 +178,7 @@ jobs:
             if gh release view "$TAG" >/dev/null 2>&1; then
               gh release delete "$TAG" --yes --cleanup-tag || { sleep $((i * 10)); continue; }
             fi
-            if gh release create "$TAG" dist/OnCam-Quay.apk dist/OnCam-Xem.apk dist/SHA256SUMS.txt \
+            if gh release create "$TAG" dist/OnCam.apk dist/SHA256SUMS.txt \
               --target "$GITHUB_SHA" --title "OnCam $version (mới nhất)" --notes-file notes.md --latest; then
               exit 0
             fi
