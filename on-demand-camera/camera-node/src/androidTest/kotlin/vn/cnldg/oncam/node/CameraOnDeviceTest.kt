@@ -30,8 +30,10 @@ import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assume
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.rules.Timeout
 import vn.cnldg.oncam.node.camera.CameraController
 import vn.cnldg.oncam.node.core.DeviceSnapshot
 import vn.cnldg.oncam.node.core.MountOrientation
@@ -55,6 +57,11 @@ import vn.cnldg.oncam.shared.security.StreamAuth
  */
 @RunWith(AndroidJUnit4::class)
 class CameraOnDeviceTest {
+
+    // Chặn một test kẹt (CameraX trên camera ảo đôi khi treo hẳn ở bindToLifecycle) làm treo cả job CI 60 phút:
+    // mỗi test tối đa 3 phút rồi báo lỗi, các test sau vẫn chạy.
+    @get:Rule
+    val timeout: Timeout = Timeout.seconds(180)
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
@@ -103,6 +110,10 @@ class CameraOnDeviceTest {
      */
     @Test
     fun quayVideoThatSongSongVoiLuongXem() = runBlocking<Unit> {
+        // Camera ảo của emulator không bind nổi ImageAnalysis + VideoCapture cùng lúc, bindToLifecycle có thể treo
+        // hẳn (không ném lỗi) → bỏ qua test trên emulator; chạy đủ trên máy thật (Galaxy A54). Logic quay đã có
+        // test JVM (StreamManagerRecordingTest) với camera giả.
+        Assume.assumeFalse("Bỏ qua quay video trên emulator (camera ảo không quay song song)", isEmulator())
         val frames = AtomicInteger()
         val luma = AtomicInteger()
         assertIs<OpenResult.Opened>(camera.open(CameraFacing.BACK, StreamQuality.LOW) { frames.incrementAndGet() })
@@ -225,6 +236,15 @@ class CameraOnDeviceTest {
                 all.copyOfRange(split + 4, all.size)
             }
         }
+
+    /** Máy ảo (CI) hay máy thật: dựa vào Build. */
+    private fun isEmulator(): Boolean {
+        val fp = android.os.Build.FINGERPRINT
+        return fp.startsWith("generic") || fp.startsWith("unknown") || fp.contains("emulator") ||
+            android.os.Build.MODEL.contains("sdk_gphone") || android.os.Build.MODEL.contains("Emulator") ||
+            android.os.Build.PRODUCT.contains("sdk") || android.os.Build.HARDWARE.contains("ranchu") ||
+            android.os.Build.HARDWARE.contains("goldfish")
+    }
 
     /** LifecycleOwner tối giản thay cho Service trong test. */
     private class TestLifecycleOwner : LifecycleOwner {
