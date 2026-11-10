@@ -33,6 +33,7 @@ import vn.cnldg.oncam.node.core.NodeConfig
 import vn.cnldg.oncam.node.core.NodeState
 import vn.cnldg.oncam.node.core.SelfTestFailure
 import vn.cnldg.oncam.node.core.SelfTestResult
+import vn.cnldg.oncam.node.core.guestPairingCode
 import vn.cnldg.oncam.node.core.pairingCode
 import vn.cnldg.oncam.node.system.BatteryOptimization
 import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
@@ -75,6 +76,7 @@ fun StatusScreen(
         onPauseOrDispose { }
     }
     var showQr by remember { mutableStateOf(false) }
+    var showGuestQr by remember { mutableStateOf(false) }
     var nowSec by remember { mutableLongStateOf(System.currentTimeMillis() / 1000) }
     LaunchedEffect(running) {
         while (running) {
@@ -138,6 +140,16 @@ fun StatusScreen(
                     Text(stringResource(R.string.status_qr_wait), style = MaterialTheme.typography.bodySmall)
                 } else if (showQr) {
                     PairingQrDialog(code = code, onDismiss = { showQr = false })
+                }
+                // Mã "chỉ xem" (0.13): cho người thân/khách — chỉ xem hình, không điều khiển, không vị trí.
+                if (config.guestEnabled) {
+                    val guestCode = config.guestPairingCode(state.brokerUri)
+                    OutlinedButton(onClick = { showGuestQr = true }, enabled = guestCode != null) {
+                        Text(stringResource(R.string.status_show_guest_qr))
+                    }
+                    if (guestCode != null && showGuestQr) {
+                        PairingQrDialog(code = guestCode, onDismiss = { showGuestQr = false }, guest = true)
+                    }
                 }
                 Text(stringResource(R.string.status_viewer_hint), style = MaterialTheme.typography.bodySmall)
                 InfoRow(stringResource(R.string.status_broker_address), state.brokerUri ?: stringResource(R.string.value_none))

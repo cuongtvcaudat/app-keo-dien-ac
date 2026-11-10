@@ -27,6 +27,8 @@ class MjpegStreamer(
     private val hub: FrameHub,
     private val maxClients: Int = 3,
     private val log: LogSink = LogSink.NONE,
+    /** Xác thực của khách "chỉ xem" (0.13); null = không có khách. */
+    private val guestAuth: StreamAuth? = null,
 ) : NanoHTTPD(host, port) {
 
     init {
@@ -54,7 +56,8 @@ class MjpegStreamer(
     override fun serve(session: IHTTPSession): Response {
         if (session.method != Method.GET) return text(Response.Status.METHOD_NOT_ALLOWED, "method not allowed")
         // NanoHTTPD chuyển tên header về chữ thường.
-        if (!auth.isValid(session.headers[StreamAuth.HEADER.lowercase()])) {
+        val header = session.headers[StreamAuth.HEADER.lowercase()]
+        if (!auth.isValid(header) && guestAuth?.isValid(header) != true) {
             return text(Response.Status.UNAUTHORIZED, "unauthorized")
         }
         return when (session.uri) {

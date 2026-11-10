@@ -35,6 +35,7 @@ import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
 import vn.cnldg.oncam.shared.mqtt.OutgoingMessage
 import vn.cnldg.oncam.shared.protocol.Action
 import vn.cnldg.oncam.shared.protocol.CameraCodes
+import vn.cnldg.oncam.shared.protocol.Command
 import vn.cnldg.oncam.shared.protocol.CommandParams
 import vn.cnldg.oncam.shared.protocol.DeviceEvent
 import vn.cnldg.oncam.shared.protocol.DeviceStatus
@@ -110,6 +111,16 @@ class NodeController(
             camera?.perform(cmd) ?: ActionOutcome.Unsupported
         }
     }
+    // Khách "chỉ xem" (0.13): token riêng, topic riêng, chỉ vài lệnh xem; null = không bật.
+    private val guestSecret = config.activeGuestSecret
+    private val guestCmdTopic = Topics.guestCommand(config.deviceId)
+    private val guestHandler = guestSecret?.let { secret ->
+        CommandHandler(
+            verifier = CommandVerifier(secret, config.deviceId, clock),
+            clock = clock,
+            rtcAuth = RtcAuth(secret, config.deviceId),
+        ) { cmd -> performGuest(cmd) }
+    }
     private val signer = CommandSigner(config.secret, clock)
     private val pending = ConcurrentHashMap<String, CompletableDeferred<DeviceEvent>>()
     private val networkChanged = Channel<Unit>(Channel.CONFLATED)
@@ -175,7 +186,7 @@ class NodeController(
         alertJob = null
         val wrapper = mqtt
         if (wrapper != null && wrapper.state.value == MqttConnectionState.Connected) {
-            wrapper.publish(statusMessage(online = false))
+            publishStatus(wrapper, online = false)
         }
         wrapper?.stop()
         job?.cancelAndJoin()
@@ -236,7 +247,8 @@ class NodeController(
         while (currentCoroutineContext().isActive) {
             val host = awaitAddress()
             try {
-                withContext(Dispatchers.IO) { b.start(host, config.brokerPort, BrokerCredentials.USERNAME, password) }
+                val guest = guestSecret?.let { EmbeddedBroker.GuestAccess(config.deviceId, BrokerCredentials.password(it)) }
+                withContext(Dispatchers.IO) { b.start(host, config.brokerPort, BrokerCredentials.USERNAME, password, guest) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -279,7 +291,7 @@ class NodeController(
                     password = password,
                     keepAliveSec = timing.keepAliveSec,
                     maxReconnectDelayMs = timing.maxReconnectDelayMs,
-                    will = statusMessage(online = false),
+                    will = statusMessage(buildStatus(online = false)),
                 ),
                 scope = this,
                 log = log,
@@ -294,6 +306,7 @@ class NodeController(
                 alerts?.let { a -> launch { publishAlerts(wrapper, a) } },
             )
             wrapper.subscribe(cmdTopic, Topics.QOS_COMMAND) // ghi nhớ, tự áp dụng mỗi lần kết nối
+            if (guestHandler != null) wrapper.subscribe(guestCmdTopic, Topics.QOS_COMMAND)
             wrapper.start()
             try {
                 if (watchHost == null) {
@@ -327,11 +340,29 @@ class NodeController(
                 (s is MqttConnectionState.Disconnected || s == MqttConnectionState.Connecting)
             wasConnected = s == MqttConnectionState.Connected
             _state.update { it.copy(mqtt = s, disconnects = it.disconnects + if (dropped) 1 else 0) }
-            if (s == MqttConnectionState.Connected) wrapper.publish(statusMessage(online = true))
+            if (s == MqttConnectionState.Connected) publishStatus(wrapper, online = true)
         }
     }
 
+    /**
+     * Lệnh của khách chỉ xem: chỉ bật camera để xem, WebRTC (không tiếng), ảnh chụp. Bỏ mọi tham số điều khiển
+     * (đổi camera, đèn, chất lượng, thời gian chờ) để khách không lách qua START_STREAM.
+     */
+    private suspend fun performGuest(cmd: Command): ActionOutcome {
+        if (cmd.action !in GUEST_ACTIONS) return ActionOutcome.Failed(CameraCodes.GUEST_NOT_ALLOWED)
+        val safe = cmd.copy(params = CommandParams(sdp = cmd.params.sdp, sessionId = cmd.params.sessionId))
+        return camera?.perform(safe, guest = true) ?: ActionOutcome.Unsupported
+    }
+
+    private suspend fun onGuestMessage(wrapper: MqttClientWrapper, payload: String) {
+        val handled = guestHandler?.handle(payload) ?: return
+        wrapper.publish(
+            OutgoingMessage(Topics.guestEvent(config.deviceId), ProtocolJson.encodeEvent(handled.event), Topics.QOS_EVENT, false),
+        )
+    }
+
     private suspend fun onMessage(wrapper: MqttClientWrapper, msg: IncomingMessage) {
+        if (msg.topic == guestCmdTopic) return onGuestMessage(wrapper, msg.payload)
         if (msg.topic != cmdTopic) return
         val handled = handler.handle(msg.payload)
         wrapper.publish(
@@ -363,14 +394,16 @@ class NodeController(
                 .distinctUntilChanged()
                 .drop(1) // trạng thái ban đầu đã gửi khi kết nối
                 .collect {
-                    if (wrapper.state.value == MqttConnectionState.Connected) wrapper.publish(statusMessage(online = true))
+                    if (wrapper.state.value == MqttConnectionState.Connected) publishStatus(wrapper, online = true)
                 }
         }
         launch {
             cam.events.collect { event ->
-                wrapper.publish(
-                    OutgoingMessage(Topics.event(config.deviceId), ProtocolJson.encodeEvent(event), Topics.QOS_EVENT, false),
-                )
+                val payload = ProtocolJson.encodeEvent(event)
+                wrapper.publish(OutgoingMessage(Topics.event(config.deviceId), payload, Topics.QOS_EVENT, false))
+                if (guestHandler != null) {
+                    wrapper.publish(OutgoingMessage(Topics.guestEvent(config.deviceId), payload, Topics.QOS_EVENT, false))
+                }
             }
         }
     }
@@ -389,7 +422,7 @@ class NodeController(
     /** Vị trí đổi (đang lấy / có vị trí mới / lỗi) → publish lại trạng thái. */
     private suspend fun publishLocationChanges(wrapper: MqttClientWrapper, t: LocationTracker) {
         t.status.drop(1).collect {
-            if (wrapper.state.value == MqttConnectionState.Connected) wrapper.publish(statusMessage(online = true))
+            if (wrapper.state.value == MqttConnectionState.Connected) publishStatus(wrapper, online = true)
         }
     }
 
@@ -418,16 +451,39 @@ class NodeController(
         while (true) {
             delay(timing.heartbeatMs)
             if (wrapper.state.value == MqttConnectionState.Connected) {
-                wrapper.publish(statusMessage(online = true))
+                publishStatus(wrapper, online = true)
             } else {
                 _state.update { it.copy(device = deviceInfo.snapshot()) }
             }
         }
     }
 
-    private fun statusMessage(online: Boolean): OutgoingMessage {
+    /** Gửi trạng thái cho chủ; nếu bật quyền chỉ xem thì gửi thêm bản đã lược cho khách. */
+    private suspend fun publishStatus(wrapper: MqttClientWrapper, online: Boolean): Boolean {
+        val status = buildStatus(online)
+        val sent = wrapper.publish(statusMessage(status))
+        if (guestHandler != null) {
+            wrapper.publish(
+                OutgoingMessage(Topics.guestStatus(config.deviceId), ProtocolJson.encodeStatus(guestView(status)), Topics.QOS_STATUS, true),
+            )
+        }
+        return sent
+    }
+
+    /** Trạng thái cho khách: không vị trí, không quay video/canh chuyển động, không micro. */
+    private fun guestView(status: DeviceStatus): DeviceStatus =
+        status.copy(location = null, recording = null, motion = null, micReady = false)
+
+    private fun statusMessage(status: DeviceStatus): OutgoingMessage = OutgoingMessage(
+        topic = Topics.status(config.deviceId),
+        payload = ProtocolJson.encodeStatus(status),
+        qos = Topics.QOS_STATUS,
+        retained = true,
+    )
+
+    private fun buildStatus(online: Boolean): DeviceStatus {
         val now = clock.nowSec()
-        val status = if (online) {
+        return if (online) {
             val d = deviceInfo.snapshot()
             _state.update { it.copy(device = d) }
             val cam = camera?.status?.value ?: CameraStatus()
@@ -457,11 +513,10 @@ class NodeController(
         } else {
             DeviceStatus.offline(config.deviceId, config.displayName, now, location?.status?.value?.copy(updating = false))
         }
-        return OutgoingMessage(
-            topic = Topics.status(config.deviceId),
-            payload = ProtocolJson.encodeStatus(status),
-            qos = Topics.QOS_STATUS,
-            retained = true,
-        )
+    }
+
+    private companion object {
+        /** Lệnh khách chỉ xem được gửi (PING do CommandHandler tự trả lời). */
+        val GUEST_ACTIONS = setOf(Action.START_STREAM, Action.SNAPSHOT, Action.RTC_OFFER, Action.RTC_HANGUP)
     }
 }

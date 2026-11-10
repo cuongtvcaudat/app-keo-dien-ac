@@ -92,7 +92,7 @@ class CameraRtc(
     }
 
     /** Trả lời [offerSdp] của phiên [sessionId] ở chất lượng [quality]. Camera phải đang phát. */
-    suspend fun answer(sessionId: String, offerSdp: String, quality: StreamQuality): CameraRtcAnswer {
+    suspend fun answer(sessionId: String, offerSdp: String, quality: StreamQuality, audio: Boolean = true): CameraRtcAnswer {
         sessions[sessionId]?.let { close(it) } // app Xem gửi lại cùng phiên (vd. kết nối lại) → thay phiên cũ
         if (sessions.size >= maxSessions) return CameraRtcAnswer.Failed(CODE_BUSY)
         this.quality = quality
@@ -100,11 +100,12 @@ class CameraRtc(
         val watcher = PeerWatcher()
         val pc = engine.factory.createPeerConnection(RtcEngine.rtcConfiguration(), watcher)
             ?: return CameraRtcAnswer.Failed(CODE_FAILED)
-        val withAudio = micAllowed()
+        // audio = false (khách "chỉ xem"): không gửi tiếng sân và không nhận/phát tiếng từ app Xem.
+        val withAudio = audio && micAllowed()
         return try {
             val sdp = withTimeout(answerTimeoutMs) {
                 pc.setRemoteAwait(SessionDescription(SessionDescription.Type.OFFER, SdpCandidates.filter(offerSdp, keepCandidate)))
-                attachTracks(pc, withAudio)
+                attachTracks(pc, withAudio, receiveAudio = audio)
                 pc.setLocalAwait(pc.createAnswerAwait())
                 withTimeoutOrNull(RtcEngine.GATHER_MAX_MS) { watcher.gathered.await() }
                 pc.localDescription?.description ?: throw RtcException("Không có SDP cục bộ")
@@ -167,7 +168,7 @@ class CameraRtc(
         audioSource?.dispose()
     }
 
-    private fun attachTracks(pc: PeerConnection, withAudio: Boolean) {
+    private fun attachTracks(pc: PeerConnection, withAudio: Boolean, receiveAudio: Boolean) {
         for (t in pc.transceivers) {
             when (t.mediaType) {
                 MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO -> {
@@ -180,8 +181,10 @@ class CameraRtc(
                         t.sender.setTrack(micTrack(), false)
                         // Hướng thật = giao của 2 bên: app Xem không bật nói → thành SEND_ONLY.
                         t.setDirection(RtpTransceiver.RtpTransceiverDirection.SEND_RECV)
-                    } else {
+                    } else if (receiveAudio) {
                         t.setDirection(RtpTransceiver.RtpTransceiverDirection.RECV_ONLY)
+                    } else {
+                        t.setDirection(RtpTransceiver.RtpTransceiverDirection.INACTIVE)
                     }
                 }
                 null -> Unit

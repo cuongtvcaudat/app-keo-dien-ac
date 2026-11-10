@@ -23,6 +23,8 @@ object PairingCode {
         val displayName: String? = null,
         val brokerUsername: String? = null,
         val brokerPassword: String? = null,
+        /** Mã "chỉ xem" (0.13): [secret] là token khách — chỉ xem hình, không điều khiển/nói/xem vị trí. */
+        val guest: Boolean = false,
     ) {
         /** Không in token/mật khẩu ra log. */
         override fun toString(): String = "PairingCode.Info(deviceId=$deviceId, brokerUri=$brokerUri, secret=***)"
@@ -38,6 +40,7 @@ object PairingCode {
         info.displayName?.takeIf { it.isNotBlank() }?.let { append("&n=").append(enc(it)) }
         info.brokerUsername?.takeIf { it.isNotBlank() }?.let { append("&u=").append(enc(it)) }
         info.brokerPassword?.takeIf { it.isNotBlank() }?.let { append("&p=").append(enc(it)) }
+        if (info.guest) append("&g=1")
     }
 
     /** Đọc chuỗi từ QR; null nếu không phải mã OnCam hợp lệ. */
@@ -60,6 +63,7 @@ object PairingCode {
             displayName = params["n"],
             brokerUsername = params["u"],
             brokerPassword = params["p"],
+            guest = params["g"] == "1",
         )
     }
 

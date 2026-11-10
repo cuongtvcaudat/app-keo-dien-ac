@@ -71,8 +71,11 @@ interface CameraSession {
     /** Quay video được không (0.10). */
     fun recordingSupported(): Boolean = false
 
-    /** Thực hiện một lệnh camera đã qua kiểm tra chữ ký và tham số. */
-    suspend fun perform(command: Command): ActionOutcome
+    /**
+     * Thực hiện một lệnh camera đã qua kiểm tra chữ ký và tham số.
+     * @param guest lệnh của khách "chỉ xem" (0.13): phiên WebRTC không có tiếng cả 2 chiều.
+     */
+    suspend fun perform(command: Command, guest: Boolean = false): ActionOutcome
 
     /** Tắt camera ngay (nút trên máy camera / notification). */
     suspend fun stopStreaming(reason: String)

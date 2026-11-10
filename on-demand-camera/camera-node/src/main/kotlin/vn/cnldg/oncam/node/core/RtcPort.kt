@@ -23,8 +23,11 @@ interface RtcPort {
     /** Micro dùng được để gửi tiếng sân. */
     fun micReady(): Boolean
 
-    /** Trả lời offer của phiên [sessionId]; chỉ gọi khi camera đang phát. */
-    suspend fun answer(sessionId: String, offerSdp: String, quality: StreamQuality): RtcAnswer
+    /**
+     * Trả lời offer của phiên [sessionId]; chỉ gọi khi camera đang phát.
+     * @param audio false = phiên chỉ có hình (khách "chỉ xem"): không gửi tiếng sân, không nhận tiếng app Xem.
+     */
+    suspend fun answer(sessionId: String, offerSdp: String, quality: StreamQuality, audio: Boolean = true): RtcAnswer
 
     /** Đổi chất lượng cho mọi phiên. */
     fun setQuality(quality: StreamQuality)

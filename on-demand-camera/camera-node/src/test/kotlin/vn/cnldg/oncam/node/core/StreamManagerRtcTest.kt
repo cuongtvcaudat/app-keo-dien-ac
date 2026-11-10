@@ -128,10 +128,12 @@ class StreamManagerRtcTest {
         var closeAllCalls = 0
         var answers = 0
         var failWith: String? = null
+        val audioFlags = mutableListOf<Boolean>()
 
         override fun micReady() = true
 
-        override suspend fun answer(sessionId: String, offerSdp: String, quality: StreamQuality): RtcAnswer {
+        override suspend fun answer(sessionId: String, offerSdp: String, quality: StreamQuality, audio: Boolean): RtcAnswer {
+            audioFlags += audio
             answers++
             failWith?.let { return RtcAnswer.Failed(it) }
             lastQuality = quality

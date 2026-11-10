@@ -89,6 +89,8 @@ class NodeConfigRepository @Inject constructor(
             putString(KEY_EMAIL_FROM, config.emailFrom)
             putString(KEY_EMAIL_PASSWORD, config.emailPassword)
             putString(KEY_EMAIL_TO, config.emailTo)
+            putBoolean(KEY_GUEST_ENABLED, config.guestEnabled)
+            putString(KEY_GUEST_SECRET, config.guestSecret)
         }
         _config.value = ConfigLoad.Loaded(config)
     }
@@ -129,6 +131,8 @@ class NodeConfigRepository @Inject constructor(
             emailFrom = secure.getString(KEY_EMAIL_FROM, "").orEmpty(),
             emailPassword = secure.getString(KEY_EMAIL_PASSWORD, "").orEmpty(),
             emailTo = secure.getString(KEY_EMAIL_TO, "").orEmpty(),
+            guestEnabled = secure.getBoolean(KEY_GUEST_ENABLED, false),
+            guestSecret = secure.getString(KEY_GUEST_SECRET, "").orEmpty(),
         )
     } catch (e: Exception) {
         Timber.e(e, "Không đọc được cấu hình mã hoá")
@@ -176,6 +180,8 @@ class NodeConfigRepository @Inject constructor(
         const val KEY_EMAIL_FROM = "email_from"
         const val KEY_EMAIL_PASSWORD = "email_password"
         const val KEY_EMAIL_TO = "email_to"
+        const val KEY_GUEST_ENABLED = "guest_enabled"
+        const val KEY_GUEST_SECRET = "guest_secret"
         const val KEY_AUTO_START = "auto_start"
         const val KEY_NODE_ENABLED = "node_enabled"
     }

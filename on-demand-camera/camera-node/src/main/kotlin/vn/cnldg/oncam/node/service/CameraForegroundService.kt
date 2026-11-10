@@ -249,6 +249,8 @@ class CameraForegroundService : LifecycleService() {
                 },
                 audioAllowed = micAllowed,
                 onMotionClip = { clip -> alertsRef?.onMotion(clip) },
+                // Khách "chỉ xem" (0.13) xem MJPEG/ảnh chụp bằng xác thực riêng suy từ token khách.
+                guestAuth = config.activeGuestSecret?.let { StreamAuth(it, config.deviceId) },
             )
             // Chỉ xem WebRTC → không cần nén JPEG đủ số hình/giây (giữ 1 khung/giây cho chụp ảnh): máy đỡ nóng.
             // JPEG đủ tốc độ chỉ khi có người xem MJPEG (hoặc chưa ai xem WebRTC); đang canh chuyển động mà không ai

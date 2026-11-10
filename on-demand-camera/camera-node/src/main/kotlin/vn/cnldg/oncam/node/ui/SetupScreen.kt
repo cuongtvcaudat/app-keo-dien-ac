@@ -79,6 +79,9 @@ fun SetupScreen(
     var emailFrom by rememberSaveable { mutableStateOf(initial?.emailFrom.orEmpty()) }
     var emailPassword by rememberSaveable { mutableStateOf(initial?.emailPassword.orEmpty()) }
     var emailTo by rememberSaveable { mutableStateOf(initial?.emailTo.orEmpty()) }
+    var guestEnabled by rememberSaveable { mutableStateOf(initial?.guestEnabled ?: false) }
+    var guestSecret by rememberSaveable { mutableStateOf(initial?.guestSecret.orEmpty()) }
+    var guestRenewed by rememberSaveable { mutableStateOf(false) }
     var problems by remember { mutableStateOf(emptyList<ConfigProblem>()) }
 
     Column(
@@ -233,6 +236,34 @@ fun SetupScreen(
             }
         }
 
+        // Quyền "chỉ xem" (0.13): mã QR riêng cho khách; đổi mã = thu hồi mọi mã đã phát.
+        SectionCard(title = stringResource(R.string.setup_section_guest)) {
+            val embedded = mode == BrokerMode.EMBEDDED
+            OptionRow(
+                guestEnabled && embedded,
+                { on ->
+                    guestEnabled = on
+                    if (on && guestSecret.isBlank()) guestSecret = generateSecret()
+                },
+                stringResource(R.string.setup_guest),
+                stringResource(if (embedded) R.string.setup_guest_hint else R.string.setup_guest_needs_embedded),
+                enabled = embedded,
+            )
+            if (guestEnabled && embedded) {
+                OutlinedButton(onClick = {
+                    guestSecret = generateSecret()
+                    guestRenewed = true
+                }) { Text(stringResource(R.string.setup_guest_renew)) }
+                if (guestRenewed) {
+                    Text(
+                        stringResource(R.string.setup_guest_renewed),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+
         SectionCard(title = stringResource(R.string.setup_section_alerts)) {
             Text(stringResource(R.string.setup_alerts_hint), style = MaterialTheme.typography.bodySmall)
             OptionRow(
@@ -338,6 +369,8 @@ fun SetupScreen(
                     emailFrom = emailFrom,
                     emailPassword = emailPassword,
                     emailTo = emailTo.trim(),
+                    guestEnabled = guestEnabled && mode == BrokerMode.EMBEDDED,
+                    guestSecret = guestSecret,
                 )
                 problems = config.problems()
                 if (problems.isEmpty()) onSave(config, autoStart)
@@ -402,6 +435,7 @@ private fun ConfigProblem.messageRes(): Int = when (this) {
     ConfigProblem.INVALID_PORT -> R.string.problem_port
     ConfigProblem.INVALID_EXTERNAL_URI -> R.string.problem_external_uri
     ConfigProblem.INVALID_EMAIL -> R.string.problem_email
+    ConfigProblem.INVALID_GUEST -> R.string.problem_guest
 }
 
 private const val DEFAULT_DEVICE_ID = "san-nha"

@@ -30,6 +30,18 @@ fun NodeConfig.pairingCode(brokerUri: String?): String? {
     )
 }
 
+/**
+ * Nội dung mã QR "chỉ xem" (0.13): mang token KHÁCH (không phải token chủ) và cờ khách; app Xem quét mã này chỉ
+ * xem được hình. null nếu chưa bật quyền chỉ xem, đang dùng broker riêng, hoặc chưa có IP Tailscale.
+ */
+fun NodeConfig.guestPairingCode(brokerUri: String?): String? {
+    val uri = brokerUri ?: return null
+    val guestSecret = activeGuestSecret ?: return null
+    return PairingCode.encode(
+        PairingCode.Info(deviceId = deviceId, brokerUri = uri, secret = guestSecret, displayName = displayName, guest = true),
+    )
+}
+
 /** Vẽ mã QR (thư viện zxing core, thuần Java). */
 object QrCodes {
     /**

@@ -13,8 +13,8 @@ class NodeRtc(private val rtc: CameraRtc, private val micAllowed: () -> Boolean)
 
     override fun micReady(): Boolean = micAllowed()
 
-    override suspend fun answer(sessionId: String, offerSdp: String, quality: StreamQuality): RtcAnswer =
-        when (val a = rtc.answer(sessionId, offerSdp, quality)) {
+    override suspend fun answer(sessionId: String, offerSdp: String, quality: StreamQuality, audio: Boolean): RtcAnswer =
+        when (val a = rtc.answer(sessionId, offerSdp, quality, audio)) {
             is CameraRtcAnswer.Ok -> RtcAnswer.Ok(a.sdp)
             is CameraRtcAnswer.Failed -> RtcAnswer.Failed(a.code)
         }

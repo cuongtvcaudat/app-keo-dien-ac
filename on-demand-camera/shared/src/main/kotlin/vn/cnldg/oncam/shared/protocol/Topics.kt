@@ -4,6 +4,9 @@ package vn.cnldg.oncam.shared.protocol
  * Tên topic MQTT và mức QoS dùng trong OnCam.
  *
  * Cấu trúc: `camera/{deviceId}/cmd | status | event | alert`.
+ *
+ * Khách "chỉ xem" (0.13) dùng bộ topic riêng `camera/{deviceId}/guest/cmd | status | event`: broker nhúng chỉ cho
+ * tài khoản khách đọc/ghi đúng 3 topic này, nên khách không thấy vị trí, cảnh báo hay lệnh của chủ.
  */
 object Topics {
     const val ROOT: String = "camera"
@@ -41,6 +44,23 @@ object Topics {
 
     /** Topic cảnh báo của một camera. */
     fun alert(deviceId: String): String = build(deviceId, Kind.ALERT)
+
+    /** Topic lệnh của khách chỉ xem. */
+    fun guestCommand(deviceId: String): String = guest(deviceId, Kind.COMMAND)
+
+    /** Topic trạng thái (đã lược vị trí/quay video/canh) cho khách chỉ xem. */
+    fun guestStatus(deviceId: String): String = guest(deviceId, Kind.STATUS)
+
+    /** Topic kết quả lệnh/sự kiện cho khách chỉ xem. */
+    fun guestEvent(deviceId: String): String = guest(deviceId, Kind.EVENT)
+
+    private fun guest(deviceId: String, kind: Kind): String {
+        DeviceIds.requireValid(deviceId)
+        return "$ROOT/$deviceId/$GUEST/${kind.suffix}"
+    }
+
+    /** Đoạn giữa của topic khách. */
+    const val GUEST: String = "guest"
 
     /** Phân tích topic thành (deviceId, loại). Trả về null nếu không đúng cấu trúc OnCam. */
     fun parse(topic: String): Parsed? {

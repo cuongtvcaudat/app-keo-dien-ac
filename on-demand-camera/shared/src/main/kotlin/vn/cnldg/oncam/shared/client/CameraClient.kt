@@ -48,9 +48,14 @@ data class CameraEndpoint(
     /** Để trống khi dùng broker nhúng trong camera-node (mật khẩu tự suy ra từ token). */
     val brokerUsername: String? = null,
     val brokerPassword: String? = null,
+    /**
+     * Quyền "chỉ xem" (0.13): [secret] là token khách. Dùng bộ topic khách + tài khoản broker khách; camera chỉ
+     * nhận lệnh xem (bật camera, WebRTC không tiếng, ảnh chụp) và không gửi vị trí/cảnh báo.
+     */
+    val guest: Boolean = false,
 ) {
     /** Không in token/mật khẩu ra log. */
-    override fun toString(): String = "CameraEndpoint(deviceId=$deviceId, brokerUri=$brokerUri, secret=***)"
+    override fun toString(): String = "CameraEndpoint(deviceId=$deviceId, brokerUri=$brokerUri, guest=$guest, secret=***)"
 }
 
 /** Kết quả gửi một lệnh. */
@@ -125,8 +130,10 @@ class CameraClient(
     private val signer = CommandSigner(endpoint.secret, clock)
     private val streamAuth = StreamAuth(endpoint.secret, endpoint.deviceId, clock)
     private val rtcAuth = RtcAuth(endpoint.secret, endpoint.deviceId)
-    private val statusTopic = Topics.status(endpoint.deviceId)
-    private val eventTopic = Topics.event(endpoint.deviceId)
+    private val guest = endpoint.guest
+    private val statusTopic = if (guest) Topics.guestStatus(endpoint.deviceId) else Topics.status(endpoint.deviceId)
+    private val eventTopic = if (guest) Topics.guestEvent(endpoint.deviceId) else Topics.event(endpoint.deviceId)
+    private val commandTopic = if (guest) Topics.guestCommand(endpoint.deviceId) else Topics.command(endpoint.deviceId)
     private val alertTopic = Topics.alert(endpoint.deviceId)
     private val alertAuth = AlertAuth(endpoint.secret, endpoint.deviceId)
 
@@ -134,7 +141,8 @@ class CameraClient(
         config = MqttConfig(
             serverUri = endpoint.brokerUri,
             clientId = clientId,
-            username = endpoint.brokerUsername?.takeIf { it.isNotBlank() } ?: BrokerCredentials.USERNAME,
+            username = endpoint.brokerUsername?.takeIf { it.isNotBlank() }
+                ?: if (guest) BrokerCredentials.GUEST_USERNAME else BrokerCredentials.USERNAME,
             password = endpoint.brokerPassword?.takeIf { it.isNotBlank() } ?: BrokerCredentials.password(endpoint.secret),
             keepAliveSec = keepAliveSec,
             connectTimeoutSec = 8,
@@ -174,7 +182,7 @@ class CameraClient(
         scope.launch {
             mqtt.subscribe(statusTopic, Topics.QOS_STATUS)
             mqtt.subscribe(eventTopic, Topics.QOS_EVENT)
-            mqtt.subscribe(alertTopic, Topics.QOS_ALERT)
+            if (!guest) mqtt.subscribe(alertTopic, Topics.QOS_ALERT) // khách không nhận cảnh báo (broker cũng chặn)
         }
         mqtt.start()
     }
@@ -289,7 +297,7 @@ class CameraClient(
         try {
             val sent = mqtt.publish(
                 OutgoingMessage(
-                    topic = Topics.command(endpoint.deviceId),
+                    topic = commandTopic,
                     payload = ProtocolJson.encodeCommand(command),
                     qos = Topics.QOS_COMMAND,
                     retained = false,

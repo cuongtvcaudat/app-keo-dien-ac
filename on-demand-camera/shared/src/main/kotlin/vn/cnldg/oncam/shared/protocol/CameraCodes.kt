@@ -67,6 +67,9 @@ object CameraCodes {
     /** Máy camera bản này chưa hỗ trợ quay video. */
     const val RECORDING_UNSUPPORTED: String = "RECORDING_UNSUPPORTED"
 
+    /** Lệnh không dành cho khách "chỉ xem" (điều khiển, quay video, vị trí...). */
+    const val GUEST_NOT_ALLOWED: String = "GUEST_NOT_ALLOWED"
+
     /** Không tắt camera vì đang canh chuyển động (tắt canh trước bằng SET_MOTION false). */
     const val MOTION_ARMED: String = "MOTION_ARMED"
 

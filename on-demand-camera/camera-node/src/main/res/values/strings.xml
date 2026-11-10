@@ -101,6 +101,16 @@
     <string name="status_viewer_hint">Hoặc nhập tay 3 thông tin: địa chỉ broker, mã camera và token bí mật.</string>
     <string name="action_close">Đóng</string>
     <string name="qr_title">Quét bằng app OnCam Xem</string>
+    <string name="qr_guest_title">Mã CHỈ XEM — quét bằng app OnCam Xem</string>
+    <string name="qr_guest_warning">Người quét mã này chỉ xem được hình (không điều khiển, không nghe/nói, không thấy vị trí), và phải ở trong mạng Tailscale của anh/chị. Thu hồi: Sửa cấu hình → Tạo mã chỉ xem mới. Tự ẩn sau %1$d giây.</string>
+    <string name="status_show_guest_qr">Hiện mã QR chỉ xem (cho khách)</string>
+    <string name="setup_section_guest">Quyền chỉ xem (cho người thân, khách)</string>
+    <string name="setup_guest">Cho tạo mã QR chỉ xem</string>
+    <string name="setup_guest_hint">Người quét mã chỉ xem được hình trực tiếp và chụp ảnh. Không bật/tắt, không đổi camera/đèn/chất lượng, không quay video, không nghe/nói, không thấy vị trí, không nhận cảnh báo.</string>
+    <string name="setup_guest_needs_embedded">Chỉ dùng được với broker nhúng (broker riêng không chặn được quyền theo topic).</string>
+    <string name="setup_guest_renew">Tạo mã chỉ xem mới (thu hồi mã cũ)</string>
+    <string name="setup_guest_renewed">Đã tạo mã mới. Bấm Lưu rồi Dừng → Khởi động node: mọi máy đã quét mã cũ sẽ mất quyền xem.</string>
+    <string name="problem_guest">Mã chỉ xem chưa hợp lệ: bấm \"Tạo mã chỉ xem mới\".</string>
     <string name="qr_steps">Trên máy xem: Thêm camera → Quét mã QR trên máy camera → Lưu.</string>
     <string name="qr_warning">Mã này chứa token bí mật: không chụp màn hình, không gửi qua Zalo/Facebook. Tự ẩn sau %1$d giây.</string>
     <string name="status_broker_address">Địa chỉ broker</string>

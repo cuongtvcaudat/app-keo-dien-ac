@@ -33,6 +33,8 @@ enum class BrokerMode {
  * @property emailFrom địa chỉ Gmail dùng để gửi.
  * @property emailPassword **mật khẩu ứng dụng** Gmail (không phải mật khẩu Gmail); lưu mã hoá, không in ra log.
  * @property emailTo người nhận, cách nhau dấu phẩy (tối đa 3).
+ * @property guestEnabled cho tạo mã QR "chỉ xem" (0.13; chỉ với broker nhúng).
+ * @property guestSecret token của khách chỉ xem (khác [secret]); đổi token = thu hồi mọi mã QR chỉ xem đã phát.
  */
 data class NodeConfig(
     val deviceId: String,
@@ -55,7 +57,12 @@ data class NodeConfig(
     val emailFrom: String = "",
     val emailPassword: String = "",
     val emailTo: String = "",
+    val guestEnabled: Boolean = false,
+    val guestSecret: String = "",
 ) {
+    /** Token khách đang có hiệu lực; null nếu không bật quyền chỉ xem. */
+    val activeGuestSecret: String? get() = guestSecret.takeIf { guestEnabled && brokerMode == BrokerMode.EMBEDDED }
+
     /** Loại cảnh báo đang bật. */
     val alertSettings: AlertSettings get() = AlertSettings(motion = alertMotion, power = alertPower, heat = alertHeat)
 
@@ -70,6 +77,7 @@ data class NodeConfig(
         if (brokerMode == BrokerMode.EMBEDDED && brokerPort !in 1024..65535) add(ConfigProblem.INVALID_PORT)
         if (brokerMode == BrokerMode.EXTERNAL && !BrokerAddress.isValid(externalUri)) add(ConfigProblem.INVALID_EXTERNAL_URI)
         if (alertEmail && mailAccount() == null) add(ConfigProblem.INVALID_EMAIL)
+        if (guestEnabled && (!SharedSecret.isAcceptable(guestSecret) || guestSecret == secret)) add(ConfigProblem.INVALID_GUEST)
     }
 
     /** Không in token/mật khẩu ra log. */
@@ -86,4 +94,5 @@ enum class ConfigProblem {
     INVALID_PORT,
     INVALID_EXTERNAL_URI,
     INVALID_EMAIL,
+    INVALID_GUEST,
 }

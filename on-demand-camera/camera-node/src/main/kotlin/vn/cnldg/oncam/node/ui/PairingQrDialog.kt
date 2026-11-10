@@ -35,9 +35,11 @@ import vn.cnldg.oncam.node.core.QrCodes
 /**
  * Hiện mã QR ghép đôi cho app Xem quét. Mã chứa token bí mật nên tự ẩn sau [visibleSec] giây
  * và ẩn ngay khi app bị ẩn (bấm Home, tắt màn hình).
+ *
+ * @param guest mã "chỉ xem" (0.13): tiêu đề và lời nhắc khác để không đưa nhầm mã toàn quyền cho khách.
  */
 @Composable
-fun PairingQrDialog(code: String, onDismiss: () -> Unit, visibleSec: Int = QR_VISIBLE_SEC) {
+fun PairingQrDialog(code: String, onDismiss: () -> Unit, visibleSec: Int = QR_VISIBLE_SEC, guest: Boolean = false) {
     val image = remember(code) { qrImage(code) }
     var remaining by remember { mutableIntStateOf(visibleSec) }
     LaunchedEffect(code) {
@@ -54,7 +56,7 @@ fun PairingQrDialog(code: String, onDismiss: () -> Unit, visibleSec: Int = QR_VI
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
-        title = { Text(stringResource(R.string.qr_title)) },
+        title = { Text(stringResource(if (guest) R.string.qr_guest_title else R.string.qr_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 // Nền trắng cả khi giao diện tối: máy quét cần ô đen trên nền sáng.
@@ -69,7 +71,7 @@ fun PairingQrDialog(code: String, onDismiss: () -> Unit, visibleSec: Int = QR_VI
                 }
                 Text(stringResource(R.string.qr_steps), style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    stringResource(R.string.qr_warning, remaining),
+                    stringResource(if (guest) R.string.qr_guest_warning else R.string.qr_warning, remaining),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )

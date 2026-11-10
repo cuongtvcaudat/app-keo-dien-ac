@@ -59,6 +59,7 @@ import vn.cnldg.oncam.shared.security.StreamAuth
  *
  * @param cameraAllowed false nếu service không có loại foreground "camera" (bị khởi động lại từ nền).
  * @param rtc phiên WebRTC; null nếu máy không chạy được WebRTC → RTC_OFFER trả UNSUPPORTED.
+ * @param guestAuth xác thực luồng hình của khách "chỉ xem" (0.13): chỉ xem MJPEG/ảnh chụp, không tải được video quay.
  * @param recordings thư mục video (0.10); null → không quay được. Đang quay được tính là người xem (camera không
  *   tự tắt); tắt/đổi camera thì clip đang quay được đóng lại trước. Quay xong → mở cổng tải video 10 phút.
  *
@@ -82,6 +83,7 @@ class StreamManager(
     private val recordings: RecordingStore? = null,
     private val audioAllowed: () -> Boolean = { rtc?.micReady() == true },
     private val onMotionClip: (String?) -> Unit = {},
+    private val guestAuth: StreamAuth? = null,
 ) : CameraSession {
 
     /**
@@ -179,7 +181,7 @@ class StreamManager(
     /** Số người đang xem luồng MJPEG (không tính WebRTC). */
     fun mjpegClients(): Int = server?.clientCount ?: 0
 
-    override suspend fun perform(command: Command): ActionOutcome = mutex.withLock {
+    override suspend fun perform(command: Command, guest: Boolean): ActionOutcome = mutex.withLock {
         val p = command.params
         when (command.action) {
             Action.START_STREAM -> startLocked(p)
@@ -214,7 +216,7 @@ class StreamManager(
             Action.OPEN_RECORDINGS -> openRecordingServer()?.let { ActionOutcome.Done(it) }
                 ?: ActionOutcome.Failed(if (recordings == null) CameraCodes.RECORDING_UNSUPPORTED else CameraCodes.NO_TAILSCALE)
             Action.SET_MOTION -> motionLocked(p)
-            Action.RTC_OFFER -> rtcOfferLocked(p)
+            Action.RTC_OFFER -> rtcOfferLocked(p, audio = !guest)
             Action.RTC_HANGUP -> {
                 rtc?.hangup(checkNotNull(p.sessionId))
                 ActionOutcome.Done()
@@ -263,7 +265,7 @@ class StreamManager(
             is OpenResult.Opened -> Unit
         }
 
-        val srv = MjpegStreamer(h, settings.httpPort, auth, newHub, settings.maxClients, log)
+        val srv = MjpegStreamer(h, settings.httpPort, auth, newHub, settings.maxClients, log, guestAuth)
         try {
             withContext(Dispatchers.IO) { srv.startServer() }
         } catch (e: IOException) {
@@ -285,14 +287,14 @@ class StreamManager(
         return ActionOutcome.Done(url)
     }
 
-    private suspend fun rtcOfferLocked(p: CommandParams): ActionOutcome {
+    private suspend fun rtcOfferLocked(p: CommandParams, audio: Boolean): ActionOutcome {
         val port = rtc ?: return ActionOutcome.Unsupported
         if (_status.value.state != CameraState.STREAMING) {
             val started = startLocked(p.copy(sdp = null, sessionId = null))
             if (started is ActionOutcome.Failed) return started
         }
         idleReset = true
-        return when (val a = port.answer(checkNotNull(p.sessionId), checkNotNull(p.sdp), _status.value.quality)) {
+        return when (val a = port.answer(checkNotNull(p.sessionId), checkNotNull(p.sdp), _status.value.quality, audio)) {
             is RtcAnswer.Ok -> ActionOutcome.Done(a.sdp)
             is RtcAnswer.Failed -> ActionOutcome.Failed(a.code)
         }
