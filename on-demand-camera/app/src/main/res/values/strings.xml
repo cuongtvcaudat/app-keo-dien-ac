@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OnCam</string>
+
+    <!-- Màn hình chọn vai trò lần đầu -->
+    <string name="role_title">Máy này dùng để làm gì?</string>
+    <string name="role_hint">Chọn một lần. Một máy làm camera đặt tại chỗ cần trông, một máy để xem từ xa.</string>
+    <string name="role_camera">📷 Máy CAMERA (đặt tại chỗ cần trông)</string>
+    <string name="role_camera_desc">Máy này mở camera theo yêu cầu, quay video, nhận lệnh từ máy xem. Nên cắm sạc, đặt cố định.</string>
+    <string name="role_viewer">📱 Máy XEM (cầm theo người)</string>
+    <string name="role_viewer_desc">Máy này xem hình, điều khiển, nhận cảnh báo từ (các) camera đã thêm.</string>
+    <string name="role_change_note">Muốn đổi vai trò sau: vào Cài đặt điện thoại → Ứng dụng → OnCam → Xoá dữ liệu, rồi mở lại.</string>
+</resources>

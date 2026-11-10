@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thư viện vai trò MÁY XEM: quyền + service/receiver/activity trộn vào app gộp :app. Không khai báo Application/launcher.
+     networkSecurityConfig (cho phép HTTP tới IP Tailscale) đặt ở :app vì là thuộc tính cấp ứng dụng. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- MQTT tới broker của camera + tải ảnh/video qua HTTP, đều trong mạng Tailscale. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Chỉ Android 9 trở xuống cần quyền này để lưu ảnh chụp vào Thư viện. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <!-- Phase 7: nói ra loa máy camera. Chỉ xin khi bấm "Bật nói chuyện"; micro chỉ mở trong phiên có bật nói. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+    <!--
+      Nhận cảnh báo (0.12, mặc định tắt): dịch vụ nền giữ kết nối tới camera + hiện thông báo kèm ảnh.
+      specialUse: Android 14+ bắt buộc khai loại; app cài APK riêng, không lên Google Play.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Mở thẳng hộp thoại "bỏ tối ưu pin" để cảnh báo không bị trễ khi máy ngủ. -->
+    <uses-permission
+        android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        tools:ignore="BatteryLife" />
+    <!-- Chỉ dùng khi bấm "Quét mã QR" (thư viện quét tự hỏi quyền lúc đó). Máy không có camera vẫn cài được. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <application>
+
+        <!-- Giao diện vai trò Máy xem; mở từ RootActivity của app gộp (không phải launcher). -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:launchMode="singleTask" />
+
+        <service
+            android:name=".alert.AlertWatchService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Giữ kết nối MQTT tới camera của chính người dùng (qua VPN Tailscale) để nhận cảnh báo an ninh tức thì" />
+        </service>
+
+        <receiver
+            android:name=".alert.BootReceiver"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Màn hình quét QR của zxing-android-embedded: mặc định nằm ngang, cho xoay theo tay cầm. -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="fullSensor"
+            tools:replace="screenOrientation" />
+    </application>
+
+</manifest>

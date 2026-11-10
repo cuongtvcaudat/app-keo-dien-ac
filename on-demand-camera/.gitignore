@@ -1,0 +1,21 @@
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+build/
+dist/
+
+# Máy cá nhân: đường dẫn SDK + secret (không bao giờ commit)
+local.properties
+secrets.properties
+
+# Khóa ký APK
+*.jks
+*.keystore
+# Ngoại lệ: khoá ký dùng chung (không phải bí mật, xem keystore/README.md)
+!keystore/debug.keystore
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+captures/
