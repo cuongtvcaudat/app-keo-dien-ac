@@ -63,7 +63,7 @@ Mỗi lần push thay đổi trong `on-demand-camera/`, workflow [`OnCam Android
 | Job | Việc |
 |---|---|
 | **build** | `./gradlew build` (biên dịch, unit test, lint, APK debug + release); kiểm APK release ký đúng khoá, không debuggable, đúng phiên bản (`ci/check-apk.sh`) |
-| **emulator** | Test của camera-node và viewer trên emulator Android 13 (API 33, camera sau giả lập); mở thử 2 APK release xem có crash không (`ci/smoke-release.sh`) |
+| **emulator** | Test của rtc, camera-node, viewer trên emulator Android 13 (API 33, camera sau giả lập): broker/CameraX/MJPEG/WebRTC/quay video chạy thật |
 | **release** | Khi 2 job trên đạt: đăng `OnCam.apk` (app gộp) lên Release [`oncam-latest`](https://github.com/cuongtvcaudat/app-keo-dien-ac/releases/tag/oncam-latest) (thay bản cũ, link giữ nguyên) |
 
 - APK release và debug đều ký bằng khoá chung trong [`keystore/`](keystore/README.md) (D23, D30) → **cài đè được, không phải gỡ app**.
