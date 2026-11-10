@@ -27,6 +27,22 @@ android {
         compose = true
         buildConfig = true
     }
+
+    packaging {
+        resources {
+            // Moquette kéo theo nhiều jar Netty, trùng các file META-INF. Cần cho APK androidTest của thư viện này
+            // (APK app cuối cùng đã lọc ở module :app). Giữ khớp với khối packaging của :app.
+            excludes += setOf(
+                "META-INF/io.netty.versions.properties",
+                "META-INF/INDEX.LIST",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/native-image/**",
+                "META-INF/versions/**",
+            )
+        }
+    }
 }
 
 kotlin {
