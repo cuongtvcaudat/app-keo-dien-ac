@@ -207,10 +207,12 @@ class GuestAccessTest {
         raw.publish(OutgoingMessage(Topics.command(DEVICE), ProtocolJson.encodeCommand(guestSigned), 1, false))
         // Chủ làm vài việc để có tin trên topic chủ.
         assertEquals(CommandResult.Ok(null), owner.send(Action.UPDATE_LOCATION))
-        delay(800)
+        // Chờ tới khi khách nhận được trạng thái (retained của topic khách) thay vì chờ cứng — tránh chập chờn khi
+        // máy CI tải nặng; rồi thêm chút để nếu lệnh giả có lọt vào thì trạng thái cũng kịp đổi (lúc đó test sẽ bắt).
+        withTimeout(TIMEOUT_MS) { while (seen.isEmpty()) delay(20) }
+        delay(300)
 
         assertEquals(CameraState.OFF, streams.status.value.state, "lệnh khách vào topic chủ không được thực hiện")
-        assertTrue(seen.isNotEmpty(), "khách vẫn nhận được trạng thái khách")
         assertTrue(seen.all { it.topic == Topics.guestStatus(DEVICE) }, "khách thấy: ${seen.map { it.topic }.distinct()}")
         assertTrue(seen.none { it.payload.contains("\"location\"") }, "không lộ vị trí")
         raw.stop()
