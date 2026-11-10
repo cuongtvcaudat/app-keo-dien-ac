@@ -98,8 +98,9 @@ class ViewerRtc(
     var hasRemoteAudio: Boolean = false
         private set
 
+    // Mặc định tắt tiếng sân: loa chỉ mở khi người xem bấm "Bật nghe" (LiveRtcSession áp lại ngay sau khi nối).
     @Volatile
-    private var listening = true
+    private var listening = false
 
     @Volatile
     private var talking = false

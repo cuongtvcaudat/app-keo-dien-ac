@@ -130,7 +130,7 @@ kênh riêng tư của bạn, dán vào app Xem. Ô *Địa chỉ broker* chỉ 
 
 | Nút | Tác dụng |
 |---|---|
-| **Tắt tiếng sân / Nghe tiếng sân** | Bật/tắt tiếng từ micro máy camera trên máy xem (mặc định bật) |
+| **Bật nghe / Tắt nghe** | Bật/tắt tiếng từ micro máy camera trên máy xem. **Mặc định tắt** — mở màn hình xem là im lặng, bấm **Bật nghe** khi cần (đỡ ồn, đỡ tốn dữ liệu, tránh vô tình phát tiếng) |
 | **Bật nói chuyện** | Lần đầu hỏi quyền **Micro** của máy xem; kết nối lại khoảng 1–2 giây để kèm micro |
 | **Giữ để nói** | Giữ nút → tiếng máy xem phát ra **loa máy camera**; thả ra để nghe người ở sân trả lời |
 | **Tắt nói** | Kết nối lại không kèm micro (máy xem không còn mở micro) |

@@ -36,7 +36,7 @@ data class LiveRtcState(
     val video: VideoTrack? = null,
     val fps: Int = 0,
     val hasAudio: Boolean = false,
-    val listening: Boolean = true,
+    val listening: Boolean = false, // mặc định tắt tiếng sân; người xem bấm "Bật nghe" khi cần
     val talkEnabled: Boolean = false,
     val talking: Boolean = false,
     val fallbackCode: String? = null,
