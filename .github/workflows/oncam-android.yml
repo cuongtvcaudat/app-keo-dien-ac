@@ -91,7 +91,8 @@ jobs:
 
   emulator:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 60 phút: bản gộp (0.13) thêm module :app + assembleRelease nên job sát mép 45 phút, máy CI chạy chậm là quá giờ.
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: on-demand-camera
