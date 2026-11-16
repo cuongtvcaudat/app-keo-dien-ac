@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -85,6 +87,10 @@ fun HomeScreen(
     lastSnapshot: Map<String, ByteArray>,
     nameOf: (CameraEntry) -> String,
     actions: CameraActions,
+    tailscaleUp: Boolean,
+    onOpenTailscale: () -> Unit,
+    gridMode: Boolean,
+    onToggleGrid: () -> Unit,
     onAddCamera: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
@@ -105,8 +111,35 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+            if (!cameras.isNullOrEmpty()) {
+                TextButton(onClick = onToggleGrid) {
+                    Text(stringResource(if (gridMode) R.string.view_list else R.string.view_grid))
+                }
+            }
             TextButton(onClick = onAddCamera) { Text(stringResource(R.string.action_add_camera)) }
             TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.action_settings)) }
+        }
+
+        // Nhắc bật Tailscale: thiếu VPN thì camera không kết nối được. Mặc định ẩn (coi như đã bật) tới khi kiểm xong.
+        if (!tailscaleUp) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        stringResource(R.string.tailscale_off_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    Text(
+                        stringResource(R.string.tailscale_off_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    Button(onClick = onOpenTailscale) { Text(stringResource(R.string.action_open_tailscale)) }
+                }
+            }
         }
 
         when {
@@ -122,6 +155,12 @@ fun HomeScreen(
                 Text(stringResource(R.string.empty_hint), style = MaterialTheme.typography.bodyMedium)
                 Button(onClick = onAddCamera) { Text(stringResource(R.string.action_add_camera)) }
             }
+            gridMode -> CameraGrid(
+                cameras = cameras,
+                nameOf = nameOf,
+                lastSnapshot = lastSnapshot,
+                onOpenLive = actions::openLive,
+            )
             else -> LazyColumn(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),

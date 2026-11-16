@@ -115,6 +115,8 @@ private fun ViewerApp(vm: ViewerViewModel) {
     val liveDeviceId by vm.liveDeviceId.collectAsStateWithLifecycle()
     val liveRtc by vm.liveRtc.collectAsStateWithLifecycle()
     val downloading by vm.downloading.collectAsStateWithLifecycle()
+    val tailscaleUp by vm.tailscaleUp.collectAsStateWithLifecycle()
+    val gridMode by vm.gridMode.collectAsStateWithLifecycle()
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var screenName by rememberSaveable { mutableStateOf(HOME) }
     val live = liveDeviceId
@@ -308,6 +310,10 @@ private fun ViewerApp(vm: ViewerViewModel) {
                 lastSnapshot = lastSnapshot,
                 nameOf = vm::displayName,
                 actions = actions,
+                tailscaleUp = tailscaleUp,
+                onOpenTailscale = { openTailscale(context) },
+                gridMode = gridMode,
+                onToggleGrid = { vm.setGridMode(!gridMode) },
                 onAddCamera = {
                     editing = null
                     screenName = EDIT
@@ -339,3 +345,20 @@ private fun ViewerApp(vm: ViewerViewModel) {
 private const val HOME = "home"
 private const val SETTINGS = "settings"
 private const val EDIT = "edit"
+
+/**
+ * Mở app Tailscale để bật VPN. Chưa cài → mở trang CH Play của Tailscale. Hỏng cả hai → mở màn hình Cài đặt VPN
+ * để người dùng tự bật (kể cả Always-on).
+ */
+private fun openTailscale(context: android.content.Context) {
+    val launch = context.packageManager.getLaunchIntentForPackage("com.tailscale.ipn")
+    if (launch != null) {
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(launch) }.onSuccess { return }
+    }
+    val store = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.tailscale.ipn"))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(store) }.onFailure {
+        runCatching { context.startActivity(Intent(Settings.ACTION_VPN_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }
+}

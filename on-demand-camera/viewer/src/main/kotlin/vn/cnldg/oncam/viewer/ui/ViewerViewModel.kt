@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.math.abs
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -17,9 +19,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import vn.cnldg.oncam.shared.OnCam
+import vn.cnldg.oncam.shared.net.LocalTailscale
 import vn.cnldg.oncam.shared.client.CommandResult
 import vn.cnldg.oncam.shared.mqtt.MqttConnectionState
 import vn.cnldg.oncam.shared.protocol.Action
@@ -98,6 +102,14 @@ class ViewerViewModel @Inject constructor(
     /** Tắt camera khi rời app. */
     val stopOnLeave: StateFlow<Boolean> = settings.stopOnLeave
 
+    /** Xem camera dạng lưới hay danh sách. */
+    val gridMode: StateFlow<Boolean> = settings.gridMode
+
+    private val _tailscaleUp = MutableStateFlow(true)
+
+    /** Máy này đã bật Tailscale chưa (kiểm tra lại mỗi vài giây). Mặc định true để không nhắc nhầm lúc chưa kiểm. */
+    val tailscaleUp: StateFlow<Boolean> = _tailscaleUp.asStateFlow()
+
     /** Các công tắc cảnh báo (nhận cảnh báo nền + từng loại). */
     val alertOptions: StateFlow<AlertOptions> =
         combine(settings.alertsEnabled, settings.notifyMotion, settings.notifyPower, settings.notifyHeat) { on, m, p, h ->
@@ -156,6 +168,13 @@ class ViewerViewModel @Inject constructor(
     private val autoTried = mutableSetOf<String>()
 
     init {
+        // Kiểm tra Tailscale mỗi 5 giây (nhẹ) để nhắc bật nếu tắt — camera không kết nối được khi thiếu Tailscale.
+        viewModelScope.launch {
+            while (true) {
+                _tailscaleUp.value = withContext(Dispatchers.IO) { LocalTailscale.isUp() }
+                delay(5_000)
+            }
+        }
         // Quay xong (clip mới trong trạng thái camera) → tự tải về Thư viện máy xem.
         // Mỗi clip chỉ tự thử 1 lần mỗi lần mở app (lỗi thì người dùng bấm "Tải video" để thử lại).
         viewModelScope.launch {
@@ -443,6 +462,9 @@ class ViewerViewModel @Inject constructor(
 
     /** Bật/tắt nhận cảnh báo (màn hình lo xin quyền thông báo và chạy/dừng dịch vụ nền). */
     fun setAlertsEnabled(value: Boolean) = settings.setAlertsEnabled(value)
+
+    /** Bật/tắt xem dạng lưới. */
+    fun setGridMode(value: Boolean) = settings.setGridMode(value)
 
     /** Bật/tắt từng loại cảnh báo. */
     fun setNotifyMotion(value: Boolean) = settings.setNotifyMotion(value)

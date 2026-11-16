@@ -51,6 +51,17 @@ class ViewerSettings @Inject constructor(
     /** Hiện cảnh báo máy camera quá nóng. */
     val notifyHeat: StateFlow<Boolean> = _notifyHeat.asStateFlow()
 
+    private val _gridMode = MutableStateFlow(prefs.getBoolean(KEY_GRID, false))
+
+    /** Màn hình chính xem camera dạng lưới (true) hay danh sách đầy đủ (false). */
+    val gridMode: StateFlow<Boolean> = _gridMode.asStateFlow()
+
+    /** Bật/tắt xem dạng lưới. */
+    fun setGridMode(value: Boolean) {
+        prefs.edit { putBoolean(KEY_GRID, value) }
+        _gridMode.value = value
+    }
+
     /** Máy này có muốn nhận loại cảnh báo [type] không. */
     fun wants(type: AlertType): Boolean = when (type) {
         AlertType.MOTION -> _notifyMotion.value
@@ -103,5 +114,6 @@ class ViewerSettings @Inject constructor(
         const val KEY_NOTIFY_MOTION = "notify_motion"
         const val KEY_NOTIFY_POWER = "notify_power"
         const val KEY_NOTIFY_HEAT = "notify_heat"
+        const val KEY_GRID = "grid_mode"
     }
 }

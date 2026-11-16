@@ -223,4 +223,11 @@
     <string name="alert_battery_low">Pin yếu</string>
     <string name="alert_battery_detail">pin %1$d %%</string>
     <string name="alert_overheat">Máy camera quá nóng</string>
+    <!-- Lưới nhiều camera (8.4) + nhắc Tailscale (mức 2) -->
+    <string name="view_grid">Lưới</string>
+    <string name="view_list">Danh sách</string>
+    <string name="grid_tap_to_view">Chạm để xem</string>
+    <string name="tailscale_off_title">Tailscale đang tắt</string>
+    <string name="tailscale_off_hint">Camera chỉ kết nối được qua Tailscale. Bật Tailscale (nên bật \"Always-on VPN\" để tự chạy ngầm, khỏi mở lại mỗi lần).</string>
+    <string name="action_open_tailscale">Mở Tailscale</string>
 </resources>

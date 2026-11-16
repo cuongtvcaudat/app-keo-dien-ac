@@ -39,6 +39,7 @@ Kiến trúc: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | 8.2 | **Canh chuyển động**: có người/xe là máy camera tự quay clip (30 s sau khi hết chuyển động, ≤ 2 phút/clip), lọc đổi ánh sáng, 3 mức độ nhạy, tự chép về máy xem | 🧪 đã qua test, chờ thử trên máy thật |
 | 8.3 | **Cảnh báo tức thì kèm ảnh** (chuyển động, mất điện, pin yếu, quá nóng) qua app Xem (Tailscale, chạy nền) + **email dự phòng**; **tuỳ chọn bật/tắt từng chức năng** trên cả 2 app | 🧪 đã qua test, chờ thử trên máy thật |
 | 9.0 | **Gộp 2 app thành 1** (`OnCam.apk`): mở lên chọn vai trò Camera / Máy xem; mặc định tắt tiếng khi xem; quyền "chỉ xem" qua QR | 🧪 đã qua test, chờ thử trên máy thật |
+| 9.1 | **Xem nhiều camera dạng lưới** 2×2/3×3 (overview: ảnh gần nhất + trạng thái, chạm để xem trực tiếp); **nhắc bật Tailscale** + 1 chạm mở Tailscale ngay trong app | 🧪 đã qua test, chờ thử trên máy thật |
 
 ## Cấu trúc
 

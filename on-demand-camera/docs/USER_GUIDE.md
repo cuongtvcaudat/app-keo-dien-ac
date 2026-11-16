@@ -108,6 +108,19 @@ kênh riêng tư của bạn, dán vào app Xem. Ô *Địa chỉ broker* chỉ 
 
 ## 6. Dùng hằng ngày
 
+### Bật Tailscale (nhắc tự động, từ bản 0.14)
+
+OnCam tự kiểm tra Tailscale. Nếu tắt, màn hình chính hiện dải đỏ **"Tailscale đang tắt"** + nút **Mở Tailscale**
+(1 chạm sang app Tailscale). Bật **Always-on VPN** (Cài đặt Android → Mạng → VPN → Tailscale → *Always-on*) thì
+Tailscale tự chạy ngầm mỗi lần mở máy — từ đó hằng ngày anh **chỉ chạm OnCam**, không mở Tailscale nữa.
+
+### Xem dạng lưới nhiều camera (từ bản 0.14)
+
+Trên màn hình chính bấm **Lưới** để xem tất cả camera dạng ô 2×2 (≤ 4 camera) hoặc 3×3 (nhiều hơn): mỗi ô là
+**ảnh chụp gần nhất** + chấm xanh/đỏ (online/offline), **chạm vào ô để xem trực tiếp**. Lưới chỉ là bản xem tổng,
+**không bật tất cả camera cùng lúc** (giữ đúng thiết kế "chỉ bật khi cần" để các máy camera đỡ nóng, đỡ hao pin).
+Bấm **Danh sách** để quay về xem đầy đủ nút điều khiển.
+
 ### Trên thẻ camera
 
 | Nút | Tác dụng |
