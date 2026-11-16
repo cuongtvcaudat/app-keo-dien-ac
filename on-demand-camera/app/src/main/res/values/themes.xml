@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme nền cho RootActivity; màn hình chọn vai trò vẽ bằng Compose. -->
+    <style name="Theme.OnCam" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme nền cho Activity; giao diện thật vẽ bằng Compose (OnCamViewerTheme). -->
+    <style name="Theme.OnCamViewer" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
